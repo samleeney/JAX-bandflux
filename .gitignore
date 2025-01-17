@@ -35,8 +35,29 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+.hypothesis/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 task1.md
 task2.md
+sncosmo/
