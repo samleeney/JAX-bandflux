@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 import sncosmo
-from .models import Model
+from jax_supernovae.models import Model
 
 def test_bandflux_matches_sncosmo():
     """Test that our JAX implementation matches SNCosmo's output."""
