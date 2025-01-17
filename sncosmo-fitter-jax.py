@@ -1,50 +1,57 @@
 import jax
 import jax.numpy as jnp
-from jax.scipy.optimize import minimize
+import numpy as np
+from scipy.optimize import basinhopping, fmin_l_bfgs_b
 import sncosmo
 
 # Load the model and data
-model = sncosmo.Model(source='salt3')
+model = sncosmo.Model(source='salt2')  # Use same model as original fitter
 data = sncosmo.load_example_data()
 
-# Define the objective function using JAX
+# Pre-compute JAX arrays for data we'll use repeatedly
+jax_data_flux = jnp.array(data['flux'])
+jax_fluxerr = jnp.array(data['fluxerr'])
+
+def get_model_flux(parameters):
+    """Helper function to get model flux using numpy arrays"""
+    np_params = np.array(parameters)
+    model.parameters = np_params
+    return model.bandflux(data['band'], data['time'],
+                         zp=data['zp'], zpsys=data['zpsys'])
+
 @jax.jit
+def compute_chi2(model_flux, data_flux, fluxerr):
+    """Pure JAX function to compute chi-squared"""
+    return jnp.sum(((data_flux - model_flux) / fluxerr) ** 2)
+
 def objective(parameters):
-    # Set model parameters
-    model.parameters = parameters
+    """Main objective function"""
+    # Get model flux (using numpy)
+    model_flux = get_model_flux(parameters)
+    
+    # Convert to JAX array and compute chi-squared
+    jax_model_flux = jnp.array(model_flux)
+    return float(compute_chi2(jax_model_flux, jax_data_flux, jax_fluxerr))
 
-    # Evaluate model fluxes
-    model_flux = model.bandflux(data['band'], data['time'],
-                                zp=data['zp'], zpsys=data['zpsys'])
+# Initial parameter values and bounds
+start_parameters = np.array([0.4, 55098., 1e-5, 0., 0.])
+bounds = [(0.3, 0.7), (55080., 55120.), (None, None), (None, None),
+          (None, None)]
 
-    # Calculate chi-squared using JAX numpy
-    chi2 = jnp.sum(((data['flux'] - model_flux) / data['fluxerr']) ** 2)
-    return chi2
+# Define a minimizer for use with basinhopping
+def minimizer_wrapper(func, x0, **kwargs):
+    result = fmin_l_bfgs_b(func, x0, bounds=bounds, approx_grad=True)
+    return result[0], result[1]
 
-# Initial parameter values (z, t0, x0, x1, c)
-start_parameters = jnp.array([0.4, 55098., 1e-5, 0., 0.])
+# Run basin-hopping to find global minimum
+result = basinhopping(
+    objective,
+    start_parameters,
+    minimizer_kwargs={'method': 'L-BFGS-B', 'bounds': bounds},
+    niter=20,  # Number of basin-hopping iterations
+    T=1.0,     # Temperature parameter for acceptance
+    stepsize=0.1  # Initial step size for perturbation
+)
 
-# Parameter bounds
-bounds = [(0.3, 0.7), (55080., 55120.), (None, None), (None, None), (None, None)]
-
-# Minimize the objective function
-result = minimize(objective, start_parameters, method='L-BFGS-B', bounds=bounds)
-
-# Extract and print optimized parameters
-optimized_parameters = result.x
-print(optimized_parameters)
-
-# Test to compare outputs
-import numpy as np
-
-# Original parameters from sncosmo-fitter.py
-original_parameters = np.array([0.49999872, 55099.458, 1.007e-05, 0.866, -0.057])
-
-# Parameters from the JAX version
-new_parameters = np.array(optimized_parameters)
-
-# Compare the two sets of parameters
-if np.allclose(original_parameters, new_parameters, atol=1e-6):
-    print("Test passed: Outputs are identical within tolerance.")
-else:
-    print("Test failed: Outputs differ.") 
+# Extract optimized parameters and print in consistent format
+print("RESULT:", result.x.tolist()) 

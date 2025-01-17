@@ -28,4 +28,5 @@ bounds = [(0.3, 0.7), (55080., 55120.), (None, None), (None, None),
 parameters, val, info = fmin_l_bfgs_b(objective, start_parameters,
                                       bounds=bounds, approx_grad=True)
 
-print(parameters)
+# Print parameters in a consistent format for testing
+print("RESULT:", parameters.tolist())

@@ -60,4 +60,4 @@ wheels/
 *.egg
 task1.md
 task2.md
-sncosmo/
+sncosmo/.config_bare
