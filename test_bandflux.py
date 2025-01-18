@@ -1,48 +1,41 @@
 import numpy as np
+from jax_supernovae.core import Bandpass, MagSystem
+from jax_supernovae.models import Model
+from jax_supernovae.salt2 import salt2_flux
 import sncosmo
-import jax.numpy as jnp
-from jax_supernovae.models import Model, integration_grid
-from jax_supernovae.salt2 import salt2_flux, wave_grid
-from jax_supernovae.core import HC_ERG_AA
-from jax_supernovae.bandpasses import load_sdss_bandpass
+from sncosmo.bandpasses import Bandpass as SNCBandpass
 
 # Create SNCosmo model
 sn_model = sncosmo.Model(source='salt2')
 sn_model.set(z=0.1, t0=0.0, x0=1e-5, x1=0.1, c=0.2)
 
-# Create JAX model
+# Create JAX model with the same parameters
 params = {'z': 0.1, 't0': 0.0, 'x0': 1e-5, 'x1': 0.1, 'c': 0.2}
 jax_model = Model(source=None)
 jax_model.flux = lambda t, w: salt2_flux(t, w, params)
 jax_model.parameters = params
 
-# Test a single point
+# Test flux at a single point
 t = 0.0
 w = 5000.0
-
-print("Testing flux at single point:")
-print(f"t = {t}, w = {w}")
-
-# Get SNCosmo flux using bandflux
-from sncosmo.bandpasses import Bandpass as SNCBandpass
-from jax_supernovae.core import Bandpass
+print(f"\nTesting flux at single point:")
+print(f"t = {t}, w = {w}\n")
 
 # Create a test bandpass with 101 points centered on w
 wave = np.linspace(w - 500, w + 500, 101)
 trans = np.zeros_like(wave)
 trans[50] = 1.0  # Set transmission to 1.0 at the central point
-test_band_snc = sncosmo.Bandpass(wave, trans)
+test_band_snc = SNCBandpass(wave, trans)
 test_band = Bandpass(wave, trans)
 
-# Get the SNCosmo flux
+# Get flux from SNCosmo
 sn_flux = sn_model.bandflux(test_band_snc, np.array([t]))[0]
+print(f"\nSNCosmo flux:   {sn_flux:.3e}")
 
-# Get the JAX flux
+# Get flux from JAX
 jax_flux = jax_model.bandflux(test_band, np.array([t]))[0]
-
-print(f"\nSNCosmo flux: {sn_flux:11.3e}")
-print(f"JAX flux:    {float(jax_flux):11.3e}")
-print(f"Ratio:       {float(jax_flux/sn_flux):.3f}")
+print(f"JAX flux:      {jax_flux:.3e}")
+print(f"Ratio:       {jax_flux/sn_flux:.3f}\n")
 
 # Print intermediate values from SALT2 calculation
 print("\nSALT2 calculation details:")
@@ -51,7 +44,6 @@ a = 1.0 / (1.0 + z)
 t_rest = t * a
 w_rest = w * a
 
-# Get M0 and M1 components
 print("\nRest-frame values:")
 print(f"t_rest = {t_rest}")
 print(f"w_rest = {w_rest}")

@@ -1,13 +1,12 @@
+import jax
+jax.config.update("jax_enable_x64", True)
+
 import jax.numpy as jnp
 import numpy as np
 import sncosmo
 from jax_supernovae.models import Model
 from jax_supernovae.salt2 import salt2_flux
 from jax_supernovae.salt2_data import get_salt2_wave_grid
-
-# Enable float64 precision
-import jax
-jax.config.update("jax_enable_x64", True)
 
 def test_bandflux_matches_sncosmo():
     """Test that our JAX implementation matches SNCosmo's output."""

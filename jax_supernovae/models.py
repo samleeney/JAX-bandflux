@@ -1,83 +1,123 @@
 import jax.numpy as jnp
 import numpy as np
 from jax_supernovae.core import HC_ERG_AA, Bandpass, get_magsystem
+from jax_supernovae.bandpasses import get_bandpass
 
-def integration_grid(wave_min, wave_max, spacing):
-    """Create a wavelength grid for integration."""
-    npt = int(np.ceil((wave_max - wave_min) / spacing)) + 1
-    wave = wave_min + np.arange(npt) * spacing
-    dwave = np.gradient(wave)
-    return jnp.array(wave), jnp.array(dwave)
+def integration_grid(low, high, target_spacing):
+    """Divide the range between low and high into uniform bins with spacing
+    less than or equal to target_spacing and return the bin midpoints and
+    the actual spacing.
+
+    Parameters
+    ----------
+    low : float
+        Lower bound of range.
+    high : float
+        Upper bound of range.
+    target_spacing : float
+        Target spacing between bins.
+
+    Returns
+    -------
+    grid : array_like
+        Bin midpoints.
+    spacing : float
+        Actual spacing used.
+    """
+    range_diff = high - low
+    spacing = range_diff / int(np.ceil(range_diff / target_spacing))
+    grid = np.arange(low + 0.5 * spacing, high, spacing)
+    return grid, spacing
 
 class Model:
     def __init__(self, source=None):
         self.source = source
         self.parameters = {}
-        self.wave = None
-        self.flux = None
-        
-    def bandflux(self, band, time, zp=None, zpsys=None):
-        """Compute synthetic photometry for a bandpass.
-        
-        Args:
-            band: Bandpass or name of bandpass.
-            time: Time(s) in days.
-            zp: Zeropoint to scale flux to (optional).
-            zpsys: Magnitude system for zeropoint (optional).
-            
-        Returns:
-            Flux in photons/s/cm^2.
+        self._flux = None
+
+    def _flux_with_redshift(self, time, wave):
+        """Calculate flux with redshift scaling.
+
+        Parameters
+        ----------
+        time : array_like
+            Observer-frame time(s) in days.
+        wave : array_like
+            Observer-frame wavelength(s) in Angstroms.
+
+        Returns
+        -------
+        array_like
+            Observer-frame flux values in ergs/s/cm^2/Angstrom.
         """
-        # Get redshift parameter with default of 0.0
-        z = self.parameters.get('z', 0.0)
-        
-        # Scale factor to conserve bolometric luminosity
-        a = 1. / (1. + z)
-        
-        # Convert to rest frame time
-        t_rest = (time - self.parameters.get('t0', 0.0)) * a
-        
-        # Get bandpass object and shift it to rest frame
-        if not isinstance(band, Bandpass):
-            raise ValueError("Only Bandpass objects are supported")
-        b_rest = Bandpass(band.wave * a, band.trans)
-        
-        # Get wavelength grid for integration in rest frame
-        wave_min = b_rest.minwave()
-        wave_max = b_rest.maxwave()
-        wave_rest, dwave = integration_grid(wave_min, wave_max, 0.1)  # Use smaller spacing
-        
-        # Evaluate flux at rest-frame wavelengths
-        rest_flux = self.flux(t_rest[:, None], wave_rest[None, :])  # Shape: (ntime, nwave)
-        
-        # Get transmission at rest frame wavelengths
-        trans = b_rest(wave_rest)
-        
-        # Convert wavelengths to observer frame for final calculation
-        wave_obs = wave_rest * (1.0 + z)
-        
-        # Convert JAX arrays to numpy for integration
+        # Convert to rest frame
+        z = self.parameters['z']
+        t0 = self.parameters['t0']
+        a = 1. / (1. + z)  # scale factor
+        restphase = (time - t0) * a  # rest-frame phase
+        restwave = wave * a  # rest-frame wavelength
+
+        # Get rest-frame flux
+        rest_flux = self._flux(restphase, restwave)
+
+        # Scale by a^2 to convert from rest frame to observer frame
+        return rest_flux * a * a
+
+    def bandflux(self, band, time, zp=None, zpsys=None):
+        """Compute synthetic photometry in a given bandpass.
+
+        Parameters
+        ----------
+        band : str or Bandpass
+            Bandpass object or name of registered bandpass.
+        time : array_like
+            Observer-frame times.
+        zp : array_like, optional
+            If given, zeropoint to scale flux to (must include units).
+        zpsys : str or MagSystem
+            If given, magnitude system to scale flux to.
+
+        Returns
+        -------
+        flux : array_like
+            Flux in photons / s / cm^2.
+        """
+        # Get bandpass object if a string is provided
+        if isinstance(band, str):
+            band = get_bandpass(band)
+
+        # Convert time to numpy array
+        time = np.asarray(time)
+
+        # Get wavelength range and integration grid
+        wave_min = band.minwave()
+        wave_max = band.maxwave()
+        wave_obs, dwave = integration_grid(wave_min, wave_max, 5.0)  # Use SNCosmo's default spacing
+
+        # Get transmission at each wavelength
+        trans = band(wave_obs)
+
+        # Calculate rest frame flux
+        rest_flux = self._flux_with_redshift(time[:, None], wave_obs[None, :])
+
+        # Convert to numpy arrays for integration
         wave_obs_np = np.array(wave_obs)
         trans_np = np.array(trans)
-        rest_flux_np = np.array(rest_flux).squeeze()  # Remove extra dimensions
-        
-        print("wave_obs_np shape:", wave_obs_np.shape)
-        print("trans_np shape:", trans_np.shape)
-        print("rest_flux_np shape:", rest_flux_np.shape)
-        
-        # Compute bandflux for each time using sum with dwave
-        # Note: The flux is in rest frame, so we need to scale by a^2
-        # We integrate over observer frame wavelengths
-        # Note: SNCosmo uses wave * trans * f, where wave is in observer frame
-        # and f is in rest frame. We need to scale f by a^2 to convert to observer frame.
-        bandflux = np.array([np.sum(wave_obs_np * trans_np * rest_flux_np * a * a) * dwave / HC_ERG_AA])
-        bandflux = bandflux.reshape(-1)  # Reshape to 1D array
-        print("bandflux shape:", bandflux.shape)
-        
-        # Apply zeropoint scaling if provided
+        rest_flux_np = np.array(rest_flux)
+
+        # Calculate weights for integration (wave * trans / HC_ERG_AA)
+        weights = wave_obs_np * trans_np / HC_ERG_AA
+
+        # Integrate over wavelength for each time
+        bandflux = np.array([np.sum(weights * f) * dwave for f in rest_flux_np])
+
+        # Scale by zeropoint if provided
         if zp is not None:
+            if zpsys is None:
+                raise ValueError('zpsys must be given if zp is not None')
             ms = get_magsystem(zpsys)
-            zpnorm = 10.**(0.4 * zp) / ms.zpbandflux(band)
+            zp_bandflux = ms.zpbandflux(band)
+            zpnorm = 10.**(0.4 * zp) / zp_bandflux
             bandflux *= zpnorm
-            
+
         return bandflux

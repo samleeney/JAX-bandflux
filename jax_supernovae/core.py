@@ -1,7 +1,9 @@
+"""Core functionality for JAX supernova models."""
 import jax.numpy as jnp
 import numpy as np
+from scipy.interpolate import splrep, splev
 
-# Constants
+# Constants - match SNCosmo exactly
 H_ERG_S = 6.626068e-27   # Planck's constant in erg seconds
 C_AA_PER_S = 2.99792458e18  # Speed of light in angstroms per second
 HC_ERG_AA = H_ERG_S * C_AA_PER_S  # erg * angstrom
@@ -13,14 +15,53 @@ def trapz(y, x, axis=-1):
     return jnp.sum(d * y_avg, axis=axis)
 
 class Bandpass:
-    def __init__(self, wave, trans):
-        """Initialize bandpass with wavelength and transmission arrays."""
-        self.wave = jnp.asarray(wave, dtype=jnp.float64)
-        self.trans = jnp.asarray(trans, dtype=jnp.float64)
+    def __init__(self, wave, trans, normalize=True):
+        """Initialize a bandpass with arrays of wavelength and transmission.
+
+        Parameters
+        ----------
+        wave : array_like
+            Wavelength values in Angstroms.
+        trans : array_like
+            Transmission fraction at each wavelength.
+        normalize : bool, optional
+            If True, normalize transmission to 1.0 at peak (default: True).
+        """
+        wave = np.asarray(wave, dtype=np.float64)
+        trans = np.asarray(trans, dtype=np.float64)
+        
+        if wave.shape != trans.shape:
+            raise ValueError('shape of wave and trans must match')
+        if wave.ndim != 1:
+            raise ValueError('only 1-d arrays supported')
+            
+        # Check that values are monotonically increasing
+        if not np.all(np.diff(wave) > 0.):
+            raise ValueError('wavelength values must be monotonically increasing')
+            
+        if normalize:
+            trans = trans / np.max(trans)
+            
+        # Set up interpolation
+        self._tck = splrep(wave, trans, k=1)
+        
+        self.wave = wave
+        self.trans = trans
         
     def __call__(self, wave_obs):
-        """Interpolate transmission at given wavelengths."""
-        return np.interp(wave_obs, self.wave, self.trans)
+        """Return interpolated transmission at given wavelengths.
+        
+        Parameters
+        ----------
+        wave_obs : array_like
+            Wavelengths to evaluate transmission at.
+            
+        Returns
+        -------
+        trans : array_like
+            Transmission fraction at each wavelength.
+        """
+        return splev(wave_obs, self._tck, ext=1)
         
     def minwave(self):
         """Return minimum wavelength."""
@@ -67,65 +108,89 @@ class MagSystem:
         return trapz(photon_flux, wave)
 
     def integration_grid(self, low, high, target_spacing):
-        """Divide the range between low and high into uniform bins with spacing less than or equal to target_spacing."""
+        """Divide the range between `low` and `high` into uniform bins.
+
+        Parameters
+        ----------
+        low : float
+            Lower bound of range.
+        high : float
+            Upper bound of range.
+        target_spacing : float
+            Target spacing between bins.
+
+        Returns
+        -------
+        grid : array
+            Bin midpoints.
+        spacing : float
+            Actual spacing between bins.
+        """
         range_diff = high - low
         spacing = range_diff / int(np.ceil(range_diff / target_spacing))
         grid = np.arange(low + 0.5 * spacing, high, spacing)
+
         return grid, spacing
 
     def bandflux(self, band, time, zp=None, zpsys=None):
         """Compute synthetic photometry for a bandpass.
-        
+
         Parameters
         ----------
-        band : Bandpass
-            The bandpass to compute synthetic photometry for.
+        band : Bandpass object
+            Bandpass to compute synthetic photometry for.
         time : array_like
-            Time(s) at which to evaluate the flux.
-        zp : float or None
-            If given, zeropoint to scale flux to (must also supply zpsys).
-        zpsys : str or None
-            Name of a magnitude system in the registry, specifying the system
-            that zp is in.
-            
+            Times at which to evaluate the flux.
+        zp : float or None, optional
+            If given, zeropoint to scale the bandpass to.
+        zpsys : str or None, optional
+            Name of a magnitude system. Required if zp is given.
+
         Returns
         -------
         array_like
             Flux in photons / s / cm^2.
         """
-        # Get the bandpass data
         if not isinstance(band, Bandpass):
             raise ValueError("band must be a Bandpass object")
-        
+
         # Convert time to numpy array
         time = np.array(time)
-        
+
         # Get rest-frame time and wavelength
-        z = self.parameters.get('z', 0.0)
-        t_rest = time / (1.0 + z)
-        
+        z = self.parameters['z']
+        a = 1.0 / (1.0 + z)
+        t_rest = time * a
+
         # Use bandpass wavelength grid directly
         wave_obs = band.wave
-        wave_rest = wave_obs / (1.0 + z)
-        
-        # Get the flux in the rest frame
-        rest_flux = self.flux(t_rest[:, None], wave_rest[None, :])
-        
-        # Convert to numpy for integration
+        dwave = wave_obs[1] - wave_obs[0]  # Assuming uniform spacing
+        wave_rest = wave_obs * a
+
+        # Get bandpass transmission
+        trans = band.trans
+
+        # Convert to numpy arrays for integration
         wave_obs_np = np.array(wave_obs)
-        trans_np = np.array(band.trans)
-        rest_flux_np = np.array(rest_flux).squeeze()
-        
-        # Scale by a^2 to conserve bolometric luminosity
-        a = 1.0 / (1.0 + z)
-        
-        # Integrate using trapz
-        bandflux = np.array([np.sum(wave_obs_np * trans_np * f * a * a) * (wave_obs_np[1] - wave_obs_np[0]) / HC_ERG_AA for f in rest_flux_np])
-        print("bandflux is ", bandflux)
-        print("bandflux[0] is ", bandflux[0])
-        jk
-        
-        return bandflux[0] if len(bandflux) == 1 else bandflux
+        trans_np = np.array(trans)
+
+        # Get rest-frame flux
+        rest_flux = self.flux(t_rest[:, None], wave_rest[None, :])
+        rest_flux_np = np.array(rest_flux)
+
+        # Calculate bandflux using SNCosmo's formula
+        bandflux = np.array([np.sum(wave_obs_np * trans_np * f) * dwave / HC_ERG_AA for f in rest_flux_np])
+
+        # Apply zeropoint scaling if provided
+        if zp is not None:
+            if zpsys is None:
+                raise ValueError('zpsys must be given if zp is not None')
+            ms = get_magsystem(zpsys)
+            zp_bandflux = ms.zpbandflux(band)
+            zpnorm = 10. ** (0.4 * zp) / zp_bandflux
+            bandflux *= zpnorm
+
+        return bandflux
 
 def get_magsystem(name):
     """Get a MagSystem object by name."""

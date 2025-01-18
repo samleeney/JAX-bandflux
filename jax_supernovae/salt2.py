@@ -1,8 +1,12 @@
 """SALT2 model data."""
 import jax
 import jax.numpy as jnp
+import jax.lax as lax
 import numpy as np
 import sncosmo
+
+# Enable float64 precision
+jax.config.update("jax_enable_x64", True)
 
 # Get SALT2 source
 salt2_source = sncosmo.get_source('salt2')
@@ -13,87 +17,163 @@ phase_grid = jnp.array(salt2_source._phase)
 
 # Pre-compute the template data by evaluating on the grid
 # Note: Data is already scaled by 1e-12 in SNCosmo's initialization
-M0_data = jnp.array(salt2_source._model['M0'](phase_grid, wave_grid))
-M1_data = jnp.array(salt2_source._model['M1'](phase_grid, wave_grid))
+# Use numpy arrays with SNCosmo's interpolator
+wave_grid_np = np.array(wave_grid)
+phase_grid_np = np.array(phase_grid)
+M0_data = jnp.array(salt2_source._model['M0'](phase_grid_np, wave_grid_np))
+M1_data = jnp.array(salt2_source._model['M1'](phase_grid_np, wave_grid_np))
 
 # Pre-compute color law values on the wavelength grid
 # Note: SALT2 color law requires float64 input
-colorlaw_grid = jnp.array(salt2_source._colorlaw(np.array(wave_grid, dtype=np.float64)))
+wave_grid_f64 = np.array(wave_grid, dtype=np.float64)
+colorlaw_grid = jnp.array(salt2_source._colorlaw(wave_grid_f64))
 
 @jax.jit
-def interp2d(x, y, xp, yp, zp):
-    """2D linear interpolation in JAX."""
-    # Find indices
-    ix = jnp.searchsorted(xp, x)
-    iy = jnp.searchsorted(yp, y)
+def cubic_interp1d(x, xp, yp):
+    """1D cubic interpolation in JAX.
     
-    # Ensure we don't go out of bounds
-    ix = jnp.clip(ix, 1, len(xp)-1)
-    iy = jnp.clip(iy, 1, len(yp)-1)
+    Parameters
+    ----------
+    x : array_like
+        Points at which to evaluate the interpolated values.
+    xp : array_like
+        The x-coordinates of the data points.
+    yp : array_like
+        The y-coordinates of the data points.
     
-    # Get surrounding points
-    x0 = xp[ix-1]
-    x1 = xp[ix]
-    y0 = yp[iy-1]
-    y1 = yp[iy]
+    Returns
+    -------
+    array_like
+        The interpolated values.
+    """
+    # Find index of the interval containing x
+    i = jnp.searchsorted(xp, x)
+    i = jnp.clip(i, 1, len(xp)-2)  # Need 2 points on each side
     
-    # Get values at corners
-    z00 = zp[ix-1, iy-1]
-    z10 = zp[ix, iy-1]
-    z01 = zp[ix-1, iy]
-    z11 = zp[ix, iy]
+    # Get the 4 surrounding points using dynamic_slice
+    x_i = lax.dynamic_slice(xp, (i-1,), (4,))
+    y_i = lax.dynamic_slice(yp, (i-1,), (4,))
     
-    # Compute weights
-    wx = (x - x0) / (x1 - x0)
-    wy = (y - y0) / (y1 - y0)
+    # Calculate position within interval
+    t = (x - x_i[1]) / (x_i[2] - x_i[1])
     
-    # Interpolate
-    return (1-wx)*(1-wy)*z00 + wx*(1-wy)*z10 + (1-wx)*wy*z01 + wx*wy*z11
+    # Calculate cubic coefficients
+    # Using Catmull-Rom spline formulation
+    c0 = -0.5 * y_i[0] + 1.5 * y_i[1] - 1.5 * y_i[2] + 0.5 * y_i[3]
+    c1 = y_i[0] - 2.5 * y_i[1] + 2 * y_i[2] - 0.5 * y_i[3]
+    c2 = -0.5 * y_i[0] + 0.5 * y_i[2]
+    c3 = y_i[1]
+    
+    # Evaluate cubic polynomial
+    t2 = t * t
+    t3 = t2 * t
+    return c0 * t3 + c1 * t2 + c2 * t + c3
 
 @jax.jit
 def salt2_m0(phase, wave):
     """JAX implementation of SALT2 M0 template interpolation."""
-    return interp2d(phase, wave, phase_grid, wave_grid, M0_data)
+    # First interpolate in phase for each wavelength
+    phase_interp = jnp.zeros_like(wave_grid)
+    for i in range(len(wave_grid)):
+        phase_interp = phase_interp.at[i].set(cubic_interp1d(phase, phase_grid, M0_data[:, i]))
+    
+    # Then interpolate in wavelength
+    return cubic_interp1d(wave, wave_grid, phase_interp)
 
 @jax.jit
 def salt2_m1(phase, wave):
     """JAX implementation of SALT2 M1 template interpolation."""
-    return interp2d(phase, wave, phase_grid, wave_grid, M1_data)
-
-@jax.jit
-def salt2_colorlaw(wave):
-    """JAX implementation of SALT2 color law."""
-    # Interpolate pre-computed color law values
-    return jnp.interp(wave, wave_grid, colorlaw_grid)
-
-@jax.jit
-def salt2_flux(t_rest, wave_rest, params):
-    """Compute SALT2 model flux.
+    # First interpolate in phase for each wavelength
+    phase_interp = jnp.zeros_like(wave_grid)
+    for i in range(len(wave_grid)):
+        phase_interp = phase_interp.at[i].set(cubic_interp1d(phase, phase_grid, M1_data[:, i]))
     
-    Args:
-        t_rest: Rest-frame time(s) in days relative to t0.
-        wave_rest: Rest-frame wavelength(s) in Angstroms.
-        params: Dictionary of model parameters.
-        
-    Returns:
-        Flux in erg/s/cm^2/A.
+    # Then interpolate in wavelength
+    return cubic_interp1d(wave, wave_grid, phase_interp)
+
+@jax.jit
+def salt2_colorlaw(wave, colorlaw_coeffs):
+    """Calculate the SALT2 color law for the given wavelengths.
+
+    Parameters
+    ----------
+    wave : array_like
+        Wavelength values in Angstroms.
+    colorlaw_coeffs : array_like
+        Color law coefficients.
+
+    Returns
+    -------
+    array_like
+        Color law values.
     """
-    # Reshape inputs for broadcasting
-    t_rest = jnp.atleast_1d(t_rest)
-    wave_rest = jnp.atleast_1d(wave_rest)
-    
+    B_WAVELENGTH = 4302.57  # B-band reference wavelength
+    V_WAVELENGTH = 5428.55  # V-band reference wavelength
+    colorlaw_range = (2800., 7000.)  # SALT2 color law range
+
+    # Convert wavelengths to normalized wavelength
+    v_minus_b = V_WAVELENGTH - B_WAVELENGTH
+    l = (wave - B_WAVELENGTH) / v_minus_b
+    l_lo = (colorlaw_range[0] - B_WAVELENGTH) / v_minus_b
+    l_hi = (colorlaw_range[1] - B_WAVELENGTH) / v_minus_b
+
+    # Calculate polynomial coefficients
+    alpha = 1. - jnp.sum(colorlaw_coeffs)
+    coeffs = jnp.concatenate([jnp.array([0., alpha]), colorlaw_coeffs])
+    prime_coeffs = jnp.arange(len(coeffs)) * coeffs
+    prime_coeffs = prime_coeffs[1:]  # Remove first element (0)
+
+    # Calculate polynomial values at boundaries
+    p_lo = jnp.polyval(jnp.flipud(coeffs), l_lo)
+    pprime_lo = jnp.polyval(jnp.flipud(prime_coeffs), l_lo)
+    p_hi = jnp.polyval(jnp.flipud(coeffs), l_hi)
+    pprime_hi = jnp.polyval(jnp.flipud(prime_coeffs), l_hi)
+
+    # Calculate extinction for each region
+    extinction = jnp.where(
+        l < l_lo,
+        p_lo + pprime_lo * (l - l_lo),  # Blue side
+        jnp.where(
+            l > l_hi,
+            p_hi + pprime_hi * (l - l_hi),  # Red side
+            jnp.polyval(jnp.flipud(coeffs), l)  # In between
+        )
+    )
+
+    return -extinction
+
+@jax.jit
+def salt2_flux(phase, wave, params):
+    """Calculate SALT2 model flux at the given time and wavelength.
+
+    Parameters
+    ----------
+    phase : array_like
+        Rest-frame phase(s) in days.
+    wave : array_like
+        Rest-frame wavelength(s) in Angstroms.
+    params : dict
+        Model parameters including 'x0', 'x1', 'c', and 'z'.
+
+    Returns
+    -------
+    array_like
+        Rest-frame flux values in ergs/s/cm^2/Angstrom.
+        Note: The redshift scaling (a^2) is applied by the Model class.
+    """
     # Get parameters
     x0 = params['x0']
     x1 = params['x1']
     c = params['c']
-    
-    # Interpolate M0 and M1 components
-    m0 = interp2d(t_rest[:, None], wave_rest[None, :], phase_grid, wave_grid, M0_data)  # Shape: (ntime, nwave)
-    m1 = interp2d(t_rest[:, None], wave_rest[None, :], phase_grid, wave_grid, M1_data)  # Shape: (ntime, nwave)
-    
-    # Get color law values at rest wavelengths
-    colorlaw = jnp.interp(wave_rest, wave_grid, colorlaw_grid)  # Shape: (nwave,)
-    
-    # Return flux
-    # Note: The flux is in rest frame
+
+    # Calculate rest-frame components
+    m0 = salt2_m0(phase, wave)
+    m1 = salt2_m1(phase, wave)
+
+    # Calculate color law with actual SALT2 coefficients
+    colorlaw_coeffs = jnp.array([-0.504294, 0.787691, -0.461715, 0.0815619])
+    colorlaw = salt2_colorlaw(wave, colorlaw_coeffs)
+
+    # Calculate rest-frame flux without redshift scaling
+    # The redshift scaling (a^2) will be applied by the Model class
     return x0 * (m0 + x1 * m1) * 10**(-0.4 * colorlaw * c)
