@@ -3,9 +3,17 @@ import jax.numpy as jnp
 import numpy as np
 from scipy.optimize import basinhopping, fmin_l_bfgs_b
 import sncosmo
+from jax_supernovae.models import Model
+from jax_supernovae.salt2 import salt2_flux
+from jax_supernovae.salt2_data import get_salt2_wave_grid
 
-# Load the model and data
-model = sncosmo.Model(source='salt2')  # Use same model as original fitter
+# Initialize JAX model
+jax_model = Model()
+# Get wavelength grid from our data module
+jax_model.wave = get_salt2_wave_grid()
+jax_model.flux = lambda t, w: salt2_flux(t, w, jax_model.parameters)
+
+# Load the data
 data = sncosmo.load_example_data()
 
 # Pre-compute JAX arrays for data we'll use repeatedly
@@ -14,9 +22,15 @@ jax_fluxerr = jnp.array(data['fluxerr'])
 
 def get_model_flux(parameters):
     """Helper function to get model flux using numpy arrays"""
-    np_params = np.array(parameters)
-    model.parameters = np_params
-    return model.bandflux(data['band'], data['time'],
+    param_dict = {
+        'z': parameters[0],
+        't0': parameters[1],
+        'x0': parameters[2],
+        'x1': parameters[3],
+        'c': parameters[4]
+    }
+    jax_model.parameters = param_dict
+    return jax_model.bandflux(data['band'], data['time'],
                          zp=data['zp'], zpsys=data['zpsys'])
 
 @jax.jit

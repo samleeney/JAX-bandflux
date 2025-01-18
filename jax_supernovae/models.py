@@ -1,84 +1,83 @@
 import jax.numpy as jnp
-from .core import HC_ERG_AA, C_AA_PER_S, trapz
-import sncosmo
+import numpy as np
+from jax_supernovae.core import HC_ERG_AA, Bandpass, get_magsystem
+
+def integration_grid(wave_min, wave_max, spacing):
+    """Create a wavelength grid for integration."""
+    npt = int(np.ceil((wave_max - wave_min) / spacing)) + 1
+    wave = wave_min + np.arange(npt) * spacing
+    dwave = np.gradient(wave)
+    return jnp.array(wave), jnp.array(dwave)
 
 class Model:
     def __init__(self, source=None):
         self.source = source
-        self._parameters = {}
+        self.parameters = {}
         self.wave = None
         self.flux = None
         
-    @property
-    def parameters(self):
-        return self._parameters
-        
-    @parameters.setter
-    def parameters(self, params):
-        self._parameters = params
-        
-    def add_param(self, name, value):
-        """Add a parameter to the model."""
-        if name in self._parameters:
-            raise ValueError(f"Parameter {name} already exists")
-        self._parameters[name] = value
-        
-    def _compute_bandflux(self, flux, wave_obs, band):
-        """Compute band flux in photons/s/cm^2."""
-        # Get bandpass transmission
-        trans = band(wave_obs)
-        
-        # Convert from erg/s/cm^2/A to photons/s/cm^2
-        photon_flux = flux * wave_obs * trans / HC_ERG_AA
-        
-        # Integrate over wavelength
-        return trapz(photon_flux, wave_obs, axis=1)
-        
     def bandflux(self, band, time, zp=None, zpsys=None):
-        """Calculate flux through the bandpass(es) in photons/s/cm^2.
+        """Compute synthetic photometry for a bandpass.
         
-        Parameters
-        ----------
-        band : str or Bandpass
-            Bandpass or name of bandpass.
-        time : float or list_like
-            Time(s) at which to evaluate flux.
-        zp : float or list_like, optional
-            If given, zeropoint to normalize the flux to.
-        zpsys : str or list_like, optional
-            Name of magnitude system that zp is in.
+        Args:
+            band: Bandpass or name of bandpass.
+            time: Time(s) in days.
+            zp: Zeropoint to scale flux to (optional).
+            zpsys: Magnitude system for zeropoint (optional).
             
-        Returns
-        -------
-        flux : float or ndarray
+        Returns:
             Flux in photons/s/cm^2.
         """
-        # Convert inputs to JAX arrays
-        time = jnp.asarray(time)
-        time = time.reshape(-1)  # Ensure 1D
+        # Get redshift parameter with default of 0.0
+        z = self.parameters.get('z', 0.0)
         
-        # Get bandpass object if string is given
-        if isinstance(band, str):
-            band = sncosmo.get_bandpass(band)
-            
-        # Get wavelength array
-        wave = jnp.array(self.wave)
+        # Scale factor to conserve bolometric luminosity
+        a = 1. / (1. + z)
         
-        # Apply redshift
-        redshift = self._parameters.get('z', 0.0)
-        wave_obs = wave * (1 + redshift)
+        # Convert to rest frame time
+        t_rest = (time - self.parameters.get('t0', 0.0)) * a
         
-        # Evaluate the model flux at given times and wavelengths
-        flux = self.flux(time[:, None], wave_obs[None, :])  # Shape: (ntimes, nwave)
+        # Get bandpass object and shift it to rest frame
+        if not isinstance(band, Bandpass):
+            raise ValueError("Only Bandpass objects are supported")
+        b_rest = Bandpass(band.wave * a, band.trans)
         
-        # Compute integrated flux
-        integrated_flux = self._compute_bandflux(flux, wave_obs, band)
+        # Get wavelength grid for integration in rest frame
+        wave_min = b_rest.minwave()
+        wave_max = b_rest.maxwave()
+        wave_rest, dwave = integration_grid(wave_min, wave_max, 0.1)  # Use smaller spacing
         
-        # Apply zeropoint if requested
+        # Evaluate flux at rest-frame wavelengths
+        rest_flux = self.flux(t_rest[:, None], wave_rest[None, :])  # Shape: (ntime, nwave)
+        
+        # Get transmission at rest frame wavelengths
+        trans = b_rest(wave_rest)
+        
+        # Convert wavelengths to observer frame for final calculation
+        wave_obs = wave_rest * (1.0 + z)
+        
+        # Convert JAX arrays to numpy for integration
+        wave_obs_np = np.array(wave_obs)
+        trans_np = np.array(trans)
+        rest_flux_np = np.array(rest_flux).squeeze()  # Remove extra dimensions
+        
+        print("wave_obs_np shape:", wave_obs_np.shape)
+        print("trans_np shape:", trans_np.shape)
+        print("rest_flux_np shape:", rest_flux_np.shape)
+        
+        # Compute bandflux for each time using sum with dwave
+        # Note: The flux is in rest frame, so we need to scale by a^2
+        # We integrate over observer frame wavelengths
+        # Note: SNCosmo uses wave * trans * f, where wave is in observer frame
+        # and f is in rest frame. We need to scale f by a^2 to convert to observer frame.
+        bandflux = np.array([np.sum(wave_obs_np * trans_np * rest_flux_np * a * a) * dwave / HC_ERG_AA])
+        bandflux = bandflux.reshape(-1)  # Reshape to 1D array
+        print("bandflux shape:", bandflux.shape)
+        
+        # Apply zeropoint scaling if provided
         if zp is not None:
-            if zpsys is None:
-                raise ValueError("zpsys must be given if zp is not None")
-            zp_flux = sncosmo.get_magsystem(zpsys).zpbandflux(band)
-            integrated_flux = integrated_flux / zp_flux * 10**(-0.4 * (zp - 25))
+            ms = get_magsystem(zpsys)
+            zpnorm = 10.**(0.4 * zp) / ms.zpbandflux(band)
+            bandflux *= zpnorm
             
-        return integrated_flux 
+        return bandflux

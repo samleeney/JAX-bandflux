@@ -2,6 +2,12 @@ import jax.numpy as jnp
 import numpy as np
 import sncosmo
 from jax_supernovae.models import Model
+from jax_supernovae.salt2 import salt2_flux
+from jax_supernovae.salt2_data import get_salt2_wave_grid
+
+# Enable float64 precision
+import jax
+jax.config.update("jax_enable_x64", True)
 
 def test_bandflux_matches_sncosmo():
     """Test that our JAX implementation matches SNCosmo's output."""
@@ -10,21 +16,8 @@ def test_bandflux_matches_sncosmo():
     
     # Initialize our JAX model
     jax_model = Model()
-    # Get wavelength grid from SALT2 source
-    salt2_wave = original_model.source._wave
-    jax_model.wave = salt2_wave
-    
-    # Define a simple flux function that matches SALT2 behavior
-    def flux_func(time, wave):
-        # Get the same times/wavelengths from original model for comparison
-        # Convert from 2D to 1D arrays as expected by SNCosmo
-        time_1d = np.asarray(time).ravel()
-        wave_1d = np.asarray(wave).ravel()
-        flux_1d = original_model.flux(time_1d, wave_1d)
-        # Reshape back to 2D
-        return flux_1d.reshape(time.shape[0], wave.shape[1])
-    
-    jax_model.flux = flux_func
+    jax_model.wave = get_salt2_wave_grid()
+    jax_model.flux = lambda t, w: salt2_flux(t, w, jax_model.parameters)
     
     # Set the same parameters
     params = {'t0': 55000.0, 'x0': 1e-5, 'x1': 0.0, 'c': 0.0, 'z': 0.5}
