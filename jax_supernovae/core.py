@@ -15,7 +15,7 @@ def trapz(y, x, axis=-1):
     return jnp.sum(d * y_avg, axis=axis)
 
 class Bandpass:
-    def __init__(self, wave, trans, normalize=True):
+    def __init__(self, wave, trans, normalize=False):
         """Initialize a bandpass with arrays of wavelength and transmission.
 
         Parameters
@@ -25,7 +25,7 @@ class Bandpass:
         trans : array_like
             Transmission fraction at each wavelength.
         normalize : bool, optional
-            If True, normalize transmission to 1.0 at peak (default: True).
+            If True, normalize transmission to 1.0 at peak (default: False).
         """
         wave = np.asarray(wave, dtype=np.float64)
         trans = np.asarray(trans, dtype=np.float64)
@@ -179,7 +179,7 @@ class MagSystem:
         rest_flux_np = np.array(rest_flux)
 
         # Calculate bandflux using SNCosmo's formula
-        bandflux = np.array([np.sum(wave_obs_np * trans_np * f) * dwave / HC_ERG_AA for f in rest_flux_np])
+        bandflux = np.sum(wave_rest * trans_np * rest_flux_np, axis=1) * dwave / HC_ERG_AA
 
         # Apply zeropoint scaling if provided
         if zp is not None:

@@ -23,6 +23,29 @@ def test_bandflux_matches_sncosmo():
     original_model.set(**params)
     jax_model.parameters = params
     
+    # Print parameters
+    x0 = params['x0']
+    x1 = params['x1']
+    c = params['c']
+    
+    print("\nParameters:")
+    print(f"x0: {x0:11.3e}")
+    print(f"x1: {x1:11.3e}")
+    print(f"c:  {c:11.3e}")
+    
+    # Print color law coefficients
+    print("\nColor law coefficients:")
+    print("JAX:", [-0.402687, 0.700296, -0.431342, 0.0779681])
+    
+    # Get SNCosmo coefficients by reading the color correction file
+    import os
+    clfile = os.path.join('/home/sam/.astropy/cache/sncosmo', 'models', 'salt2', 'salt2-k21-frag', 'salt2_color_correction.dat')
+    with open(clfile, 'r') as f:
+        words = f.read().split()
+        ncoeffs = int(words[0])
+        snc_coeffs = [float(word) for word in words[1: 1 + ncoeffs]]
+    print("SNCosmo:", snc_coeffs)
+    
     # Test at various times
     times = jnp.linspace(54950, 55050, 100)
     

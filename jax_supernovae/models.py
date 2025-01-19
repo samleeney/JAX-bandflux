@@ -60,64 +60,73 @@ class Model:
         # Get rest-frame flux
         rest_flux = self._flux(restphase, restwave)
 
-        # Scale by a^2 to convert from rest frame to observer frame
-        return rest_flux * a * a
+        # Scale by a to convert from rest frame to observer frame
+        # Note: We scale by a to conserve bolometric luminosity
+        # The wavelength scaling is handled by the integration over the bandpass
+        return rest_flux * a
 
     def bandflux(self, band, time, zp=None, zpsys=None):
-        """Compute synthetic photometry in a given bandpass.
+        """Compute synthetic photometry for a bandpass.
 
         Parameters
         ----------
         band : str or Bandpass
             Bandpass object or name of registered bandpass.
         time : array_like
-            Observer-frame times.
-        zp : array_like, optional
-            If given, zeropoint to scale flux to (must include units).
-        zpsys : str or MagSystem
-            If given, magnitude system to scale flux to.
+            Times at which to evaluate the flux.
+        zp : float or None, optional
+            If given, zeropoint to scale the bandpass to.
+        zpsys : str or None, optional
+            Name of a magnitude system. Required if zp is given.
 
         Returns
         -------
-        flux : array_like
+        array_like
             Flux in photons / s / cm^2.
         """
         # Get bandpass object if a string is provided
         if isinstance(band, str):
             band = get_bandpass(band)
+        elif not isinstance(band, Bandpass):
+            raise ValueError("band must be a Bandpass object or a string")
 
-        # Convert time to numpy array
-        time = np.asarray(time)
+        # Convert time to numpy array and ensure it's at least 1D
+        time = np.atleast_1d(time)
 
-        # Get wavelength range and integration grid
-        wave_min = band.minwave()
-        wave_max = band.maxwave()
-        wave_obs, dwave = integration_grid(wave_min, wave_max, 5.0)  # Use SNCosmo's default spacing
+        # Get rest-frame time and wavelength
+        z = self.parameters['z']
+        a = 1.0 / (1.0 + z)
 
-        # Get transmission at each wavelength
-        trans = band(wave_obs)
+        # Use bandpass wavelength grid directly
+        wave_obs = band.wave
+        dwave = wave_obs[1] - wave_obs[0]  # Assuming uniform spacing
 
-        # Calculate rest frame flux
-        rest_flux = self._flux_with_redshift(time[:, None], wave_obs[None, :])
+        # Get bandpass transmission
+        trans = band.trans
 
         # Convert to numpy arrays for integration
         wave_obs_np = np.array(wave_obs)
         trans_np = np.array(trans)
-        rest_flux_np = np.array(rest_flux)
 
-        # Calculate weights for integration (wave * trans / HC_ERG_AA)
-        weights = wave_obs_np * trans_np / HC_ERG_AA
+        # First multiply transmission by wavelength (following SNCosmo's approach)
+        tmp = trans_np * wave_obs_np
 
-        # Integrate over wavelength for each time
-        bandflux = np.array([np.sum(weights * f) * dwave for f in rest_flux_np])
+        # Get rest-frame flux for each time and wavelength
+        rest_flux = np.zeros((len(time), len(wave_obs)))
+        for i, t in enumerate(time):
+            rest_flux[i] = self._flux_with_redshift(t, wave_obs)
 
-        # Scale by zeropoint if provided
+        # Calculate bandflux using SNCosmo's formula
+        bandflux = np.sum(rest_flux * tmp[None, :], axis=1) * dwave / HC_ERG_AA
+
+        # Apply zeropoint scaling if provided
         if zp is not None:
             if zpsys is None:
                 raise ValueError('zpsys must be given if zp is not None')
             ms = get_magsystem(zpsys)
             zp_bandflux = ms.zpbandflux(band)
-            zpnorm = 10.**(0.4 * zp) / zp_bandflux
+            zpnorm = 10. ** (0.4 * zp) / zp_bandflux
             bandflux *= zpnorm
 
-        return bandflux
+        # Return scalar if input was scalar
+        return float(bandflux) if len(time) == 1 else bandflux

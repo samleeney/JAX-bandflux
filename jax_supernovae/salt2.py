@@ -39,30 +39,48 @@ def _cubic_interp1d_single(x, xp, yp):
     xp : array_like
         The x-coordinates of the data points.
     yp : array_like
-        The y-coordinates of the data points.
+        The y-coordinates of the data points, can be 1D or 2D.
     
     Returns
     -------
-    float
-        The interpolated value.
+    float or array_like
+        The interpolated value(s).
     """
     # Find index of the interval containing x
     i = jnp.searchsorted(xp, x)
     i = jnp.clip(i, 1, len(xp)-2)  # Need 2 points on each side
     
+    # Convert i to int32 for consistent typing
+    i = i.astype(jnp.int32)
+    
     # Get the 4 surrounding points using dynamic_slice
     x_i = lax.dynamic_slice(xp, (i-1,), (4,))
-    y_i = lax.dynamic_slice(yp, (i-1,), (4,))
+    
+    # Handle both 1D and 2D yp arrays
+    if yp.ndim == 1:
+        y_i = lax.dynamic_slice(yp, (i-1,), (4,))
+    else:
+        # For 2D arrays, slice along the second dimension
+        # We need to slice each row individually
+        def slice_row(row):
+            return lax.dynamic_slice(row, (i-1,), (4,))
+        y_i = jax.vmap(slice_row)(yp)
     
     # Calculate position within interval
     t = (x - x_i[1]) / (x_i[2] - x_i[1])
     
     # Calculate cubic coefficients
     # Using Catmull-Rom spline formulation
-    c0 = -0.5 * y_i[0] + 1.5 * y_i[1] - 1.5 * y_i[2] + 0.5 * y_i[3]
-    c1 = y_i[0] - 2.5 * y_i[1] + 2 * y_i[2] - 0.5 * y_i[3]
-    c2 = -0.5 * y_i[0] + 0.5 * y_i[2]
-    c3 = y_i[1]
+    if yp.ndim == 1:
+        c0 = -0.5 * y_i[0] + 1.5 * y_i[1] - 1.5 * y_i[2] + 0.5 * y_i[3]
+        c1 = y_i[0] - 2.5 * y_i[1] + 2 * y_i[2] - 0.5 * y_i[3]
+        c2 = -0.5 * y_i[0] + 0.5 * y_i[2]
+        c3 = y_i[1]
+    else:
+        c0 = -0.5 * y_i[:, 0] + 1.5 * y_i[:, 1] - 1.5 * y_i[:, 2] + 0.5 * y_i[:, 3]
+        c1 = y_i[:, 0] - 2.5 * y_i[:, 1] + 2 * y_i[:, 2] - 0.5 * y_i[:, 3]
+        c2 = -0.5 * y_i[:, 0] + 0.5 * y_i[:, 2]
+        c3 = y_i[:, 1]
     
     # Evaluate cubic polynomial
     t2 = t * t
@@ -80,7 +98,7 @@ def cubic_interp1d(x, xp, yp):
     xp : array_like
         The x-coordinates of the data points.
     yp : array_like
-        The y-coordinates of the data points.
+        The y-coordinates of the data points, can be 1D or 2D.
     
     Returns
     -------
@@ -105,25 +123,39 @@ def _salt2_m0_single_wave(phase, wave_idx):
 
 @jax.jit
 def salt2_m0(phase, wave):
-    """JAX implementation of SALT2 M0 template interpolation."""
-    # Ensure inputs are arrays
-    phase = jnp.asarray(phase)
-    wave = jnp.asarray(wave)
-    
-    # Get original shapes and create meshgrid
-    phase_mesh, wave_mesh = jnp.meshgrid(phase.reshape(-1), wave.reshape(-1), indexing='ij')
-    
-    # First interpolate in phase for each wavelength
-    wave_indices = jnp.arange(len(wave_grid))
-    phase_interp_fn = jax.vmap(_salt2_m0_single_wave, in_axes=(None, 0))
-    phase_interp = phase_interp_fn(phase_mesh.reshape(-1), wave_indices)
-    
+    """Interpolate the M0 template at the given phase and wavelength.
+
+    Args:
+        phase (float or array-like): The phase(s) at which to evaluate the template.
+        wave (float or array-like): The wavelength(s) at which to evaluate the template.
+
+    Returns:
+        array-like: The interpolated M0 template values.
+    """
+    # Get original shapes
+    phase_shape = jnp.shape(phase)
+    wave_shape = jnp.shape(wave)
+
+    # Reshape inputs to 1D
+    phase_flat = jnp.ravel(phase)
+    wave_flat = jnp.ravel(wave)
+
+    # First interpolate in phase for each wavelength in the template
+    phase_interp = jax.vmap(lambda w: cubic_interp1d(phase_flat, phase_grid, M0_data[:, w]))(jnp.arange(len(wave_grid)))
+
     # Then interpolate in wavelength for each phase
-    wave_interp_fn = jax.vmap(cubic_interp1d, in_axes=(0, None, 1))
-    result = wave_interp_fn(wave_mesh.reshape(-1), wave_grid, phase_interp)
+    result = jax.vmap(lambda p: cubic_interp1d(wave_flat, wave_grid, phase_interp[:, p]))(jnp.arange(len(phase_flat)))
+
+    # Transpose and reshape to match input shapes
+    result = result.T
+
+    # Return scalar if both inputs are scalar
+    if len(phase_shape) == 0 and len(wave_shape) == 0:
+        return float(result)
     
-    # Reshape result to match input broadcast shape
-    return result.reshape(phase_mesh.shape)
+    # Otherwise reshape to broadcast shape
+    broadcast_shape = jnp.broadcast_shapes(phase_shape, wave_shape)
+    return result.reshape(broadcast_shape)
 
 @jax.jit
 def _salt2_m1_single_wave(phase, wave_idx):
@@ -132,25 +164,39 @@ def _salt2_m1_single_wave(phase, wave_idx):
 
 @jax.jit
 def salt2_m1(phase, wave):
-    """JAX implementation of SALT2 M1 template interpolation."""
-    # Ensure inputs are arrays
-    phase = jnp.asarray(phase)
-    wave = jnp.asarray(wave)
-    
-    # Get original shapes and create meshgrid
-    phase_mesh, wave_mesh = jnp.meshgrid(phase.reshape(-1), wave.reshape(-1), indexing='ij')
-    
-    # First interpolate in phase for each wavelength
-    wave_indices = jnp.arange(len(wave_grid))
-    phase_interp_fn = jax.vmap(_salt2_m1_single_wave, in_axes=(None, 0))
-    phase_interp = phase_interp_fn(phase_mesh.reshape(-1), wave_indices)
-    
+    """Interpolate the M1 template at the given phase and wavelength.
+
+    Args:
+        phase (float or array-like): The phase(s) at which to evaluate the template.
+        wave (float or array-like): The wavelength(s) at which to evaluate the template.
+
+    Returns:
+        array-like: The interpolated M1 template values.
+    """
+    # Get original shapes
+    phase_shape = jnp.shape(phase)
+    wave_shape = jnp.shape(wave)
+
+    # Reshape inputs to 1D
+    phase_flat = jnp.ravel(phase)
+    wave_flat = jnp.ravel(wave)
+
+    # First interpolate in phase for each wavelength in the template
+    phase_interp = jax.vmap(lambda w: cubic_interp1d(phase_flat, phase_grid, M1_data[:, w]))(jnp.arange(len(wave_grid)))
+
     # Then interpolate in wavelength for each phase
-    wave_interp_fn = jax.vmap(cubic_interp1d, in_axes=(0, None, 1))
-    result = wave_interp_fn(wave_mesh.reshape(-1), wave_grid, phase_interp)
+    result = jax.vmap(lambda p: cubic_interp1d(wave_flat, wave_grid, phase_interp[:, p]))(jnp.arange(len(phase_flat)))
+
+    # Transpose and reshape to match input shapes
+    result = result.T
+
+    # Return scalar if both inputs are scalar
+    if len(phase_shape) == 0 and len(wave_shape) == 0:
+        return float(result)
     
-    # Reshape result to match input broadcast shape
-    return result.reshape(phase_mesh.shape)
+    # Otherwise reshape to broadcast shape
+    broadcast_shape = jnp.broadcast_shapes(phase_shape, wave_shape)
+    return result.reshape(broadcast_shape)
 
 @jax.jit
 def salt2_colorlaw(wave, colorlaw_coeffs):
@@ -232,7 +278,7 @@ def salt2_flux(phase, wave, params):
     m1 = salt2_m1(phase, wave)
 
     # Calculate color law with actual SALT2 coefficients
-    colorlaw_coeffs = jnp.array([-0.504294, 0.787691, -0.461715, 0.0815619])
+    colorlaw_coeffs = jnp.array([-0.402687, 0.700296, -0.431342, 0.0779681])
     colorlaw = salt2_colorlaw(wave, colorlaw_coeffs)
 
     # Calculate rest-frame flux without redshift scaling
