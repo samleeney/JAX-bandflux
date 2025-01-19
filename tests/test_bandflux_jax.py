@@ -16,7 +16,7 @@ def test_bandflux_matches_sncosmo():
     # Initialize our JAX model
     jax_model = Model()
     jax_model.wave = get_salt2_wave_grid()
-    jax_model.flux = lambda t, w: salt2_flux(t, w, jax_model.parameters)
+    jax_model._flux = lambda t, w: salt2_flux(t, w, jax_model.parameters)
     
     # Set the same parameters
     params = {'t0': 55000.0, 'x0': 1e-5, 'x1': 0.0, 'c': 0.0, 'z': 0.5}

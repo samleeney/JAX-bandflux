@@ -1,3 +1,6 @@
+General goal:
+The general goal is to re write the bandflux function in sncosmo to be compatible with jax. Currently the bnadflux function which has been re written in jax (in jax_supernovae directory) almost matches, but not exactly. The tests should be designed to test if the bandfluxes match. If they do, then the code is working. If they dont, then other tests should be designed to figure out which lines of code in the jax bandflux code does not exactly match the original sncosmo code. 
+
 Markdown recipe:
 
 1. Use triple backticks to start and end the outer markdown code block and specify markdown beside your triple backticks. (Use this to start your ____ markup)
