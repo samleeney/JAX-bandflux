@@ -2,10 +2,13 @@ import jax
 jax.config.update("jax_enable_x64", True)  # Enable float64 precision
 
 import numpy as np
+import pytest
 import sncosmo
 from jax_supernovae.models import Model
 from jax_supernovae.salt3nir import salt3nir_flux, salt3nir_m0, salt3nir_m1, salt3nir_colorlaw
 from jax_supernovae.salt3nir import wave_grid, phase_grid
+from jax_supernovae.core import Bandpass, HC_ERG_AA, MODEL_BANDFLUX_SPACING
+from jax_supernovae.salt3nir import salt3nir_bandflux, integration_grid
 
 def test_salt3nir_bandflux():
     """Test that SALT3-NIR bandflux matches between sncosmo and JAX implementations."""
@@ -13,12 +16,10 @@ def test_salt3nir_bandflux():
     # Create sncosmo model
     snc_model = sncosmo.Model(source='salt3-nir')
     params = {'z': 0.1, 't0': 0.0, 'x0': 1e-5, 'x1': 0.1, 'c': 0.1}
-    snc_model.set(**params)
     
-    # Create JAX model
-    jax_model = Model()
-    jax_model.wave = wave_grid
-    jax_model.flux = lambda t, w: salt3nir_flux(t, w, jax_model.parameters)
+    # Create JAX model with required parameters
+    param_names = ['z', 't0', 'x0', 'x1', 'c']
+    jax_model = Model(salt3nir_bandflux, param_names)
     jax_model.parameters = params
     
     # Test bands and times
@@ -168,4 +169,99 @@ def test_salt3nir_redshift_scaling():
     print(f"RMS relative error: {np.sqrt(np.mean(rel_diff**2)):.2%}")
     
     # Allow up to 1% difference due to interpolation differences
-    np.testing.assert_allclose(all_jax_fluxes, all_snc_fluxes, rtol=1e-2) 
+    np.testing.assert_allclose(all_jax_fluxes, all_snc_fluxes, rtol=1e-2)
+
+def test_bandflux_matches_sncosmo():
+    """Test that bandflux matches SNCosmo implementation exactly."""
+    # Create SNCosmo model
+    snc_model = sncosmo.Model(source='salt3-nir')
+    params = {'z': 0.1, 't0': 0.0, 'x0': 1e-5, 'x1': 0.1, 'c': 0.2}
+    snc_model.update(params)
+    
+    # Test at specific phase and band for detailed debugging
+    phase = -10.0
+    band_name = 'sdssg'
+    
+    print("\n=== Detailed Debug Information ===")
+    print(f"Testing phase={phase}, band={band_name}")
+    
+    # Get bandpass
+    snc_bandpass = sncosmo.get_bandpass(band_name)
+    print(f"\n1. Bandpass Information:")
+    print(f"Wave range: [{snc_bandpass.wave[0]}, {snc_bandpass.wave[-1]}]")
+    print(f"Trans range: [{snc_bandpass.trans.min()}, {snc_bandpass.trans.max()}]")
+    
+    # Convert to JAX-compatible bandpass
+    bandpass = Bandpass(snc_bandpass.wave, snc_bandpass.trans)
+    
+    # Get integration grid (both SNCosmo and JAX)
+    wave, dwave = integration_grid(bandpass.minwave(), bandpass.maxwave(), MODEL_BANDFLUX_SPACING)
+    print(f"\n2. Integration Grid:")
+    print(f"Grid spacing (dwave): {dwave}")
+    print(f"Number of points: {len(wave)}")
+    print(f"Wave range: [{wave[0]}, {wave[-1]}]")
+    
+    # Get transmission on integration grid
+    trans = bandpass(wave)
+    print(f"\n3. Resampled Transmission:")
+    print(f"Range: [{trans.min()}, {trans.max()}]")
+    print(f"Sum of trans: {np.sum(trans)}")
+    print(f"Sum of wave * trans: {np.sum(wave * trans)}")
+    
+    # Calculate rest-frame quantities
+    z = params['z']
+    t0 = params['t0']
+    a = 1.0 / (1.0 + z)
+    restphase = (phase - t0) * a
+    restwave = wave * a
+    print(f"\n4. Rest Frame Quantities:")
+    print(f"Scale factor (a): {a}")
+    print(f"Rest phase: {restphase}")
+    print(f"Rest wave range: [{restwave[0]}, {restwave[-1]}]")
+    
+    # Get model components
+    m0 = salt3nir_m0(restphase, restwave)
+    m1 = salt3nir_m1(restphase, restwave)
+    cl = salt3nir_colorlaw(restwave)
+    
+    # Print sample values at specific wavelengths
+    idx = len(wave) // 2  # Middle wavelength
+    print(f"\n5. Model Components at λ={wave[idx]:.1f}:")
+    print(f"M0: {m0[idx]:.6e}")
+    print(f"M1: {m1[idx]:.6e}")
+    print(f"Color law: {cl[idx]:.6f}")
+    
+    # Calculate flux components
+    x0 = params['x0']
+    x1 = params['x1']
+    c = params['c']
+    rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl * c)
+    print(f"\n6. Flux Components:")
+    print(f"Rest flux at λ={wave[idx]:.1f}: {rest_flux[idx]:.6e}")
+    
+    # Calculate integrand components
+    integrand = wave * trans * rest_flux
+    print(f"\n7. Integration:")
+    print(f"Integrand at λ={wave[idx]:.1f}: {integrand[idx]:.6e}")
+    print(f"Sum of integrand: {np.sum(integrand):.6e}")
+    print(f"dwave * sum: {np.sum(integrand) * dwave:.6e}")
+    print(f"Final (dwave * sum / HC_ERG_AA): {np.sum(integrand) * dwave / HC_ERG_AA:.6e}")
+    
+    # Get fluxes from both implementations
+    snc_flux = snc_model.bandflux(band_name, phase)
+    jax_flux = salt3nir_bandflux(phase, bandpass, params)
+    
+    print(f"\n8. Final Results:")
+    print(f"SNCosmo flux: {snc_flux:.6e}")
+    print(f"JAX flux:     {float(jax_flux):.6e}")
+    print(f"Ratio:        {float(jax_flux/snc_flux):.6f}")
+    
+    # Compare results with detailed error message
+    assert np.allclose(snc_flux, jax_flux, rtol=1e-5), \
+        f"Bandflux mismatch at phase {phase}, band {band_name}\n" \
+        f"SNCosmo: {snc_flux:.6e}\n" \
+        f"JAX:     {float(jax_flux):.6e}\n" \
+        f"Ratio:   {float(jax_flux/snc_flux):.6f}"
+
+if __name__ == '__main__':
+    test_bandflux_matches_sncosmo() 
