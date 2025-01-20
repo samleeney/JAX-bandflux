@@ -29,97 +29,98 @@ wave_grid_f64 = np.array(wave_grid, dtype=np.float64)
 colorlaw_grid = jnp.array(salt2_source._colorlaw(wave_grid_f64))
 
 @jax.jit
-def _cubic_interp1d_single(x, xp, yp):
-    """1D cubic interpolation for a single point in JAX.
+def kernval(x):
+    """Bicubic convolution kernel used in SNCosmo.
     
-    Parameters
-    ----------
-    x : float
-        Point at which to evaluate the interpolated value.
-    xp : array_like
-        The x-coordinates of the data points.
-    yp : array_like
-        The y-coordinates of the data points, can be 1D or 2D.
-    
-    Returns
-    -------
-    float or array_like
-        The interpolated value(s).
+    The kernel is defined by:
+    W(x) = (a+2)*x^3-(a+3)*x^2+1 for x<=1
+    W(x) = a(x^3-5*x^2+8*x-4) for 1<x<2
+    W(x) = 0 for x>2
+    where a = -0.5
     """
-    # Find index of the interval containing x
-    i = jnp.searchsorted(xp, x)
-    i = jnp.clip(i, 1, len(xp)-2)  # Need 2 points on each side
+    A = -0.5
+    B = A + 2.0  # 1.5
+    C = A + 3.0  # 2.5
+    x = jnp.abs(x)
     
-    # Convert i to int32 for consistent typing
-    i = i.astype(jnp.int32)
-    
-    # Get the 4 surrounding points using dynamic_slice
-    x_i = lax.dynamic_slice(xp, (i-1,), (4,))
-    
-    # Handle both 1D and 2D yp arrays
-    if yp.ndim == 1:
-        y_i = lax.dynamic_slice(yp, (i-1,), (4,))
-    else:
-        # For 2D arrays, slice along the second dimension
-        # We need to slice each row individually
-        def slice_row(row):
-            return lax.dynamic_slice(row, (i-1,), (4,))
-        y_i = jax.vmap(slice_row)(yp)
-    
-    # Calculate position within interval
-    t = (x - x_i[1]) / (x_i[2] - x_i[1])
-    
-    # Calculate cubic coefficients
-    # Using Catmull-Rom spline formulation
-    if yp.ndim == 1:
-        c0 = -0.5 * y_i[0] + 1.5 * y_i[1] - 1.5 * y_i[2] + 0.5 * y_i[3]
-        c1 = y_i[0] - 2.5 * y_i[1] + 2 * y_i[2] - 0.5 * y_i[3]
-        c2 = -0.5 * y_i[0] + 0.5 * y_i[2]
-        c3 = y_i[1]
-    else:
-        c0 = -0.5 * y_i[:, 0] + 1.5 * y_i[:, 1] - 1.5 * y_i[:, 2] + 0.5 * y_i[:, 3]
-        c1 = y_i[:, 0] - 2.5 * y_i[:, 1] + 2 * y_i[:, 2] - 0.5 * y_i[:, 3]
-        c2 = -0.5 * y_i[:, 0] + 0.5 * y_i[:, 2]
-        c3 = y_i[:, 1]
-    
-    # Evaluate cubic polynomial
-    t2 = t * t
-    t3 = t2 * t
-    return c0 * t3 + c1 * t2 + c2 * t + c3
+    # Use jnp.where for vectorized conditional operations
+    return jnp.where(
+        x > 2.0,
+        0.0,
+        jnp.where(
+            x < 1.0,
+            x * x * (B * x - C) + 1.0,  # x^3 * (1.5) - x^2 * (2.5) + 1
+            A * (x * x * x - 5.0 * x * x + 8.0 * x - 4.0)  # -0.5(x^3 - 5x^2 + 8x - 4)
+        )
+    )
 
 @jax.jit
-def cubic_interp1d(x, xp, yp):
-    """1D cubic interpolation in JAX with support for batched inputs.
+def find_index(values, x):
+    """Find index i such that values[i] <= x < values[i+1]."""
+    i = jnp.searchsorted(values, x)
+    i = jnp.clip(i, 1, len(values)-2)  # Need 2 points on each side
+    return i.astype(jnp.int32)
+
+@jax.jit
+def bicubic_interp2d(x, y, xp, yp, zp):
+    """2D bicubic convolution interpolation.
     
     Parameters
     ----------
-    x : array_like
-        Points at which to evaluate the interpolated values.
+    x : float or array_like
+        x-coordinates at which to evaluate
+    y : float or array_like
+        y-coordinates at which to evaluate
     xp : array_like
-        The x-coordinates of the data points.
+        x-coordinates of the data points
     yp : array_like
-        The y-coordinates of the data points, can be 1D or 2D.
+        y-coordinates of the data points
+    zp : array_like
+        2D array of z values
     
     Returns
     -------
     array_like
-        The interpolated values.
+        Interpolated values
     """
-    # Reshape x to be 1D if needed
-    x_shape = x.shape
-    x_flat = x.reshape(-1)
+    # Convert inputs to arrays
+    x = jnp.asarray(x)
+    y = jnp.asarray(y)
     
-    # Use vmap to handle batched inputs
-    interp_fn = jax.vmap(_cubic_interp1d_single, in_axes=(0, None, None))
-    result = interp_fn(x_flat, xp, yp)
+    # Find indices
+    ix = find_index(xp, x)
+    iy = find_index(yp, y)
     
-    # Reshape result back to original shape
-    return result.reshape(x_shape)
-
-@jax.jit
-def _salt2_m0_single_wave(phase, wave_idx):
-    """Interpolate M0 template at a single wavelength."""
-    return cubic_interp1d(phase, phase_grid, M0_data[:, wave_idx])
+    # Calculate normalized distances
+    dx = (x - xp[ix]) / (xp[ix+1] - xp[ix])
+    dy = (y - yp[iy]) / (yp[iy+1] - yp[iy])
+    
+    # Calculate weights
+    wx = jnp.array([kernval(dx-1.0), kernval(dx), kernval(dx+1.0), kernval(dx+2.0)])
+    wy = jnp.array([kernval(dy-1.0), kernval(dy), kernval(dy+1.0), kernval(dy+2.0)])
+    
+    # Handle boundary conditions
+    x_near_boundary = (ix <= 1) | (ix >= len(xp)-3)
+    y_near_boundary = (iy <= 1) | (iy >= len(yp)-3)
+    
+    # Linear interpolation result
+    ax = (x - xp[ix]) / (xp[ix+1] - xp[ix])
+    ay = (y - yp[iy]) / (yp[iy+1] - yp[iy])
+    ay2 = 1.0 - ay
+    
+    linear_result = ((1.0 - ax) * (ay2 * zp[ix, iy] + ay * zp[ix, iy+1]) +
+                     ax * (ay2 * zp[ix+1, iy] + ay * zp[ix+1, iy+1]))
+    
+    # Full bicubic convolution result
+    cubic_result = 0.0
+    for i in range(4):
+        for j in range(4):
+            cubic_result = cubic_result + wx[i] * wy[j] * zp[ix+i-1, iy+j-1]
+    
+    # Use linear interpolation near boundaries, cubic otherwise
+    return jnp.where(x_near_boundary | y_near_boundary,
+                    linear_result,
+                    cubic_result)
 
 @jax.jit
 def salt2_m0(phase, wave):
@@ -132,35 +133,34 @@ def salt2_m0(phase, wave):
     Returns:
         array-like: The interpolated M0 template values.
     """
+    # Convert inputs to arrays
+    phase = jnp.asarray(phase)
+    wave = jnp.asarray(wave)
+    
     # Get original shapes
-    phase_shape = jnp.shape(phase)
-    wave_shape = jnp.shape(wave)
-
+    phase_shape = phase.shape
+    wave_shape = wave.shape
+    
     # Reshape inputs to 1D
     phase_flat = jnp.ravel(phase)
     wave_flat = jnp.ravel(wave)
-
-    # First interpolate in phase for each wavelength in the template
-    phase_interp = jax.vmap(lambda w: cubic_interp1d(phase_flat, phase_grid, M0_data[:, w]))(jnp.arange(len(wave_grid)))
-
-    # Then interpolate in wavelength for each phase
-    result = jax.vmap(lambda p: cubic_interp1d(wave_flat, wave_grid, phase_interp[:, p]))(jnp.arange(len(phase_flat)))
-
-    # Transpose and reshape to match input shapes
-    result = result.T
-
-    # Return scalar if both inputs are scalar
-    if len(phase_shape) == 0 and len(wave_shape) == 0:
-        return float(result)
     
-    # Otherwise reshape to broadcast shape
-    broadcast_shape = jnp.broadcast_shapes(phase_shape, wave_shape)
-    return result.reshape(broadcast_shape)
-
-@jax.jit
-def _salt2_m1_single_wave(phase, wave_idx):
-    """Interpolate M1 template at a single wavelength."""
-    return cubic_interp1d(phase, phase_grid, M1_data[:, wave_idx])
+    # Create a mesh grid of phase and wave values
+    phase_mesh, wave_mesh = jnp.meshgrid(phase_flat, wave_flat, indexing='ij')
+    
+    # Vectorize the interpolation over all phase/wave combinations
+    result = jax.vmap(lambda p, w: bicubic_interp2d(p, w, phase_grid, wave_grid, M0_data))(
+        jnp.ravel(phase_mesh), jnp.ravel(wave_mesh))
+    
+    # Reshape result to match input shapes
+    if len(phase_shape) == 0 and len(wave_shape) == 0:
+        return result[0]  # Return scalar for scalar inputs
+    elif len(phase_shape) == 0:
+        return result.reshape(wave_shape)  # Return 1D array for scalar phase
+    elif len(wave_shape) == 0:
+        return result.reshape(phase_shape)  # Return 1D array for scalar wavelength
+    else:
+        return result.reshape(phase_shape + wave_shape)  # Return shaped array for array inputs
 
 @jax.jit
 def salt2_m1(phase, wave):
@@ -173,30 +173,34 @@ def salt2_m1(phase, wave):
     Returns:
         array-like: The interpolated M1 template values.
     """
+    # Convert inputs to arrays
+    phase = jnp.asarray(phase)
+    wave = jnp.asarray(wave)
+    
     # Get original shapes
-    phase_shape = jnp.shape(phase)
-    wave_shape = jnp.shape(wave)
-
+    phase_shape = phase.shape
+    wave_shape = wave.shape
+    
     # Reshape inputs to 1D
     phase_flat = jnp.ravel(phase)
     wave_flat = jnp.ravel(wave)
-
-    # First interpolate in phase for each wavelength in the template
-    phase_interp = jax.vmap(lambda w: cubic_interp1d(phase_flat, phase_grid, M1_data[:, w]))(jnp.arange(len(wave_grid)))
-
-    # Then interpolate in wavelength for each phase
-    result = jax.vmap(lambda p: cubic_interp1d(wave_flat, wave_grid, phase_interp[:, p]))(jnp.arange(len(phase_flat)))
-
-    # Transpose and reshape to match input shapes
-    result = result.T
-
-    # Return scalar if both inputs are scalar
-    if len(phase_shape) == 0 and len(wave_shape) == 0:
-        return float(result)
     
-    # Otherwise reshape to broadcast shape
-    broadcast_shape = jnp.broadcast_shapes(phase_shape, wave_shape)
-    return result.reshape(broadcast_shape)
+    # Create a mesh grid of phase and wave values
+    phase_mesh, wave_mesh = jnp.meshgrid(phase_flat, wave_flat, indexing='ij')
+    
+    # Vectorize the interpolation over all phase/wave combinations
+    result = jax.vmap(lambda p, w: bicubic_interp2d(p, w, phase_grid, wave_grid, M1_data))(
+        jnp.ravel(phase_mesh), jnp.ravel(wave_mesh))
+    
+    # Reshape result to match input shapes
+    if len(phase_shape) == 0 and len(wave_shape) == 0:
+        return result[0]  # Return scalar for scalar inputs
+    elif len(phase_shape) == 0:
+        return result.reshape(wave_shape)  # Return 1D array for scalar phase
+    elif len(wave_shape) == 0:
+        return result.reshape(phase_shape)  # Return 1D array for scalar wavelength
+    else:
+        return result.reshape(phase_shape + wave_shape)  # Return shaped array for array inputs
 
 @jax.jit
 def salt2_colorlaw(wave, colorlaw_coeffs):
@@ -230,11 +234,22 @@ def salt2_colorlaw(wave, colorlaw_coeffs):
     prime_coeffs = jnp.arange(len(coeffs)) * coeffs
     prime_coeffs = prime_coeffs[1:]  # Remove first element (0)
 
+    # Define polynomial evaluation function using Horner's method
+    def polyval(coeffs, x):
+        """Evaluate polynomial using Horner's method."""
+        result = coeffs[0]
+        for c in coeffs[1:]:
+            result = result * x + c
+        return result
+
     # Calculate polynomial values at boundaries
-    p_lo = jnp.polyval(jnp.flipud(coeffs), l_lo)
-    pprime_lo = jnp.polyval(jnp.flipud(prime_coeffs), l_lo)
-    p_hi = jnp.polyval(jnp.flipud(coeffs), l_hi)
-    pprime_hi = jnp.polyval(jnp.flipud(prime_coeffs), l_hi)
+    coeffs_rev = jnp.flipud(coeffs)
+    prime_coeffs_rev = jnp.flipud(prime_coeffs)
+    
+    p_lo = polyval(coeffs_rev, l_lo)
+    pprime_lo = polyval(prime_coeffs_rev, l_lo)
+    p_hi = polyval(coeffs_rev, l_hi)
+    pprime_hi = polyval(prime_coeffs_rev, l_hi)
 
     # Calculate extinction for each region
     extinction = jnp.where(
@@ -243,7 +258,7 @@ def salt2_colorlaw(wave, colorlaw_coeffs):
         jnp.where(
             l > l_hi,
             p_hi + pprime_hi * (l - l_hi),  # Red side
-            jnp.polyval(jnp.flipud(coeffs), l)  # In between
+            polyval(coeffs_rev, l)  # In between
         )
     )
 
@@ -281,6 +296,8 @@ def salt2_flux(phase, wave, params):
     colorlaw_coeffs = jnp.array([-0.402687, 0.700296, -0.431342, 0.0779681])
     colorlaw = salt2_colorlaw(wave, colorlaw_coeffs)
 
-    # Calculate rest-frame flux without redshift scaling
-    # The redshift scaling (a^2) will be applied by the Model class
-    return x0 * (m0 + x1 * m1) * 10**(-0.4 * colorlaw * c)
+    # Calculate rest-frame flux
+    # Note: SNCosmo applies the color law first, then scales by x0
+    flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * colorlaw * c)
+
+    return flux

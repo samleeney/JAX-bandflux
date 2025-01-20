@@ -1,0 +1,106 @@
+  - path: /models
+    type: directory
+    contents:
+    - path: /models/salt2
+      type: directory
+      contents:
+      - path: /models/salt2/salt2-k21-frag
+        type: directory
+        contents:
+        - path: /models/salt2/salt2-k21-frag/salt2_lc_relative_variance_1.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_lc_dispersion_scaling.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_color_correction.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_lc_relative_covariance_01.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_color_dispersion.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_spec_variance_1.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_lc_relative_variance_0.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_template_1.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_spec_covariance_01.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_template_0.dat
+          type: file
+        - path: /models/salt2/salt2-k21-frag/salt2_spec_variance_0.dat
+          type: file
+    - path: /models/salt3
+      type: directory
+      contents:
+      - path: /models/salt3/salt3-f22
+        type: directory
+        contents:
+        - path: /models/salt3/salt3-f22/salt3_color_dispersion.dat
+          type: file
+        - path: /models/salt3/salt3-f22/salt3_color_correction.dat
+          type: file
+        - path: /models/salt3/salt3-f22/salt3_lc_variance_0.dat
+          type: file
+        - path: /models/salt3/salt3-f22/salt3_lc_variance_1.dat
+          type: file
+        - path: /models/salt3/salt3-f22/salt3_template_1.dat
+          type: file
+        - path: /models/salt3/salt3-f22/salt3_template_0.dat
+          type: file
+        - path: /models/salt3/salt3-f22/salt3_lc_covariance_01.dat
+          type: file
+    - path: /models/salt3-nir
+      type: directory
+      contents:
+      - path: /models/salt3-nir/salt3nir-p22
+        type: directory
+        contents:
+        - path: /models/salt3-nir/salt3nir-p22/salt3_color_dispersion.dat
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/salt3_color_correction.dat
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/salt3_lc_variance_0.dat
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/salt3_lc_variance_1.dat
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/salt3_template_1.dat
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/SALT3.INFO
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/salt3_template_0.dat
+          type: file
+        - path: /models/salt3-nir/salt3nir-p22/salt3_lc_covariance_01.dat
+          type: file
+  - path: /bandpasses
+    type: directory
+    contents:
+    - path: /bandpasses/sdss
+      type: directory
+      contents:
+      - path: /bandpasses/sdss/sdss_i.dat
+        type: file
+      - path: /bandpasses/sdss/sdss_g.dat
+        type: file
+      - path: /bandpasses/sdss/sdss_r.dat
+        type: file
+      - path: /bandpasses/sdss/sdss_z.dat
+        type: file
+    - path: /bandpasses/ztf
+      type: directory
+      contents:
+      - path: /bandpasses/ztf/P48_g.dat
+        type: file
+      - path: /bandpasses/ztf/P48_R.dat
+        type: file
+    - path: /bandpasses/atlas
+      type: directory
+      contents:
+      - path: /bandpasses/atlas/Atlas.Cyan
+        type: file
+      - path: /bandpasses/atlas/Atlas.Orange
+        type: file
+    - path: /bandpasses/2mass
+      type: directory
+      contents:
+      - path: /bandpasses/2mass/2mass.H
+        type: file

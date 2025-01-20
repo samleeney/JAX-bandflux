@@ -1,0 +1,521 @@
+  - path: /sncosmo-modelfiles
+    type: directory
+    contents:
+    - path: /sncosmo-modelfiles/repo_structure.yaml
+      type: file
+    - path: /sncosmo-modelfiles/models
+      type: directory
+      contents:
+      - path: /sncosmo-modelfiles/models/salt2
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag
+          type: directory
+          contents:
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_lc_relative_variance_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_lc_dispersion_scaling.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_color_correction.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_lc_relative_covariance_01.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_color_dispersion.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_spec_variance_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_lc_relative_variance_0.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_template_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_spec_covariance_01.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_template_0.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt2/salt2-k21-frag/salt2_spec_variance_0.dat
+            type: file
+      - path: /sncosmo-modelfiles/models/salt3
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/models/salt3/salt3-f22
+          type: directory
+          contents:
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_color_dispersion.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_color_correction.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_lc_variance_0.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_lc_variance_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_template_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_template_0.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3/salt3-f22/salt3_lc_covariance_01.dat
+            type: file
+      - path: /sncosmo-modelfiles/models/salt3-nir
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22
+          type: directory
+          contents:
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_color_dispersion.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_color_correction.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_lc_variance_0.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_lc_variance_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_template_1.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/SALT3.INFO
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_template_0.dat
+            type: file
+          - path: /sncosmo-modelfiles/models/salt3-nir/salt3nir-p22/salt3_lc_covariance_01.dat
+            type: file
+    - path: /sncosmo-modelfiles/bandpasses
+      type: directory
+      contents:
+      - path: /sncosmo-modelfiles/bandpasses/sdss
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/bandpasses/sdss/sdss_i.dat
+          type: file
+        - path: /sncosmo-modelfiles/bandpasses/sdss/sdss_g.dat
+          type: file
+        - path: /sncosmo-modelfiles/bandpasses/sdss/sdss_r.dat
+          type: file
+        - path: /sncosmo-modelfiles/bandpasses/sdss/sdss_z.dat
+          type: file
+      - path: /sncosmo-modelfiles/bandpasses/ztf
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/bandpasses/ztf/P48_g.dat
+          type: file
+        - path: /sncosmo-modelfiles/bandpasses/ztf/P48_R.dat
+          type: file
+      - path: /sncosmo-modelfiles/bandpasses/atlas
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan
+          type: file
+        - path: /sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange
+          type: file
+      - path: /sncosmo-modelfiles/bandpasses/2mass
+        type: directory
+        contents:
+        - path: /sncosmo-modelfiles/bandpasses/2mass/2mass.H
+          type: file
+  - path: /sncosmo_nested_sampler_jax.py
+    type: file
+  - path: /test_bandflux.py
+    type: file
+  - path: /example-codes
+    type: directory
+    contents:
+    - path: /example-codes/jaxns-ex.py
+      type: file
+  - path: /tests
+    type: directory
+    contents:
+    - path: /tests/test_bandflux_components.py
+      type: file
+    - path: /tests/test_salt2_components.py
+      type: file
+    - path: /tests/test_nested_sampler.py
+      type: file
+    - path: /tests/test_bandflux_jax.py
+      type: file
+    - path: /tests/test_salt3nir_bandflux.py
+      type: file
+    - path: /tests/test_fitters.py
+      type: file
+    - path: /tests/test_salt3nir_components.py
+      type: file
+  - path: /setup.py
+    type: file
+  - path: /sncosmo-fitter-jax.py
+    type: file
+  - path: /jax_supernovae
+    type: directory
+    contents:
+    - path: /jax_supernovae/salt2.py
+      type: file
+    - path: /jax_supernovae/test_salt3nir.py
+      type: file
+    - path: /jax_supernovae/bandpasses.py
+      type: file
+    - path: /jax_supernovae/core.py
+      type: file
+    - path: /jax_supernovae/__init__.py
+      type: file
+    - path: /jax_supernovae/salt3nir.py
+      type: file
+    - path: /jax_supernovae/models.py
+      type: file
+    - path: /jax_supernovae/utils.py
+      type: file
+    - path: /jax_supernovae/salt2_data.py
+      type: file
+  - path: /sncosmo-fitter.py
+    type: file
+  - path: /requirements.txt
+    type: file
+  - path: /sncosmo
+    type: directory
+    contents:
+    - path: /sncosmo/LICENSE.rst
+      type: file
+    - path: /sncosmo/benchmarks
+      type: directory
+      contents:
+      - path: /sncosmo/benchmarks/models.py
+        type: file
+      - path: /sncosmo/benchmarks/cubic_interpolator.py
+        type: file
+    - path: /sncosmo/codecov.yml
+      type: file
+    - path: /sncosmo/README.md
+      type: file
+    - path: /sncosmo/setup.cfg
+      type: file
+    - path: /sncosmo/CONTRIBUTING.md
+      type: file
+    - path: /sncosmo/CITATION.cff
+      type: file
+    - path: /sncosmo/misc
+      type: directory
+      contents:
+      - path: /sncosmo/misc/gen_interp_test_data.py
+        type: file
+      - path: /sncosmo/misc/README.md
+        type: file
+      - path: /sncosmo/misc/test_salt2model.cc
+        type: file
+      - path: /sncosmo/misc/gen_example_data.py
+        type: file
+      - path: /sncosmo/misc/Makefile
+        type: file
+      - path: /sncosmo/misc/subsample_hsiao_model.py
+        type: file
+      - path: /sncosmo/misc/gen_example_spectrum.py
+        type: file
+    - path: /sncosmo/setup.py
+      type: file
+    - path: /sncosmo/docs
+      type: directory
+      contents:
+      - path: /sncosmo/docs/_logo
+        type: directory
+        contents:
+        - path: /sncosmo/docs/_logo/spectral_white_bkg.png
+          type: file
+        - path: /sncosmo/docs/_logo/spectral.png
+          type: file
+        - path: /sncosmo/docs/_logo/sncosmo_logo_spectral.svg
+          type: file
+        - path: /sncosmo/docs/_logo/sncosmo_logo_word.svg
+          type: file
+        - path: /sncosmo/docs/_logo/linkout.svg
+          type: file
+        - path: /sncosmo/docs/_logo/sncosmo_banner.svg
+          type: file
+        - path: /sncosmo/docs/_logo/sncosmo_logo_docs.svg
+          type: file
+        - path: /sncosmo/docs/_logo/make_logo.py
+          type: file
+      - path: /sncosmo/docs/registry.rst
+        type: file
+      - path: /sncosmo/docs/history.rst
+        type: file
+      - path: /sncosmo/docs/simulation.rst
+        type: file
+      - path: /sncosmo/docs/source-list.rst
+        type: file
+      - path: /sncosmo/docs/pyplots
+        type: directory
+        contents:
+        - path: /sncosmo/docs/pyplots/plotlc_example.png
+          type: file
+        - path: /sncosmo/docs/pyplots/plotlc_example.py
+          type: file
+      - path: /sncosmo/docs/_static
+        type: directory
+        contents:
+        - path: /sncosmo/docs/_static/linkout_16.png
+          type: file
+        - path: /sncosmo/docs/_static/example_lc.png
+          type: file
+        - path: /sncosmo/docs/_static/sncosmo_banner_96.png
+          type: file
+        - path: /sncosmo/docs/_static/sncosmo.css
+          type: file
+        - path: /sncosmo/docs/_static/sncosmo_logo_32.png
+          type: file
+        - path: /sncosmo/docs/_static/sncosmo_logo_word_32.png
+          type: file
+        - path: /sncosmo/docs/_static/sncosmo_logo_32.ico
+          type: file
+        - path: /sncosmo/docs/_static/example_spectrum.png
+          type: file
+      - path: /sncosmo/docs/photdata.rst
+        type: file
+      - path: /sncosmo/docs/about.rst
+        type: file
+      - path: /sncosmo/docs/magsystem-list.rst
+        type: file
+      - path: /sncosmo/docs/magsystems.rst
+        type: file
+      - path: /sncosmo/docs/spectrum.rst
+        type: file
+      - path: /sncosmo/docs/Makefile
+        type: file
+      - path: /sncosmo/docs/cuts.rst
+        type: file
+      - path: /sncosmo/docs/contributing.rst
+        type: file
+      - path: /sncosmo/docs/conf.py
+        type: file
+      - path: /sncosmo/docs/index.rst
+        type: file
+      - path: /sncosmo/docs/reference.rst
+        type: file
+      - path: /sncosmo/docs/make.bat
+        type: file
+      - path: /sncosmo/docs/models.rst
+        type: file
+      - path: /sncosmo/docs/bandpass-list.rst
+        type: file
+      - path: /sncosmo/docs/_examples
+        type: directory
+        contents:
+        - path: /sncosmo/docs/_examples/plot_custom_fitter.py
+          type: file
+        - path: /sncosmo/docs/_examples/plot_custom_source.py
+          type: file
+        - path: /sncosmo/docs/_examples/README.txt
+          type: file
+        - path: /sncosmo/docs/_examples/plot_lc_fit.py
+          type: file
+      - path: /sncosmo/docs/install.rst
+        type: file
+      - path: /sncosmo/docs/bandpasses.rst
+        type: file
+      - path: /sncosmo/docs/_helpers
+        type: directory
+        contents:
+        - path: /sncosmo/docs/_helpers/bandpass_plot.py
+          type: file
+        - path: /sncosmo/docs/_helpers/source_page.py
+          type: file
+        - path: /sncosmo/docs/_helpers/photdata_aliases_table.py
+          type: file
+        - path: /sncosmo/docs/_helpers/magsystem_page.py
+          type: file
+        - path: /sncosmo/docs/_helpers/bandpass_page.py
+          type: file
+      - path: /sncosmo/docs/configuration.rst
+        type: file
+    - path: /sncosmo/MANIFEST.in
+      type: file
+    - path: /sncosmo/pyproject.toml
+      type: file
+    - path: /sncosmo/CODE_OF_CONDUCT.md
+      type: file
+    - path: /sncosmo/tox.ini
+      type: file
+    - path: /sncosmo/sncosmo
+      type: directory
+      contents:
+      - path: /sncosmo/sncosmo/constants.py
+        type: file
+      - path: /sncosmo/sncosmo/data
+        type: directory
+        contents:
+        - path: /sncosmo/sncosmo/data/examples
+          type: directory
+          contents:
+          - path: /sncosmo/sncosmo/data/examples/example_spectrum.dat
+            type: file
+          - path: /sncosmo/sncosmo/data/examples/example_photometric_data.dat
+            type: file
+        - path: /sncosmo/sncosmo/data/models
+          type: directory
+          contents:
+          - path: /sncosmo/sncosmo/data/models/Hsiao_SED_V3_subsampled.fits
+            type: file
+        - path: /sncosmo/sncosmo/data/bandpasses
+          type: directory
+          contents:
+          - path: /sncosmo/sncosmo/data/bandpasses/bessell
+            type: directory
+            contents:
+            - path: /sncosmo/sncosmo/data/bandpasses/bessell/bessell_v.dat
+              type: file
+            - path: /sncosmo/sncosmo/data/bandpasses/bessell/bessell_i.dat
+              type: file
+            - path: /sncosmo/sncosmo/data/bandpasses/bessell/bessell_ux.dat
+              type: file
+            - path: /sncosmo/sncosmo/data/bandpasses/bessell/bessell_r.dat
+              type: file
+            - path: /sncosmo/sncosmo/data/bandpasses/bessell/bessell_b.dat
+              type: file
+      - path: /sncosmo/sncosmo/builtins.py
+        type: file
+      - path: /sncosmo/sncosmo/bandpasses.py
+        type: file
+      - path: /sncosmo/sncosmo/snfitio.py
+        type: file
+      - path: /sncosmo/sncosmo/registry.py
+        type: file
+      - path: /sncosmo/sncosmo/salt2utils.pyx
+        type: file
+      - path: /sncosmo/sncosmo/tests
+        type: directory
+        contents:
+        - path: /sncosmo/sncosmo/tests/test_salt2source.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/data
+          type: directory
+          contents:
+          - path: /sncosmo/sncosmo/tests/data/snana_simlib_example_coadd.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_simlib_example_doc.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_simlib_example.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snfit_filter_g_0.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/covmat_lc-03D4ag.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/SNLS3-04D3gx
+            type: directory
+            contents:
+            - path: /sncosmo/sncosmo/tests/data/SNLS3-04D3gx/lc2fit_i.dat
+              type: file
+            - path: /sncosmo/sncosmo/tests/data/SNLS3-04D3gx/lc2fit_z.dat
+              type: file
+            - path: /sncosmo/sncosmo/tests/data/SNLS3-04D3gx/lc2fit_r.dat
+              type: file
+            - path: /sncosmo/sncosmo/tests/data/SNLS3-04D3gx/lc2fit_g.dat
+              type: file
+            - path: /sncosmo/sncosmo/tests/data/SNLS3-04D3gx/lightfile
+              type: file
+          - path: /sncosmo/sncosmo/tests/data/README.md
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_fits_example_head.fits
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/interpolation_test_evalx.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/interpolation_test_input.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/lc-03D4ag.list
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/interpolation_test_result.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_simlib_example_invalid.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_fits_example_phot.fits
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_simlib_example_noend.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snfit_filter_z_1.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/dust_subsection
+            type: directory
+            contents:
+            - path: /sncosmo/sncosmo/tests/data/dust_subsection/SFD_dust_4096_ngp.fits
+              type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_rcov_snfit_SDSSg.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_rcov_snfit_SDSSi.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_rcov_params_times.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_timeseries_1.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/interpolation_test_evaly.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_timeseries_4.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snfit_filter_z_0.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_rcov_snfit_SDSSr.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_timeseries_3.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/salt2_timeseries_2.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snana_ascii_example.dat
+            type: file
+          - path: /sncosmo/sncosmo/tests/data/snfit_filter_g_1.dat
+            type: file
+        - path: /sncosmo/sncosmo/tests/test_sugarsource.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_utils.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_salt2utils.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_download_builtins.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_io.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_fitting.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/__init__.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_plotting.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_magsystems.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_simulation.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_bandpasses.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_models.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_builtins.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_spectrum.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_snanaio.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_registry.py
+          type: file
+        - path: /sncosmo/sncosmo/tests/test_photdata.py
+          type: file
+      - path: /sncosmo/sncosmo/specmodel.py
+        type: file
+      - path: /sncosmo/sncosmo/magsystems.py
+        type: file
+      - path: /sncosmo/sncosmo/conftest.py
+        type: file
+      - path: /sncosmo/sncosmo/snanaio.py
+        type: file
+      - path: /sncosmo/sncosmo/__init__.py
+        type: file
+      - path: /sncosmo/sncosmo/spectrum.py
+        type: file
+      - path: /sncosmo/sncosmo/sncosmo.cfg
+        type: file
+      - path: /sncosmo/sncosmo/fitting.py
+        type: file
+      - path: /sncosmo/sncosmo/models.py
+        type: file
+      - path: /sncosmo/sncosmo/photdata.py
+        type: file
+      - path: /sncosmo/sncosmo/utils.py
+        type: file
+      - path: /sncosmo/sncosmo/plotting.py
+        type: file
+      - path: /sncosmo/sncosmo/io.py
+        type: file
+      - path: /sncosmo/sncosmo/simulation.py
+        type: file
+      - path: /sncosmo/sncosmo/_registry.py
+        type: file
+    - path: /sncosmo/checkstyle
+      type: file

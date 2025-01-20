@@ -8,6 +8,9 @@ H_ERG_S = 6.626068e-27   # Planck's constant in erg seconds
 C_AA_PER_S = 2.99792458e18  # Speed of light in angstroms per second
 HC_ERG_AA = H_ERG_S * C_AA_PER_S  # erg * angstrom
 
+# Model constants
+MODEL_BANDFLUX_SPACING = 5.0  # Wavelength spacing for bandflux integration
+
 def trapz(y, x, axis=-1):
     """JAX implementation of numpy's trapz integration."""
     d = jnp.diff(x)
@@ -15,39 +18,25 @@ def trapz(y, x, axis=-1):
     return jnp.sum(d * y_avg, axis=axis)
 
 class Bandpass:
-    def __init__(self, wave, trans, normalize=False):
-        """Initialize a bandpass with arrays of wavelength and transmission.
+    """A bandpass filter."""
+    def __init__(self, wave, trans):
+        self.wave = jnp.array(wave)
+        self.trans = jnp.array(trans)
+        self._setup_bandpass()
+    
+    def _setup_bandpass(self):
+        """Set up bandpass properties."""
+        # Normalize transmission
+        self.trans = self.trans / jnp.max(self.trans)
+        
+        # Calculate effective wavelength
+        weights = self.trans * self.wave
+        self.wave_eff = jnp.sum(weights) / jnp.sum(self.trans)
+        
+        # Calculate wavelength range
+        self.wave_min = jnp.min(self.wave)
+        self.wave_max = jnp.max(self.wave)
 
-        Parameters
-        ----------
-        wave : array_like
-            Wavelength values in Angstroms.
-        trans : array_like
-            Transmission fraction at each wavelength.
-        normalize : bool, optional
-            If True, normalize transmission to 1.0 at peak (default: False).
-        """
-        wave = np.asarray(wave, dtype=np.float64)
-        trans = np.asarray(trans, dtype=np.float64)
-        
-        if wave.shape != trans.shape:
-            raise ValueError('shape of wave and trans must match')
-        if wave.ndim != 1:
-            raise ValueError('only 1-d arrays supported')
-            
-        # Check that values are monotonically increasing
-        if not np.all(np.diff(wave) > 0.):
-            raise ValueError('wavelength values must be monotonically increasing')
-            
-        if normalize:
-            trans = trans / np.max(trans)
-            
-        # Set up interpolation
-        self._tck = splrep(wave, trans, k=1)
-        
-        self.wave = wave
-        self.trans = trans
-        
     def __call__(self, wave_obs):
         """Return interpolated transmission at given wavelengths.
         
@@ -61,15 +50,15 @@ class Bandpass:
         trans : array_like
             Transmission fraction at each wavelength.
         """
-        return splev(wave_obs, self._tck, ext=1)
+        return splev(wave_obs, splrep(self.wave, self.trans, k=1), ext=1)
         
     def minwave(self):
         """Return minimum wavelength."""
-        return float(self.wave[0])
+        return float(self.wave_min)
         
     def maxwave(self):
         """Return maximum wavelength."""
-        return float(self.wave[-1])
+        return float(self.wave_max)
 
 class MagSystem:
     def __init__(self, name='ab'):
@@ -192,8 +181,22 @@ class MagSystem:
 
         return bandflux
 
-def get_magsystem(name):
-    """Get a MagSystem object by name."""
-    if name != 'ab':
-        raise ValueError("Only 'ab' magnitude system is supported")
-    return MagSystem(name) 
+def get_magsystem(name='ab'):
+    """Get a magnitude system by name."""
+    if name.lower() == 'ab':
+        return ABMagSystem()
+    else:
+        raise ValueError(f"Unknown magnitude system: {name}")
+
+class ABMagSystem:
+    """The AB magnitude system."""
+    def __init__(self):
+        self.name = 'ab'
+        self.zero_point_flux = 10**(48.6/-2.5)  # erg/s/cm^2/Hz
+    
+    def band_zero_point(self, bandpass):
+        """Calculate the zero point for a given bandpass."""
+        # Convert to per unit frequency
+        flux_hz = self.zero_point_flux * bandpass.wave_eff**2 / C_AA_PER_S
+        # Convert back to per unit wavelength
+        return flux_hz * C_AA_PER_S / bandpass.wave_eff**2 

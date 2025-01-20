@@ -29,18 +29,21 @@ def load_sdss_bandpass(band):
     Bandpass
         A Bandpass object containing the wavelength and transmission data.
     """
-    # Get the bandpass from SNCosmo
-    sncosmo_band = sncosmo.get_bandpass(band)
-    
-    # Extract wavelength and transmission data
-    wave = sncosmo_band.wave
-    trans = sncosmo_band.trans
-    
-    print(f"Loaded bandpass for {band} band from SNCosmo")
-    print(f"Wave shape: {wave.shape}, min: {wave.min()}, max: {wave.max()}")
-    print(f"Trans shape: {trans.shape}, min: {trans.min()}, max: {trans.max()}")
-    
-    return Bandpass(wave, trans)
+    try:
+        # Get the bandpass from SNCosmo
+        sncosmo_band = sncosmo.get_bandpass(band)
+        
+        # Extract wavelength and transmission data
+        wave = sncosmo_band.wave
+        trans = sncosmo_band.trans
+        
+        print(f"Loaded bandpass for {band} band from SNCosmo")
+        print(f"Wave shape: {wave.shape}, min: {wave.min()}, max: {wave.max()}")
+        print(f"Trans shape: {trans.shape}, min: {trans.min()}, max: {trans.max()}")
+        
+        return Bandpass(wave, trans)
+    except Exception as e:
+        raise ValueError(f"Failed to load bandpass {band}: {str(e)}")
 
 def get_bandpass(name):
     """Get a bandpass object by name or return the bandpass if it's already a Bandpass object."""
@@ -52,7 +55,10 @@ def get_bandpass(name):
         return name
     
     # Otherwise, treat it as a name string
-    if name.startswith('sdss'):
-        return load_sdss_bandpass(name)
+    if isinstance(name, str):
+        if name.startswith('sdss'):
+            return load_sdss_bandpass(name)
+        else:
+            raise ValueError(f"Unknown bandpass: {name}")
     else:
         raise ValueError(f"Unknown bandpass: {name}") 
