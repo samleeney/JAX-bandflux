@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax_supernovae.core import HC_ERG_AA, Bandpass, get_magsystem, MODEL_BANDFLUX_SPACING
-from jax_supernovae.bandpasses import get_bandpass
+from archive.bandpasses import get_bandpass
 
 def integration_grid(low, high, target_spacing):
     """Divide the range between low and high into uniform bins with spacing
