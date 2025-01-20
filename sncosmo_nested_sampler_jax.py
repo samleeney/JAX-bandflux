@@ -7,7 +7,7 @@ import tqdm
 from blackjax.ns.utils import log_weights
 from jax_supernovae.models import Model
 from jax_supernovae.core import get_magsystem
-from jax_supernovae.bandpasses import get_bandpass
+from archive.bandpasses import get_bandpass
 from jax_supernovae.salt2 import salt2_flux
 from jax_supernovae.salt2_data import get_salt2_wave_grid
 
