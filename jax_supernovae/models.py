@@ -66,8 +66,8 @@ class Model:
         # Get the bandpass object
         b = get_bandpass(b)
         
-        # Convert times to numpy array
-        times = np.array(times)
+        # Convert times to JAX array
+        times = jnp.array(times)
         
         # Get rest-frame times and wavelengths
         z = self.parameters['z']
@@ -83,11 +83,13 @@ class Model:
         # Get bandpass transmission
         trans = b.trans
         
-        # Get rest-frame flux
-        rest_flux = self.flux(restphase[:, None], restwave[None, :])
+        # Define a function to compute flux at a single time
+        def single_time_flux(phase):
+            rest_flux = self.flux(phase, restwave)
+            return jnp.sum(restwave * trans * rest_flux) * dwave / HC_ERG_AA
         
-        # Calculate bandflux using SNCosmo's formula
-        bandflux = np.sum(restwave * trans * rest_flux, axis=1) * dwave / HC_ERG_AA
+        # Use vmap to compute flux for all times
+        bandflux = jax.vmap(single_time_flux)(restphase)
         
         # Apply zeropoint scaling if provided
         if zp is not None:

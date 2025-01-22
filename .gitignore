@@ -70,3 +70,4 @@ sncosmo/
 *.png
 plot_chains.py
 test_bandflux_comparison.py
+hsf_DR1/
