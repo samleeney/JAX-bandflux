@@ -14,6 +14,9 @@ from jax import vmap
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
+# Constants
+H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
+
 def integration_grid(low, high, target_spacing):
     """Create a wavelength grid for integration.
     
@@ -791,8 +794,8 @@ def salt3nir_model(params):
     
     return model 
 
-@partial(jax.jit, static_argnames=['bandpass'])
-def salt3nir_bandflux(phase, bandpass, params):
+@partial(jax.jit, static_argnames=['bandpass', 'zpsys'])
+def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     """Calculate bandflux for SALT3-NIR model.
     
     Parameters
@@ -803,13 +806,23 @@ def salt3nir_bandflux(phase, bandpass, params):
         Bandpass to calculate flux through.
     params : dict
         Model parameters including z, t0, x0, x1, c.
+    zp : float or None, optional
+        Zero point for flux. If None, no scaling is applied.
+    zpsys : str, optional
+        Magnitude system for zero point. Must be provided if zp is not None.
+        Default is None.
         
     Returns
     -------
     float or array_like
         Flux in photons/s/cm^2. Return value is float if phase is scalar,
-        array if phase is array.
+        array if phase is array. If zp and zpsys are given, flux is scaled
+        to the requested zeropoint.
     """
+    # Check that if zp is provided, zpsys must also be provided
+    if zp is not None and zpsys is None:
+        raise ValueError('zpsys must be given if zp is not None')
+    
     # Check if phase is scalar
     is_scalar = jnp.ndim(phase) == 0
     if is_scalar:
@@ -841,6 +854,22 @@ def salt3nir_bandflux(phase, bandpass, params):
     
     # Integrate flux through bandpass using trapezoidal rule
     result = jnp.trapezoid(wave[None, :] * trans[None, :] * rest_flux, wave, axis=1) / HC_ERG_AA
+    
+    # Apply zero point if provided
+    if zp is not None:
+        # Get the magsystem's zpbandflux for this bandpass
+        if zpsys == 'ab':
+            # For AB system, calculate zpbandflux
+            # AB spectrum is 3631 x 10^{-23} erg/s/cm^2/Hz
+            # Convert to F_lambda: 3631e-23 * c / wave^2 erg/s/cm^2/AA
+            # Then integrate: sum(f * trans * wave) * dwave / (hc)
+            zpbandflux = 3631e-23 * dwave / H_ERG_S * jnp.sum(trans / wave)
+        else:
+            raise ValueError(f"Unsupported magnitude system: {zpsys}")
+        
+        # Scale the flux according to the zeropoint (exactly like sncosmo)
+        zpnorm = 10.**(0.4 * zp) / zpbandflux
+        result = result * zpnorm
     
     # Return scalar if input was scalar
     if is_scalar:

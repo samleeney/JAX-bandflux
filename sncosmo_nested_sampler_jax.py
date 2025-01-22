@@ -14,45 +14,93 @@ def ensure_chains_dir():
     """Ensure the chains directory exists."""
     os.makedirs('chains', exist_ok=True)
 
-def save_chain_files(samples, weights, logw, logZs, param_names):
+def save_chain_files(state, samples, weights, logw, dead, param_names):
     """Save nested sampling chains to files."""
     ensure_chains_dir()
-    
-    print("\nArray shapes before saving:")
-    print(f"samples: {samples.shape}")
-    print(f"weights: {weights.shape}")
-    print(f"logw: {logw.shape}")
 
-    print("\nArray shapes before conversion:")
-    print(f"samples: {samples.shape}")
-    print(f"weights: {weights.shape}")
-    print(f"logw: {logw.shape}")
+    # Convert JAX arrays to NumPy arrays and ensure they are 1D with mutable copies
+    # Take mean across second dimension if weights is 2D
+    weights = np.array(weights).copy()
+    if len(weights.shape) > 1:
+        weights = weights.mean(axis=1)
+    weights = weights.squeeze()
+    
+    neg2logL = np.array(-2.0 * dead.logL).squeeze().copy()
+    samples = np.array(samples).copy()
 
-    # Convert to numpy arrays and take only the first column
-    weights = np.array(weights)[:, 0].reshape(-1, 1)
-    logw = np.array(logw)[:, 0].reshape(-1, 1)
-    samples = np.array(samples)
+    # Normalize weights
+    weights /= np.sum(weights)
 
-    print("\nArray shapes after conversion:")
-    print(f"samples: {samples.shape}")
-    print(f"weights: {weights.shape}")
-    print(f"logw: {logw.shape}")
+    # Debug: Print shapes and types
+    print(f"weights shape after processing: {weights.shape}, dtype: {weights.dtype}")
+    print(f"neg2logL shape: {neg2logL.shape}, dtype: {neg2logL.dtype}")
+    print(f"samples shape: {samples.shape}, dtype: {samples.dtype}")
 
-    physical_data = np.hstack([samples, weights, logw])
-    np.savetxt('chains/chains_phys.txt', physical_data, header=' '.join(param_names) + ' weight logweight')
-    
-    # Save birth contours (just the samples)
-    birth_data = samples
-    np.savetxt('chains/chains_phys_birth.txt', birth_data, header=' '.join(param_names))
-    
-    # Save live points (same as birth for final iteration)
-    np.savetxt('chains/chains_phys_live.txt', birth_data, header=' '.join(param_names))
-    
-    # Save live birth points (same as birth)
-    np.savetxt('chains/chains_phys_live-birth.txt', birth_data, header=' '.join(param_names))
-    
-    # Save evidence
-    print(f"\nLog-Evidence (logZ): {float(np.array(logZs)[0]):.2f}")
+    # Prepare data for chains.txt: weight, -2*loglike, params
+    chains_data = np.column_stack([
+        weights,             # weight
+        neg2logL,            # -2 * log-likelihood
+        samples              # parameters
+    ])
+    np.savetxt('chains/chains.txt', chains_data, fmt='%.15E')
+
+    # Save all samples with their original weights (no random selection needed)
+    equal_chains_data = np.column_stack([
+        weights,             # weights
+        neg2logL,            # -2 * log-likelihood
+        samples              # parameters
+    ])
+    np.savetxt('chains/chains_equal_weights.txt', equal_chains_data, fmt='%.15E')
+
+    # Save live points with parameters and log-likelihood
+    live_points = np.array(state.sampler_state.particles).copy()
+    live_logL = np.array(state.sampler_state.logL).copy()
+    live_data = np.column_stack([
+        live_points,                   # parameters
+        np.reshape(live_logL, (-1, 1))   # log-likelihood
+    ])
+    np.savetxt('chains/chains_phys_live.txt', live_data, fmt='%.15E')
+
+    # Save dead points with parameters and log-likelihood
+    dead_data = np.column_stack([
+        samples,                    # parameters
+        np.reshape(dead.logL, (-1, 1))  # log-likelihood
+    ])
+    np.savetxt('chains/chains_dead.txt', dead_data, fmt='%.15E')
+
+    # Save parameter names
+    with open('chains/chains.paramnames', 'w') as f:
+        for name in param_names:
+            f.write(f"{name} '{name}'\n")
+
+    # Save dead points with birth contours
+    dead_birth_data = np.column_stack([
+        samples,                                        # First ndims columns: parameters
+        np.reshape(np.array(dead.logL), (-1, 1)),      # Next column: log-likelihood
+        np.reshape(np.array(dead.logL_birth), (-1, 1)) # Last column: birth contours
+    ])
+    np.savetxt('chains/chains_dead-birth.txt', dead_birth_data, fmt='%.15E')
+
+    # Save live points with birth contours
+    live_birth = np.full_like(live_logL, live_logL.min())
+    live_birth_data = np.column_stack([
+        live_points,                                    # First ndims columns: parameters
+        np.reshape(live_logL, (-1, 1)),                # Next column: log-likelihood
+        np.reshape(live_birth, (-1, 1))                # Last column: birth contours
+    ])
+    np.savetxt('chains/chains_phys_live-birth.txt', live_birth_data, fmt='%.15E')
+
+    # Compute and print mean parameters using the weights
+    mean_params = np.average(samples, axis=0, weights=weights)
+    std_params = np.sqrt(np.average((samples - mean_params) ** 2, axis=0, weights=weights))
+
+    print("\nParameter Estimates (from weighted dead points):")
+    for i, param in enumerate(param_names):
+        mean = mean_params[i]
+        std = std_params[i]
+        print(f"{param} = {mean:.5f} ± {std:.5f}")
+
+    print("\nChain files have been saved in the 'chains' directory.")
 
 # Load the data
 import sncosmo
@@ -95,7 +143,7 @@ param_names = ['z', 't0', 'x0', 'x1', 'c']
 param_bounds = {
     'z': (0.3, 0.7),
     't0': (55080., 55120.),
-    'x0': (1e-6, 1e-2),
+    'x0': (1e-6, 1e-4),
     'x1': (-3., 3.),
     'c': (-0.3, 0.3)
 }
@@ -129,12 +177,14 @@ def compute_loglikelihood_for_particle(params):
     norm_term = jnp.sum(jnp.log(data_fluxerr * jnp.sqrt(2 * jnp.pi)))
     
     # Return normalized log-likelihood
-    return -0.5 * chi2 - norm_term
+    logL = -0.5 * chi2 - norm_term
+    
+    return logL
 
 @jax.jit
-def loglikelihood(parameters):
+def compute_loglikelihood_for_batch(params):
     """Compute log-likelihood for a batch of particles."""
-    return jax.vmap(compute_loglikelihood_for_particle)(parameters)
+    return jax.vmap(compute_loglikelihood_for_particle)(params)
 
 class UniformJointPrior(distrax.Distribution):
     def __init__(self, param_names, param_bounds):
@@ -188,7 +238,7 @@ num_mcmc_steps = len(param_names) * 5
 # Initialize the nested sampling algorithm
 algo = blackjax.ns.adaptive.nss(
     logprior_fn=prior.log_prob,
-    loglikelihood_fn=loglikelihood,
+    loglikelihood_fn=compute_loglikelihood_for_batch,
     n_delete=n_delete,
     num_mcmc_steps=num_mcmc_steps,
 )
@@ -199,7 +249,7 @@ rng_key = jax.random.PRNGKey(42)
 # Initialize with samples from prior
 rng_key, init_key = jax.random.split(rng_key)
 initial_particles = prior.sample(seed=init_key, sample_shape=(n_live,))
-state = algo.init(initial_particles, loglikelihood)
+state = algo.init(initial_particles, compute_loglikelihood_for_batch)
 
 @jax.jit
 def one_step(carry, xs):
@@ -210,7 +260,7 @@ def one_step(carry, xs):
 
 # Run nested sampling
 dead = []
-for _ in tqdm.trange(10):
+for i in tqdm.trange(5000):
     if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
         break
     (state, rng_key), dead_info = one_step((state, rng_key), None)
@@ -219,25 +269,30 @@ for _ in tqdm.trange(10):
 # Process results
 dead = jax.tree_util.tree_map(lambda *args: jnp.concatenate(args), *dead)
 print("\nDead points structure:")
-print(jax.tree_util.tree_map(lambda x: x.shape if hasattr(x, 'shape') else x, dead))
+print(jax.tree_util.tree_map(lambda x: x.shape, dead))
+
+# Get log-weights and evidence
 logw = log_weights(rng_key, dead)
 logZs = jax.scipy.special.logsumexp(logw, axis=0)
 
-# Extract samples and compute statistics
+# Extract samples and compute weights
 samples = dead.particles
 weights = jnp.exp(logw - logZs)
 
-# Print shapes for debugging
-print("\nArray shapes before saving:")
-print(f"samples: {samples.shape}")
-print(f"weights: {weights.shape}")
-print(f"logw: {logw.shape}")
-
 # Save chains
-save_chain_files(samples, weights, logw, logZs, param_names)
+save_chain_files(state, samples, weights, logw, dead, param_names)
 
 # Calculate mean and standard deviation for each parameter
-weights_1d = weights[:, 0]  # Take only the first column
+weights_1d = jnp.mean(weights, axis=1) if len(weights.shape) > 1 else weights
+logw_1d = jnp.mean(logw, axis=1) if len(logw.shape) > 1 else logw
+
+# Print shapes for debugging
+print("Array shapes before saving:")
+print(f"samples: {samples.shape}")
+print(f"weights_1d: {weights_1d.shape}")
+print(f"logw_1d: {logw_1d.shape}")
+
+# Compute mean parameters using the 1D weights
 mean_params = jnp.average(samples, axis=0, weights=weights_1d)
 std_params = jnp.sqrt(jnp.average((samples - mean_params) ** 2, axis=0, weights=weights_1d))
 

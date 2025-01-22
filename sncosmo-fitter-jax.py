@@ -1,71 +1,71 @@
-import jax
-import jax.numpy as jnp
 import numpy as np
-from scipy.optimize import basinhopping, fmin_l_bfgs_b
+from scipy.optimize import fmin_l_bfgs_b
 import sncosmo
-from jax_supernovae.models import Model
-from jax_supernovae.salt2 import salt2_flux
-from jax_supernovae.salt2_data import get_salt2_wave_grid
+import matplotlib.pyplot as plt
 
-# Initialize JAX model
-jax_model = Model()
-# Get wavelength grid from our data module
-jax_model.wave = get_salt2_wave_grid()
-jax_model.flux = lambda t, w: salt2_flux(t, w, jax_model.parameters)
-
-# Load the data
+# Load data and set up model
+model = sncosmo.Model(source='salt2')
 data = sncosmo.load_example_data()
 
-# Pre-compute JAX arrays for data we'll use repeatedly
-jax_data_flux = jnp.array(data['flux'])
-jax_fluxerr = jnp.array(data['fluxerr'])
-
-def get_model_flux(parameters):
-    """Helper function to get model flux using numpy arrays"""
-    param_dict = {
-        'z': parameters[0],
-        't0': parameters[1],
-        'x0': parameters[2],
-        'x1': parameters[3],
-        'c': parameters[4]
-    }
-    jax_model.parameters = param_dict
-    return jax_model.bandflux(data['band'], data['time'],
-                         zp=data['zp'], zpsys=data['zpsys'])
-
-@jax.jit
-def compute_chi2(model_flux, data_flux, fluxerr):
-    """Pure JAX function to compute chi-squared"""
-    return jnp.sum(((data_flux - model_flux) / fluxerr) ** 2)
-
+# Define an objective function that we will pass to the minimizer.
+# The function arguments must comply with the expectations of the specfic
+# minimizer you are using.
 def objective(parameters):
-    """Main objective function"""
-    # Get model flux (using numpy)
-    model_flux = get_model_flux(parameters)
-    
-    # Convert to JAX array and compute chi-squared
-    jax_model_flux = jnp.array(model_flux)
-    return float(compute_chi2(jax_model_flux, jax_data_flux, jax_fluxerr))
+    model.parameters[:] = parameters  # set model parameters
 
-# Initial parameter values and bounds
-start_parameters = np.array([0.4, 55098., 1e-5, 0., 0.])
+    # evaluate model fluxes at times/bandpasses of data
+    model_flux = model.bandflux(data['band'], data['time'],
+                                zp=data['zp'], zpsys=data['zpsys'])
+
+    jax_flux = salt3nir_bandflux(data['time'], data['band'], parameters)
+
+    # calculate and return chi^2
+    return np.sum(((data['flux'] - model_flux) / data['fluxerr'])**2)
+
+# starting parameter values in same order as `model.param_names`:
+start_parameters = [0.4, 55098., 1e-5, 0., 0.]  # z, t0, x0, x1, c
+
+# parameter bounds in same order as `model.param_names`:
 bounds = [(0.3, 0.7), (55080., 55120.), (None, None), (None, None),
           (None, None)]
 
-# Define a minimizer for use with basinhopping
-def minimizer_wrapper(func, x0, **kwargs):
-    result = fmin_l_bfgs_b(func, x0, bounds=bounds, approx_grad=True)
-    return result[0], result[1]
+parameters, val, info = fmin_l_bfgs_b(objective, start_parameters,
+                                      bounds=bounds, approx_grad=True)
 
-# Run basin-hopping to find global minimum
-result = basinhopping(
-    objective,
-    start_parameters,
-    minimizer_kwargs={'method': 'L-BFGS-B', 'bounds': bounds},
-    niter=20,  # Number of basin-hopping iterations
-    T=1.0,     # Temperature parameter for acceptance
-    stepsize=0.1  # Initial step size for perturbation
-)
+# Set model parameters to best fit
+model.parameters = parameters
 
-# Extract optimized parameters and print in consistent format
-print("RESULT:", result.x.tolist()) 
+# Plot the light curve
+plt.figure(figsize=(10, 6))
+
+# Define a color map for the bands
+colors = {'sdssg': 'g', 'sdssr': 'r', 'sdssi': 'purple', 'sdssz': 'k'}
+
+# Plot data points and model curves for each band
+times = np.linspace(data['time'].min(), data['time'].max(), 100)
+
+for band in np.unique(data['band']):
+    color = colors[band]
+    
+    # Plot data points
+    mask = data['band'] == band
+    plt.errorbar(data['time'][mask], data['flux'][mask],
+                yerr=data['fluxerr'][mask],
+                fmt='o', color=color, label=f'Data {band}')
+    
+    # Plot model curve with same color
+    model_flux = model.bandflux(band, times,
+                               zp=data['zp'][0], zpsys=data['zpsys'][0])
+    plt.plot(times, model_flux, '-', color=color, label=f'Model {band}')
+
+plt.xlabel('Time (MJD)')
+plt.ylabel('Flux')
+plt.title('SN Light Curve - Data and Best Fit Model')
+plt.legend()
+plt.grid(True)
+plt.savefig('sncosmo-fitter.png')
+
+# Print best-fit parameters
+print("\nBest-fit parameters:")
+for name, value in zip(model.param_names, parameters):
+    print(f"{name}: {value:.6f}")

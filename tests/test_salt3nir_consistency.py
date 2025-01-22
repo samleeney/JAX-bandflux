@@ -97,22 +97,37 @@ def test_salt3nir_consistency():
     print(f"{'Phase':>8} {'SNCosmo Flux':>15} {'JAX Flux':>15} {'Ratio':>10}")
     print("-" * 60)
 
-    for phase in test_phases:
-        # Calculate bandflux using sncosmo
-        snc_flux = snc_model.bandflux(snc_band, phase)
+    # Test both with and without zeropoint scaling
+    test_cases = [
+        {'zp': None, 'zpsys': None},
+        {'zp': 25.0, 'zpsys': 'ab'}
+    ]
 
-        # Calculate bandflux using JAX implementation
-        jax_flux = salt3nir_bandflux(phase, jax_band, params)
+    for test_case in test_cases:
+        print(f"\nTesting with zp={test_case['zp']}, zpsys={test_case['zpsys']}")
+        print("-" * 60)
 
-        # Print comparison
-        ratio = float(jax_flux/snc_flux)
-        print(f"{phase:8.1f} {snc_flux:15.6e} {float(jax_flux):15.6e} {ratio:10.4f}")
+        for phase in test_phases:
+            # Calculate bandflux using sncosmo
+            snc_flux = snc_model.bandflux(snc_band, phase, 
+                                        zp=test_case['zp'], 
+                                        zpsys=test_case['zpsys'])
 
-        # Assert that the bandfluxes match
-        np.testing.assert_allclose(jax_flux, snc_flux, rtol=1e-2,
-                                   err_msg=f"Bandfluxes do not match at phase {phase}")
+            # Calculate bandflux using JAX implementation
+            jax_flux = salt3nir_bandflux(phase, jax_band, params,
+                                       zp=test_case['zp'],
+                                       zpsys=test_case['zpsys'])
 
-    print("-" * 60)
+            # Print comparison
+            ratio = float(jax_flux/snc_flux)
+            print(f"{phase:8.1f} {snc_flux:15.6e} {float(jax_flux):15.6e} {ratio:10.4f}")
+
+            # Assert that the bandfluxes match
+            np.testing.assert_allclose(jax_flux, snc_flux, rtol=1e-2,
+                                     err_msg=f"Bandfluxes do not match at phase {phase} "
+                                            f"with zp={test_case['zp']}, zpsys={test_case['zpsys']}")
+
+        print("-" * 60)
 
 if __name__ == "__main__":
     test_salt3nir_consistency()

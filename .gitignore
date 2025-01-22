@@ -65,3 +65,8 @@ sncosmo/.config_bare
 archive/
 chains/
 examples
+.config_bare
+sncosmo/
+*.png
+plot_chains.py
+test_bandflux_comparison.py
