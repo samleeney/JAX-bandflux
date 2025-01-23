@@ -70,4 +70,13 @@ sncosmo/
 *.png
 plot_chains.py
 test_bandflux_comparison.py
+hsf_DR1/.config_bare
+check_data.py
+download_missing_bandpasses.py
+download_remaining_bandpasses.py
 hsf_DR1/
+load_hsf_data.py
+register_bandpasses.py
+search_svo_filters.py
+sn_anomaly2.code-workspace
+test_bandpass_availability.py

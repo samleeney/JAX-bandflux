@@ -823,10 +823,9 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     if zp is not None and zpsys is None:
         raise ValueError('zpsys must be given if zp is not None')
     
-    # Check if phase is scalar
-    is_scalar = jnp.ndim(phase) == 0
-    if is_scalar:
-        phase = jnp.array([phase])
+    # Convert inputs to arrays
+    phase = jnp.atleast_1d(phase)
+    is_scalar = len(phase.shape) == 0
     
     # Get parameters
     z = params['z']
@@ -874,5 +873,34 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     # Return scalar if input was scalar
     if is_scalar:
         result = result[0]
+    
+    return result
+
+def salt3nir_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
+    """Calculate flux for multiple bandpasses at once.
+    
+    Args:
+        phase (array-like): Phase(s) in observer frame.
+        bandpasses (list): List of Bandpass objects.
+        params (dict): Model parameters including z, t0, x0, x1, c.
+        zps (array-like, optional): Zero points for each bandpass.
+        zpsys (str, optional): Magnitude system (e.g. 'ab').
+        
+    Returns:
+        array-like: Flux values for each phase and bandpass combination.
+    """
+    # Convert inputs to arrays
+    phase = jnp.atleast_1d(phase)
+    n_phase = len(phase)
+    n_bands = len(bandpasses)
+    
+    # Initialize output array
+    result = jnp.zeros((n_phase, n_bands))
+    
+    # Calculate flux for each bandpass
+    for i, bandpass in enumerate(bandpasses):
+        zp = zps[i] if zps is not None else None
+        band_flux = salt3nir_bandflux(phase, bandpass, params, zp=zp, zpsys=zpsys)
+        result = result.at[:, i].set(band_flux)
     
     return result 
