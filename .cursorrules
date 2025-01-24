@@ -1,19 +1,14 @@
 General goal:
-The general goal is to re write the bandflux function in sncosmo to be compatible with jax. Currently the bnadflux function which has been re written in jax (in jax_supernovae directory) almost matches, but not exactly. Run testing with the SALT3-NIR model.
+The general goal is to re write the bandflux function in sncosmo to be compatible with jax. Currently the bnadflux function which has been re written in jax (in jax_supernovae directory) exactly (to an acceptable margin) matches the original sncosmo code. Run testing with the SALT3-NIR model.
 
-The  primary test should be designed to test if the bandfluxes match. If they do, then the code is working. If they dont, then other tests should be designed to figure out which lines of code in the jax bandflux code does not exactly match the original sncosmo code.
+The next steps are to implement the SALT3-NIR model into a nested sampling procedure to estimate the posterior distribution of the parameters. jax_ex.py shows an example nested sampling code.
 
-So the key points are:
+Currently:
+a) The jax bandflux function passes tests
+b) The jax bandflux function works when using other sampling procedures
+c) The nested sampler works on a multivariate gaussian test. 
 
-1. The bandflux function written in jax must match the original sncosmo bandflux function. A test should be designed to check this which is run reguarly.
-2. If the bandflux does not match, other tests should be designed to figure out which lines of code in the jax bandflux code does not exactly match the original sncosmo code.
-3. When a segment of code in the jax version is tested, and confirmed to be working, a comment should be added to that segment of code in the jax version to indicate that it is working.
-4. sncosmo/sncosmo/models.py contains the bandflux function and other related functions. sncosmo/sncosmo contains other related functions.
-
-Model files are here:
-
-/home/sam/academic/sn_anomaly2/sncosmo-modelfiles/
-
+The nested sampler when run with the SALT3-NIR model initially appears to work, but after some time sampling it starts to produces NaN's. This is the current problem that needs tob e solved.
 
 Markdown recipe:
 

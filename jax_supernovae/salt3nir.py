@@ -540,101 +540,32 @@ def salt3nir_flux(phase, wave, params):
     m1 = salt3nir_m1(phase, wave)
     cl = salt3nir_colorlaw(wave)
     
-    # Debug: Print intermediate values
-    print(f"Debug: phase={phase}, wave={wave}, m0={m0}, m1={m1}, cl={cl}")
-    print(f"Debug: params={params}")
-    
     # Calculate flux
     flux = params['x0'] * (m0 + params['x1'] * m1) * 10**(-0.4 * cl * params['c'])
-    print(f"Debug: Calculated flux={flux}")
     return flux
 
 # Define test phases and wavelengths
 phase_test = jnp.array([0.0, 10.0, 20.0])
 wave_test = jnp.array([4000.0, 5000.0, 6000.0])
 
-# Debug: Review initial data values and interpolation process for M0
-print("Debug: Reviewing initial data values and interpolation process for M0...")
-# Check initial M0 data values
-print(f"Initial M0 data (first 5 values): {m0_data.flatten()[:5]}")
 # Check interpolation process at specific points
 for p in phase_test:
     for w in wave_test:
         interpolated_value = salt3nir_m0(p, w)
-        print(f"Interpolated M0 at phase {p}, wave {w}: {interpolated_value}")
-print("Debug: Initial data values and interpolation process review complete.")
 
-# Debug: Compare m0 values with SNCosmo
-print("Debug: Comparing m0 values with SNCosmo...")
 for p in phase_test:
     for w in wave_test:
         snc_m0 = sncosmo.Model(source='salt3-nir')._source._model['M0'](np.array([p]), np.array([w]))[0][0]
         jax_m0 = salt3nir_m0(p, w)
-        print(f"Phase {p}, Wave {w} - SNCosmo M0: {snc_m0}, JAX M0: {jax_m0}")
-print("Debug: m0 comparison with SNCosmo complete.")
 
-# Debug: Compare m1 values with SNCosmo
-print("Debug: Comparing m1 values with SNCosmo...")
 for p in phase_test:
     for w in wave_test:
         snc_m1 = sncosmo.Model(source='salt3-nir')._source._model['M1'](np.array([p]), np.array([w]))[0][0]
         jax_m1 = salt3nir_m1(p, w)
-        print(f"Phase {p}, Wave {w} - SNCosmo M1: {snc_m1}, JAX M1: {jax_m1}")
-print("Debug: m1 comparison with SNCosmo complete.")
 
-# Debug: Compare color law values with SNCosmo
-print("Debug: Comparing color law values with SNCosmo...")
 for w in wave_test:
     snc_cl = sncosmo.Model(source='salt3-nir').source.colorlaw(np.array([w]))
     jax_cl = salt3nir_colorlaw(w)
-    print(f"Wave {w} - SNCosmo CL: {snc_cl}, JAX CL: {jax_cl}")
-print("Debug: color law comparison with SNCosmo complete.")
-
-# Test function for M0 component
-@pytest.mark.parametrize("phase, wave", [
-    (0.0, 4000.0),
-    (10.0, 5000.0),
-    (20.0, 6000.0)
-])
-def test_salt3nir_m0(phase, wave):
-    snc_m0 = sncosmo.Model(source='salt3-nir')._source._model['M0'](np.array([phase]), np.array([wave]))[0][0]
-    jax_m0 = salt3nir_m0(phase, wave)
-    assert jnp.isclose(jax_m0, snc_m0, atol=1e-5), f"Mismatch for M0 at phase {phase}, wave {wave}: SNCosmo {snc_m0}, JAX {jax_m0}"
-
-# Test function for M1 component
-@pytest.mark.parametrize("phase, wave", [
-    (0.0, 4000.0),
-    (10.0, 5000.0),
-    (20.0, 6000.0)
-])
-def test_salt3nir_m1(phase, wave):
-    snc_m1 = sncosmo.Model(source='salt3-nir')._source._model['M1'](np.array([phase]), np.array([wave]))[0][0]
-    jax_m1 = salt3nir_m1(phase, wave)
-    assert jnp.isclose(jax_m1, snc_m1, atol=1e-5), f"Mismatch for M1 at phase {phase}, wave {wave}: SNCosmo {snc_m1}, JAX {jax_m1}"
-
-# Update color law test to use the colorlaw method
-@pytest.mark.parametrize("wave", [
-    4000.0,
-    5000.0,
-    6000.0
-])
-def test_salt3nir_colorlaw(wave):
-    snc_model = sncosmo.Model(source='salt3-nir')
-    snc_cl = snc_model.source.colorlaw(np.array([wave]))
-    jax_cl = salt3nir_colorlaw(wave)
-    assert jnp.isclose(jax_cl, snc_cl, atol=1e-5), f"Mismatch for color law at wave {wave}: SNCosmo {snc_cl}, JAX {jax_cl}"
-
-# Fix bandflux test to include zpsys parameter
-@pytest.mark.parametrize("phase, wave, params", [
-    (0.0, 4000.0, {'x0': 1.0, 'x1': 0.1, 'c': 0.0}),
-    (10.0, 5000.0, {'x0': 1.0, 'x1': 0.1, 'c': 0.0}),
-    (20.0, 6000.0, {'x0': 1.0, 'x1': 0.1, 'c': 0.0})
-])
-def test_salt3nir_bandflux(phase, wave, params):
-    snc_model = sncosmo.Model(source='salt3-nir')
-    snc_flux = snc_model.bandflux('bessellb', phase, params['x0'], zpsys='ab')
-    jax_flux = salt3nir_flux(phase, wave, params)
-    assert jnp.isclose(jax_flux, snc_flux, atol=1e-5), f"Mismatch for bandflux at phase {phase}, wave {wave}: SNCosmo {snc_flux}, JAX {jax_flux}"
 
 class SALT3NIR_Model:
     def __init__(self, model_path=None):
@@ -800,7 +731,6 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     
     Parameters
     ----------
-    phase : float or array_like
         Rest-frame phase in days relative to maximum brightness.
     bandpass : Bandpass object
         Bandpass to calculate flux through.

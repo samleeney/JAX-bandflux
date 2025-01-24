@@ -92,7 +92,9 @@ def objective(parameters):
                                         zps=data['zp'][valid_mask], zpsys='ab')
     
     # Extract fluxes for each observation's band
+    print(jax_fluxes.shape)
     model_fluxes = jax_fluxes[np.arange(len(times)), band_indices]
+    print(model_fluxes.shape)
     
     # Calculate chi-squared using only valid observations
     chi2 = np.sum(((data['flux'][valid_mask] - model_fluxes) / data['fluxerr'][valid_mask])**2)
