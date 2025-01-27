@@ -185,7 +185,7 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
-for i in tqdm.trange(100):
+for i in tqdm.trange(5000):
     if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
         break
 

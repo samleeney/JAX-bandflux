@@ -91,3 +91,7 @@ sncosmo-fitter.py
 sncosmo-ex.py
 sncosmo-fitter.py
 sncosmo-fitter.py
+chains_dead-birth.txt
+output-pool.log
+read_samples.py
+salt3nir_samples.npz
