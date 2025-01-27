@@ -8,8 +8,10 @@ from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3nir import salt3nir_multiband_flux
 from jax_supernovae.core import Bandpass
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass
+from jax_supernovae.utils import save_chains_dead_birth
 from load_hsf_data import load_hsf_data
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -37,7 +39,7 @@ def register_all_bandpasses():
     return bandpass_dict
 
 # Load data and register bandpasses
-data = load_hsf_data('22nbn')
+data = load_hsf_data('19agl')
 bandpass_dict = register_all_bandpasses()
 
 # Get unique bands and their bandpasses
@@ -58,20 +60,20 @@ band_indices = jnp.array([unique_bands.index(band) for band in data['band'][vali
 
 # Define parameter bounds and priors
 param_bounds = {
-    'z': (0.001, 0.2),
-    't0': (59700., 59800.),
-    'x0': (jnp.log10(1e-6), jnp.log10(1e-3)),
-    'x1': (-3., 3.),
-    'c': (-0.3, 0.3)
+    'z': (0.001, 0.2),  # keeping original z range as it's not in the SALT fits
+    't0': (58515., 58525.),  # centered around successful fits (~58520)
+    'x0': (jnp.log10(6e-5), jnp.log10(3e-4)),  # based on x0_mag range ~8.6-9.8
+    'x1': (-2.5, 2.5),  # based on successful fits range
+    'c': (-0.3, 0.5)  # based on successful fits range
 }
 
 # Create prior distributions
 prior_dists = {
     'z': distrax.Uniform(low=param_bounds['z'][0], high=param_bounds['z'][1]),
-    't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
+    't0': distrax.Normal(loc=58520., scale=2.0),  # Gaussian centered on mean t0
     'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
-    'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
-    'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
+    'x1': distrax.Normal(loc=1.5, scale=1.0),  # Gaussian based on successful fits
+    'c': distrax.Normal(loc=0.2, scale=0.2)  # Gaussian based on successful fits
 }
 
 @jax.jit
@@ -183,7 +185,7 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
-for i in tqdm.trange(1000):
+for i in tqdm.trange(100):
     if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
         break
 
@@ -201,17 +203,6 @@ logZs = jax.scipy.special.logsumexp(logw, axis=0)
 print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
 print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
 
-# Save samples and weights
-samples = dead.particles
-weights = jnp.exp(logw - logw.max())
-weights /= weights.sum()
-
-# Transform x0 back to linear space before saving
-samples = samples.at[:, 2].set(jnp.exp(samples[:, 2]))
-
-# Save results
-np.savez('salt3nir_samples.npz',
-         samples=np.array(samples),
-         weights=np.array(weights),
-         logZ=np.array(logZs),
-         parameter_names=['z', 't0', 'x0', 'x1', 'c']) 
+# Save chains using the utility function
+param_names = ['z', 't0', 'x0', 'x1', 'c']
+save_chains_dead_birth(dead, param_names)
