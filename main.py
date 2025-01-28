@@ -61,10 +61,10 @@ band_indices = jnp.array([unique_bands.index(band) for band in data['band'][vali
 # Define parameter bounds and priors
 param_bounds = {
     'z': (0.001, 0.2),  # keeping original z range as it's not in the SALT fits
-    't0': (58515., 58525.),  # centered around successful fits (~58520)
-    'x0': (jnp.log10(6e-5), jnp.log10(3e-4)),  # based on x0_mag range ~8.6-9.8
-    'x1': (-2.5, 2.5),  # based on successful fits range
-    'c': (-0.3, 0.5)  # based on successful fits range
+    't0': (58000., 59000.),  # centered around successful fits (~58520)
+    'x0': (jnp.log10(1e-6), jnp.log10(1e-3)),  # based on x0_mag range ~8.6-9.8
+    'x1': (-3, 3),  # based on successful fits range
+    'c': (-0.3, 0.3)  # based on successful fits range
 }
 
 # Create prior distributions
