@@ -117,6 +117,9 @@ def test_salt3nir_consistency():
             jax_flux = salt3nir_bandflux(phase, jax_band, params,
                                        zp=test_case['zp'],
                                        zpsys=test_case['zpsys'])
+            
+            # Convert JAX array to scalar
+            jax_flux = jnp.squeeze(jax_flux)
 
             # Print comparison
             ratio = float(jax_flux/snc_flux)
