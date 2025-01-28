@@ -12,6 +12,11 @@ from jax_supernovae.utils import save_chains_dead_birth
 from load_hsf_data import load_hsf_data
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
+
+# Load settings
+with open('settings.yaml', 'r') as f:
+    settings = yaml.safe_load(f)
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -60,20 +65,29 @@ band_indices = jnp.array([unique_bands.index(band) for band in data['band'][vali
 
 # Define parameter bounds and priors
 param_bounds = {
-    'z': (0.001, 0.2),  # keeping original z range as it's not in the SALT fits
-    't0': (58000., 59000.),  # centered around successful fits (~58520)
-    'x0': (jnp.log10(1e-6), jnp.log10(1e-3)),  # based on x0_mag range ~8.6-9.8
-    'x1': (-3, 3),  # based on successful fits range
-    'c': (-0.3, 0.3)  # based on successful fits range
+    'z': (settings['prior_bounds']['z']['min'], settings['prior_bounds']['z']['max']),
+    't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
+    'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
+    'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
+    'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
 }
 
 # Create prior distributions
 prior_dists = {
     'z': distrax.Uniform(low=param_bounds['z'][0], high=param_bounds['z'][1]),
-    't0': distrax.Normal(loc=58520., scale=2.0),  # Gaussian centered on mean t0
+    't0': distrax.Normal(
+        loc=settings['prior_distributions']['t0']['loc'],
+        scale=settings['prior_distributions']['t0']['scale']
+    ),
     'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
-    'x1': distrax.Normal(loc=1.5, scale=1.0),  # Gaussian based on successful fits
-    'c': distrax.Normal(loc=0.2, scale=0.2)  # Gaussian based on successful fits
+    'x1': distrax.Normal(
+        loc=settings['prior_distributions']['x1']['loc'],
+        scale=settings['prior_distributions']['x1']['scale']
+    ),
+    'c': distrax.Normal(
+        loc=settings['prior_distributions']['c']['loc'],
+        scale=settings['prior_distributions']['c']['scale']
+    )
 }
 
 @jax.jit
@@ -148,10 +162,10 @@ def loglikelihood(params):
     return batch_loglike
 
 # Set up nested sampling
-n_live = 100
-n_params = 5
-n_delete = 1
-num_mcmc_steps = n_params * 5
+n_live = settings['nested_sampling']['n_live']
+n_params = settings['nested_sampling']['n_params']
+n_delete = settings['nested_sampling']['n_delete']
+num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
 
 # Initialize nested sampling algorithm
 print("Setting up nested sampling algorithm...")
@@ -185,7 +199,8 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
-for i in tqdm.trange(5000):
+num_iterations = settings['nested_sampling']['max_iterations']
+for i in tqdm.trange(num_iterations):
     if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
         break
 
