@@ -44,12 +44,12 @@ class Bandpass:
         """Initialize bandpass with wavelength and transmission arrays."""
         self._wave = jnp.asarray(wave)
         self._trans = jnp.asarray(trans)
-        self._minwave = float(jnp.min(wave))
-        self._maxwave = float(jnp.max(wave))
+        self._minwave = float(jnp.min(self._wave))
+        self._maxwave = float(jnp.max(self._wave))
     
     def __call__(self, wave):
         """Get interpolated transmission at given wavelengths."""
-        wave = jnp.asarray(wave)  # Don't reshape, preserve input shape
+        wave = jnp.asarray(wave)
         return interp(wave, self._wave, self._trans)
     
     def minwave(self):
@@ -81,7 +81,7 @@ class Bandpass:
             Grid spacing in Angstroms.
         """
         spacing = MODEL_BANDFLUX_SPACING
-        nbin = int(np.ceil((self.maxwave() - self.minwave()) / spacing))
+        nbin = int(jnp.ceil((self.maxwave() - self.minwave()) / spacing))
         wave = jnp.arange(nbin) * spacing + self.minwave() + 0.5 * spacing
         return wave, spacing
 
