@@ -75,19 +75,10 @@ param_bounds = {
 # Create prior distributions
 prior_dists = {
     'z': distrax.Uniform(low=param_bounds['z'][0], high=param_bounds['z'][1]),
-    't0': distrax.Normal(
-        loc=settings['prior_distributions']['t0']['loc'],
-        scale=settings['prior_distributions']['t0']['scale']
-    ),
+    't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
     'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
-    'x1': distrax.Normal(
-        loc=settings['prior_distributions']['x1']['loc'],
-        scale=settings['prior_distributions']['x1']['scale']
-    ),
-    'c': distrax.Normal(
-        loc=settings['prior_distributions']['c']['loc'],
-        scale=settings['prior_distributions']['c']['scale']
-    )
+    'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
+    'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
 }
 
 @jax.jit

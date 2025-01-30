@@ -18,23 +18,8 @@ prior_bounds:
     min: -6.0  # log10(1e-6)
     max: -3.0  # log10(1e-3)
   x1:
-    min: -3.0
-    max: 3.0
+    min: -4.0
+    max: 4.0
   c:
     min: -0.3
     max: 0.3
-
-# Prior distributions
-prior_distributions:
-  t0:
-    type: normal
-    loc: 58520.0
-    scale: 2.0
-  x1:
-    type: normal
-    loc: 1.5
-    scale: 1.0
-  c:
-    type: normal
-    loc: 0.2
-    scale: 0.2 
