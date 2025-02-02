@@ -105,18 +105,4 @@ def get_bandpass(name):
         return name
     if name not in _BANDPASSES:
         raise ValueError(f"Bandpass {name} not found")
-    return _BANDPASSES[name]
-
-def register_hsf_bandpasses():
-    """Register all bandpasses used in the HSF_DR1 dataset."""
-    # Load ATLAS filters
-    c_band = load_bandpass('c')
-    register_bandpass('c', c_band, force=True)
-    
-    o_band = load_bandpass('o')
-    register_bandpass('o', o_band, force=True)
-    
-    # Load ZTF filters
-    for band in ['ztfg', 'ztfr']:
-        bandpass = load_bandpass(band)
-        register_bandpass(band, bandpass, force=True) 
+    return _BANDPASSES[name] 

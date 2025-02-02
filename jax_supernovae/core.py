@@ -44,12 +44,12 @@ class Bandpass:
         """Initialize bandpass with wavelength and transmission arrays."""
         self._wave = jnp.asarray(wave)
         self._trans = jnp.asarray(trans)
-        self._minwave = float(jnp.min(self._wave))
-        self._maxwave = float(jnp.max(self._wave))
+        self._minwave = float(jnp.min(wave))
+        self._maxwave = float(jnp.max(wave))
     
     def __call__(self, wave):
         """Get interpolated transmission at given wavelengths."""
-        wave = jnp.asarray(wave)
+        wave = jnp.asarray(wave)  # Don't reshape, preserve input shape
         return interp(wave, self._wave, self._trans)
     
     def minwave(self):
@@ -69,89 +69,3 @@ class Bandpass:
     def trans(self):
         """Get transmission array."""
         return self._trans
-
-    def get_integration_grid(self):
-        """Get the wavelength grid used for integration.
-
-        Returns
-        -------
-        wave : array_like
-            Wavelength values in Angstroms.
-        spacing : float
-            Grid spacing in Angstroms.
-        """
-        spacing = MODEL_BANDFLUX_SPACING
-        nbin = int(jnp.ceil((self.maxwave() - self.minwave()) / spacing))
-        wave = jnp.arange(nbin) * spacing + self.minwave() + 0.5 * spacing
-        return wave, spacing
-
-class MagSystem:
-    def __init__(self, name='ab'):
-        """Create a MagSystem object.
-        
-        Parameters
-        ----------
-        name : str, optional
-            Name of the magnitude system. Currently only 'ab' is supported.
-        """
-        if name != 'ab':
-            raise ValueError("Only 'ab' magnitude system is supported")
-        self.name = name
-        self.zp_flux_density = 3631e-23  # erg/s/cm^2/Hz
-        
-    def zpbandflux(self, band):
-        """Calculate the flux of a zero magnitude object in photons/s/cm^2.
-        
-        Parameters
-        ----------
-        band : Bandpass object
-            Bandpass to calculate zeropoint flux for.
-            
-        Returns
-        -------
-        flux : float
-            Flux in photons/s/cm^2.
-        """
-        wave = band.wave
-        trans = band.trans
-        
-        # Convert F_nu (erg/s/cm^2/Hz) to photon flux
-        flux_wave = self.zp_flux_density * (C_AA_PER_S / wave**2)
-        photon_flux = flux_wave * wave * trans / HC_ERG_AA
-        
-        return trapz(photon_flux, wave)
-
-    def integration_grid(self, low, high, target_spacing):
-        """Divide the range between low and high into uniform bins.
-        
-        Parameters
-        ----------
-        low : float
-            Lower bound of the range.
-        high : float
-            Upper bound of the range.
-        target_spacing : float
-            Target spacing between points.
-            
-        Returns
-        -------
-        wave : array_like
-            Array of bin midpoints.
-        spacing : float
-            Actual spacing used.
-        """
-
-def get_magsystem(name):
-    """Get a magnitude system by name.
-    
-    Parameters
-    ----------
-    name : str
-        Name of the magnitude system. Currently only 'ab' is supported.
-        
-    Returns
-    -------
-    magsys : MagSystem
-        The requested magnitude system.
-    """
-    return MagSystem(name)
