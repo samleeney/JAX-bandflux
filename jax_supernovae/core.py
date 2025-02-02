@@ -5,6 +5,7 @@ from scipy.interpolate import splrep, splev
 import jax
 from functools import partial
 from jax import vmap
+import math
 
 # Constants - match SNCosmo exactly
 HC_ERG_AA = 1.9865e-8  # h*c in erg*angstrom
@@ -40,16 +41,28 @@ trapz = jnp.trapezoid
 class Bandpass:
     """Bandpass filter class."""
     
-    def __init__(self, wave, trans):
+    def __init__(self, wave, trans, integration_spacing=MODEL_BANDFLUX_SPACING):
         """Initialize bandpass with wavelength and transmission arrays."""
         self._wave = jnp.asarray(wave)
         self._trans = jnp.asarray(trans)
         self._minwave = float(jnp.min(wave))
         self._maxwave = float(jnp.max(wave))
+        
+        # Pre-compute integration grid to match sncosmo exactly
+        range_diff = self._maxwave - self._minwave
+        n_steps = math.ceil(range_diff / integration_spacing)
+        self._integration_spacing = range_diff / n_steps
+        
+        # Create grid starting at minwave + 0.5 * spacing
+        self._integration_wave = jnp.linspace(
+            self._minwave + 0.5 * self._integration_spacing,
+            self._maxwave - 0.5 * self._integration_spacing,
+            n_steps
+        )
     
     def __call__(self, wave):
         """Get interpolated transmission at given wavelengths."""
-        wave = jnp.asarray(wave)  # Don't reshape, preserve input shape
+        wave = jnp.asarray(wave)
         return interp(wave, self._wave, self._trans)
     
     def minwave(self):
@@ -69,3 +82,13 @@ class Bandpass:
     def trans(self):
         """Get transmission array."""
         return self._trans
+        
+    @property
+    def integration_wave(self):
+        """Get pre-computed integration wavelength grid."""
+        return self._integration_wave
+        
+    @property
+    def integration_spacing(self):
+        """Get integration grid spacing."""
+        return self._integration_spacing

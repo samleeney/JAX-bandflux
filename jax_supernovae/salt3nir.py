@@ -17,33 +17,6 @@ jax.config.update("jax_enable_x64", True)
 # Constants
 H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
 
-def integration_grid(low, high, target_spacing):
-    """Create a wavelength grid for integration.
-    
-    Args:
-        low: Minimum wavelength
-        high: Maximum wavelength
-        target_spacing: Target spacing between wavelength points
-        
-    Returns:
-        wave: Array of wavelength points
-        spacing: Actual spacing between points
-    """
-    # Convert inputs to concrete values
-    low = float(low)
-    high = float(high)
-    target_spacing = float(target_spacing)
-    
-    # Calculate range difference and spacing (match SNCosmo exactly)
-    range_diff = high - low
-    spacing = range_diff / int(np.ceil(range_diff / target_spacing))
-    
-    # Create grid using numpy then convert to JAX array (match SNCosmo exactly)
-    wave = np.arange(low + 0.5 * spacing, high, spacing)
-    wave = jnp.array(wave)
-    
-    return wave, spacing
-
 # Get model files from project directory
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 MODEL_DIR = os.path.join(BASE_DIR, 'sncosmo-modelfiles/models/salt3-nir/salt3nir-p22')
@@ -456,8 +429,9 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     a = 1.0 / (1.0 + z)  # Scale factor
     restphase = (phase - t0) * a
     
-    # Set up wavelength grid
-    wave, dwave = integration_grid(bandpass.minwave(), bandpass.maxwave(), MODEL_BANDFLUX_SPACING)
+    # Use pre-computed integration grid from bandpass
+    wave = bandpass.integration_wave
+    dwave = bandpass.integration_spacing
     restwave = wave * a
     
     # Get transmission and model components

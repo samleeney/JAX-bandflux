@@ -1,14 +1,8 @@
 General goal:
-The general goal is to re write the bandflux function in sncosmo to be compatible with jax. Currently the bnadflux function which has been re written in jax (in jax_supernovae directory) exactly (to an acceptable margin) matches the original sncosmo code. Run testing with the SALT3-NIR model.
+The goal of this codebase is to calcluate bandflux functions for the SALT3-NIR model using jax. It has been copied directly from sncosmo, and tests have been developed to verify that the outputs of the bandflux function match the sncosmo outputs.
 
-The next steps are to implement the SALT3-NIR model into a nested sampling procedure to estimate the posterior distribution of the parameters. jax_ex.py shows an example nested sampling code.
+Any code (or imports) used in the likelihood function or the priors must be fully jit compiled. Numpy should not be used anywhere in the codebase, other than data loading functions which are only called once. 
 
-Currently:
-a) The jax bandflux function passes tests
-b) The jax bandflux function works when using other sampling procedures
-c) The nested sampler works on a multivariate gaussian test. 
-
-The nested sampler when run with the SALT3-NIR model initially appears to work, but after some time sampling it starts to produces NaN's. This is the current problem that needs tob e solved.
 
 Markdown recipe:
 

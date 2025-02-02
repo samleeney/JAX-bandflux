@@ -11,7 +11,6 @@ from jax_supernovae.bandpasses import register_bandpass, get_bandpass
 from jax_supernovae.utils import save_chains_dead_birth
 from load_hsf_data import load_hsf_data
 import matplotlib.pyplot as plt
-import numpy as np
 import yaml
 
 # Load settings
@@ -127,6 +126,8 @@ def compute_single_loglikelihood(params):
     log_likelihood = -0.5 * (chi2 + jnp.sum(jnp.log(2 * jnp.pi * fluxerrs**2)))
     
     return log_likelihood
+
+
 @jax.jit
 def compute_batch_loglikelihood(params):
     """Compute log likelihood for a batch of parameters."""

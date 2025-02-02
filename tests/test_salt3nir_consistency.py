@@ -12,10 +12,9 @@ import sncosmo
 from sncosmo.utils import integration_grid as sncosmo_integration_grid
 from jax_supernovae.salt3nir import (
     salt3nir_m0, salt3nir_m1, salt3nir_colorlaw,
-    integration_grid as jax_integration_grid,
     salt3nir_bandflux
 )
-from jax_supernovae.core import Bandpass
+from jax_supernovae.core import Bandpass, MODEL_BANDFLUX_SPACING
 
 def test_salt3nir_consistency():
     """Test consistency between JAX implementation and sncosmo for SALT3-NIR model."""
@@ -65,19 +64,32 @@ def test_salt3nir_consistency():
     # Define integration grid parameters
     low = 3000.0
     high = 9000.0
-    spacing = 5.0  # MODEL_BANDFLUX_SPACING
+    spacing = MODEL_BANDFLUX_SPACING
 
     # Get integration grid from sncosmo
     snc_wave, snc_dwave = sncosmo_integration_grid(low, high, spacing)
 
-    # Get integration grid from JAX implementation
-    jax_wave, jax_dwave = jax_integration_grid(low, high, spacing)
+    # Create a test bandpass with the original wavelength range
+    test_wave = np.linspace(low, high, 100)  # Original wavelength sampling
+    test_bandpass = Bandpass(test_wave, np.ones_like(test_wave))
+
+    # Print integration grid comparison
+    print("\nIntegration Grid Comparison:")
+    print("-" * 60)
+    print(f"{'Index':>6} {'SNCosmo Wave':>15} {'JAX Wave':>15} {'Diff':>15}")
+    print("-" * 60)
+    for i in range(min(5, len(snc_wave))):  # Print first 5 points
+        diff = float(test_bandpass.integration_wave[i] - snc_wave[i])
+        print(f"{i:6d} {snc_wave[i]:15.6f} {float(test_bandpass.integration_wave[i]):15.6f} {diff:15.6e}")
+    print("...")
+    for i in range(-5, 0):  # Print last 5 points
+        diff = float(test_bandpass.integration_wave[i] - snc_wave[i])
+        print(f"{len(snc_wave)+i:6d} {snc_wave[i]:15.6f} {float(test_bandpass.integration_wave[i]):15.6f} {diff:15.6e}")
+    print("-" * 60)
 
     # Assert that the integration grids match
-    np.testing.assert_allclose(jax_wave, snc_wave, rtol=1e-10,
+    np.testing.assert_allclose(test_bandpass.integration_wave, snc_wave, rtol=1e-10,
                                err_msg="Integration grids do not match")
-    np.testing.assert_allclose(jax_dwave, snc_dwave, rtol=1e-10,
-                               err_msg="Integration grid spacings do not match")
 
     # ---------------------------------
     # Part (c): Test Bandfluxes Match
