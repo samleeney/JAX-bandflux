@@ -1,5 +1,29 @@
 import numpy as np
 import os
+import jax.numpy as jnp
+from functools import partial
+from jax import vmap
+
+@partial(vmap, in_axes=(0, None, None))
+def interp(x, xp, fp):
+    """Linear interpolation for JAX arrays."""
+    x = jnp.asarray(x)  # Don't reshape, preserve input shape
+    xp = jnp.asarray(xp)
+    fp = jnp.asarray(fp)
+    
+    # Find indices of points to interpolate between
+    i = jnp.searchsorted(xp, x)
+    i = jnp.clip(i, 1, len(xp) - 1)
+    
+    # Get x and y values to interpolate between
+    x0 = xp[i - 1]
+    x1 = xp[i]
+    y0 = fp[i - 1]
+    y1 = fp[i]
+    
+    # Linear interpolation
+    slope = (y1 - y0) / (x1 - x0)
+    return y0 + slope * (x - x0)
 
 def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
     """
