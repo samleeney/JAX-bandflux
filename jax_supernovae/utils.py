@@ -63,7 +63,3 @@ def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
     # Save without header
     np.savetxt(output_path, data)
     print(f"Saved {data.shape[0]} samples to {output_path}")
-
-# Example usage (add after your nested sampling run):
-# param_names = [f'x{i}' for i in range(d)]  # d is your dimension from jax_ex.py
-# save_getdist_chains(dead, logw, param_names) 
