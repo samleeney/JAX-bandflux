@@ -4,7 +4,7 @@ jax.config.update("jax_enable_x64", True)  # Enable float64 precision
 import numpy as np
 import pytest
 import sncosmo
-from jax_supernovae.core import Bandpass, HC_ERG_AA, MODEL_BANDFLUX_SPACING
+from jax_supernovae.bandpasses import Bandpass, HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from jax_supernovae.salt3nir import salt3nir_bandflux, salt3nir_m0, salt3nir_m1, salt3nir_colorlaw
 from jax_supernovae.salt3nir import integration_grid
 

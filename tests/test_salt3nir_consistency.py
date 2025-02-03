@@ -14,7 +14,7 @@ from jax_supernovae.salt3nir import (
     salt3nir_m0, salt3nir_m1, salt3nir_colorlaw,
     salt3nir_bandflux
 )
-from jax_supernovae.core import Bandpass, MODEL_BANDFLUX_SPACING
+from jax_supernovae.bandpasses import Bandpass, MODEL_BANDFLUX_SPACING
 
 def test_salt3nir_consistency():
     """Test consistency between JAX implementation and sncosmo for SALT3-NIR model."""

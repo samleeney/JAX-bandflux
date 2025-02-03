@@ -10,7 +10,7 @@ from jax_supernovae.salt3nir import (
     optimized_salt3nir_bandflux,
     precompute_bandflux_bridge
 )
-from jax_supernovae.core import Bandpass
+from jax_supernovae.bandpasses import Bandpass
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass
 from jax_supernovae.utils import save_chains_dead_birth
 from load_hsf_data import load_hsf_data

@@ -10,10 +10,9 @@ from jax_supernovae.salt3nir import (
     optimized_salt3nir_bandflux,
     precompute_bandflux_bridge
 )
-from jax_supernovae.core import Bandpass
-from jax_supernovae.bandpasses import register_bandpass, get_bandpass
+from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
 from jax_supernovae.utils import save_chains_dead_birth
-from load_hsf_data import load_hsf_data
+from jax_supernovae.data import load_and_process_data
 import matplotlib.pyplot as plt
 import yaml
 
@@ -24,51 +23,8 @@ with open('settings.yaml', 'r') as f:
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
-def register_all_bandpasses():
-    """Register bandpasses in JAX."""
-    bandpass_info = [
-        {'name': 'ztfg', 'file': 'sncosmo-modelfiles/bandpasses/ztf/P48_g.dat', 'skiprows': 1},
-        {'name': 'ztfr', 'file': 'sncosmo-modelfiles/bandpasses/ztf/P48_R.dat', 'skiprows': 1},
-        {'name': 'c', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan', 'skiprows': 0},
-        {'name': 'o', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange', 'skiprows': 0}
-    ]
-    
-    bandpass_dict = {}
-    bridges_dict = {}
-    for info in bandpass_info:
-        try:
-            data = np.loadtxt(info['file'], skiprows=info['skiprows'])
-            wave, trans = data[:, 0], data[:, 1]
-            jax_bandpass = Bandpass(wave, trans)
-            register_bandpass(info['name'], jax_bandpass, force=True)
-            bandpass_dict[info['name']] = jax_bandpass
-            bridges_dict[info['name']] = precompute_bandflux_bridge(jax_bandpass)
-        except Exception as e:
-            pass
-    
-    return bandpass_dict, bridges_dict
-
-# Load data and register bandpasses
-data = load_hsf_data('19agl')
-bandpass_dict, bridges_dict = register_all_bandpasses()
-
-# Get unique bands and their bridges
-unique_bands = []
-bridges = []
-for band in np.unique(data['band']):
-    if band in bridges_dict:
-        unique_bands.append(band)
-        bridges.append(bridges_dict[band])
-# Convert bridges to tuple for JIT compatibility
-bridges = tuple(bridges)
-
-# Set up data arrays
-valid_mask = np.array([band in bandpass_dict for band in data['band']])
-times = jnp.array(data['time'][valid_mask])
-fluxes = jnp.array(data['flux'][valid_mask])
-fluxerrs = jnp.array(data['fluxerr'][valid_mask])
-zps = jnp.array(data['zp'][valid_mask])
-band_indices = jnp.array([unique_bands.index(band) for band in data['band'][valid_mask]])
+# Load and process data
+times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19agl')
 
 # Define parameter bounds and priors
 param_bounds = {

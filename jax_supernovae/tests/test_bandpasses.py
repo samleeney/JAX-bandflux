@@ -8,7 +8,7 @@ from jax_supernovae.bandpasses import (
     get_bandpass,
     register_hsf_bandpasses,
 )
-from jax_supernovae.core import Bandpass
+from jax_supernovae.bandpasses import Bandpass
 import jax.numpy as jnp
 
 def test_load_bandpass():

@@ -10,7 +10,7 @@ from scipy.optimize import fmin_l_bfgs_b
 import sncosmo
 import matplotlib.pyplot as plt
 from jax_supernovae.salt3nir import salt3nir_bandflux
-from jax_supernovae.core import Bandpass
+from jax_supernovae.bandpasses import Bandpass
 
 def test_salt3nir_fitting_consistency():
     """Test that fitting with JAX implementation gives same results as sncosmo."""
