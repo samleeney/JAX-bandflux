@@ -1,6 +1,6 @@
 # JAX Bandflux for Supernovae
 
-A JAX-based implementation of supernova light curve modeling and analysis tools, focusing on anomaly detection in supernova data. This codebase provides efficient, differentiable implementations of core SNCosmo functionality using JAX, enabling advanced statistical analysis and machine learning applications.
+A JAX-based implementation of supernova light curve modeling and analysis tools. This codebase provides efficient, differentiable implementations of core SNCosmo functionality using JAX.
 
 ## Installation
 
