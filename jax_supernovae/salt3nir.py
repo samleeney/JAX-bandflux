@@ -108,38 +108,52 @@ def find_index(values, x):
     return i.astype(jnp.int32)
 
 @jax.jit
-def salt3nir_m0_single(phase, wave):
-    """Get the M0 component at a single phase and wavelength.
+def compute_interpolation_weights(x, values):
+    """Compute interpolation weights and indices.
     
     Args:
-        phase (float): Rest-frame phase in days
-        wave (float): Rest-frame wavelength in Angstroms
+        x: The point to interpolate at
+        values: The grid values to interpolate between
         
     Returns:
-        float: M0 component value (scale factor already applied when loading data)
+        tuple: (indices, normalized coordinates, near_boundary)
     """
     # Find indices
-    ix = find_index(phase_grid, phase)
-    iy = find_index(wave_grid, wave)
+    i = find_index(values, x)
     
-    # Check bounds
-    x_in_bounds = (phase >= phase_grid[0]) & (phase <= phase_grid[-1])
-    y_in_bounds = (wave >= wave_grid[0]) & (wave <= wave_grid[-1])
+    # Check bounds and boundaries
+    in_bounds = (x >= values[0]) & (x <= values[-1])
+    near_boundary = (i <= 0) | (i >= len(values) - 2)
     
-    # Check if we're near boundaries (exactly like SNCosmo)
-    x_near_boundary = (ix <= 0) | (ix >= len(phase_grid) - 2)
-    y_near_boundary = (iy <= 0) | (iy >= len(wave_grid) - 2)
+    # Calculate normalized coordinates
+    dx = (x - values[i]) / (values[i + 1] - values[i])
+    
+    return i, dx, in_bounds, near_boundary
+
+@jax.jit
+def interpolate_2d(phase, wave, data):
+    """Perform 2D interpolation on gridded data.
+    
+    Args:
+        phase: Phase value to interpolate at
+        wave: Wavelength value to interpolate at
+        data: 2D grid of values to interpolate from
+        
+    Returns:
+        float: Interpolated value
+    """
+    # Compute weights for both dimensions
+    ix, dx, x_in_bounds, x_near_boundary = compute_interpolation_weights(phase, phase_grid)
+    iy, dy, y_in_bounds, y_near_boundary = compute_interpolation_weights(wave, wave_grid)
+    
+    # Check if we need to use linear interpolation
     near_boundary = x_near_boundary | y_near_boundary
     
-    # Calculate normalized coordinates (exactly like SNCosmo)
-    dx = (phase - phase_grid[ix]) / (phase_grid[ix + 1] - phase_grid[ix])
-    dy = (wave - wave_grid[iy]) / (wave_grid[iy + 1] - wave_grid[iy])
-    
-    # Get corner values for linear interpolation using dynamic_slice
-    z00 = m0_data[ix, iy]
-    z01 = m0_data[ix, iy + 1]
-    z10 = m0_data[ix + 1, iy]
-    z11 = m0_data[ix + 1, iy + 1]
+    # Get corner values for linear interpolation
+    z00 = data[ix, iy]
+    z01 = data[ix, iy + 1]
+    z10 = data[ix + 1, iy]
+    z11 = data[ix + 1, iy + 1]
     
     # Linear interpolation
     linear_result = (z00 * (1 - dx) * (1 - dy) +
@@ -148,28 +162,26 @@ def salt3nir_m0_single(phase, wave):
                     z11 * dx * dy)
     
     # For bicubic interpolation, pad the array with edge values
-    padded = jnp.pad(m0_data, ((1, 1), (1, 1)), mode='edge')
+    padded = jnp.pad(data, ((1, 1), (1, 1)), mode='edge')
     
     # Get 4x4 grid for bicubic interpolation
     ix_pad = ix + 1  # Adjust for padding
     iy_pad = iy + 1
-    
-    # Use dynamic_slice to get the grid
     grid = lax.dynamic_slice(padded, (ix_pad - 1, iy_pad - 1), (4, 4))
     
     # Calculate bicubic weights
     wx = jnp.array([
-        kernval(dx + 1.0),  # For ix-1
-        kernval(dx),        # For ix
-        kernval(dx - 1.0),  # For ix+1
-        kernval(dx - 2.0)   # For ix+2
+        kernval(dx + 1.0),
+        kernval(dx),
+        kernval(dx - 1.0),
+        kernval(dx - 2.0)
     ])
     
     wy = jnp.array([
-        kernval(dy + 1.0),  # For iy-1
-        kernval(dy),        # For iy
-        kernval(dy - 1.0),  # For iy+1
-        kernval(dy - 2.0)   # For iy+2
+        kernval(dy + 1.0),
+        kernval(dy),
+        kernval(dy - 1.0),
+        kernval(dy - 2.0)
     ])
     
     # Calculate bicubic interpolation
@@ -180,6 +192,16 @@ def salt3nir_m0_single(phase, wave):
     
     # Return 0 if out of bounds, interpolated value otherwise
     return jnp.where(x_in_bounds & y_in_bounds, result, 0.0)
+
+@jax.jit
+def salt3nir_m0_single(phase, wave):
+    """Get the M0 component at a single phase and wavelength."""
+    return interpolate_2d(phase, wave, m0_data)
+
+@jax.jit
+def salt3nir_m1_single(phase, wave):
+    """Get the M1 component at a single phase and wavelength."""
+    return interpolate_2d(phase, wave, m1_data)
 
 @jax.jit
 def salt3nir_m0(phase, wave):
@@ -223,80 +245,6 @@ def salt3nir_m0(phase, wave):
         return jax.vmap(lambda p: jax.vmap(lambda w: salt3nir_m0_single(p, w))(wave))(phase)
 
     raise ValueError("Unsupported input shapes for salt3nir_m0")
-
-@jax.jit
-def salt3nir_m1_single(phase, wave):
-    """Get the M1 component at a single phase and wavelength.
-    
-    Args:
-        phase (float): Rest-frame phase in days
-        wave (float): Rest-frame wavelength in Angstroms
-        
-    Returns:
-        float: M1 component value (scale factor already applied when loading data)
-    """
-    # Find indices
-    ix = find_index(phase_grid, phase)
-    iy = find_index(wave_grid, wave)
-    
-    # Check bounds
-    x_in_bounds = (phase >= phase_grid[0]) & (phase <= phase_grid[-1])
-    y_in_bounds = (wave >= wave_grid[0]) & (wave <= wave_grid[-1])
-    
-    # Check if we're near boundaries (exactly like SNCosmo)
-    x_near_boundary = (ix <= 0) | (ix >= len(phase_grid) - 2)
-    y_near_boundary = (iy <= 0) | (iy >= len(wave_grid) - 2)
-    near_boundary = x_near_boundary | y_near_boundary
-    
-    # Calculate normalized coordinates (exactly like SNCosmo)
-    dx = (phase - phase_grid[ix]) / (phase_grid[ix + 1] - phase_grid[ix])
-    dy = (wave - wave_grid[iy]) / (wave_grid[iy + 1] - wave_grid[iy])
-    
-    # Get corner values for linear interpolation using dynamic_slice
-    z00 = m1_data[ix, iy]
-    z01 = m1_data[ix, iy + 1]
-    z10 = m1_data[ix + 1, iy]
-    z11 = m1_data[ix + 1, iy + 1]
-    
-    # Linear interpolation
-    linear_result = (z00 * (1 - dx) * (1 - dy) +
-                    z10 * dx * (1 - dy) +
-                    z01 * (1 - dx) * dy +
-                    z11 * dx * dy)
-    
-    # For bicubic interpolation, pad the array with edge values
-    padded = jnp.pad(m1_data, ((1, 1), (1, 1)), mode='edge')
-    
-    # Get 4x4 grid for bicubic interpolation
-    ix_pad = ix + 1  # Adjust for padding
-    iy_pad = iy + 1
-    
-    # Use dynamic_slice to get the grid
-    grid = lax.dynamic_slice(padded, (ix_pad - 1, iy_pad - 1), (4, 4))
-    
-    # Calculate bicubic weights
-    wx = jnp.array([
-        kernval(dx + 1.0),  # For ix-1
-        kernval(dx),        # For ix
-        kernval(dx - 1.0),  # For ix+1
-        kernval(dx - 2.0)   # For ix+2
-    ])
-    
-    wy = jnp.array([
-        kernval(dy + 1.0),  # For iy-1
-        kernval(dy),        # For iy
-        kernval(dy - 1.0),  # For iy+1
-        kernval(dy - 2.0)   # For iy+2
-    ])
-    
-    # Calculate bicubic interpolation
-    cubic_result = jnp.sum(jnp.outer(wx, wy) * grid)
-    
-    # Use linear interpolation near boundaries, bicubic otherwise
-    result = jnp.where(near_boundary, linear_result, cubic_result)
-    
-    # Return 0 if out of bounds, interpolated value otherwise
-    return jnp.where(x_in_bounds & y_in_bounds, result, 0.0)
 
 @jax.jit
 def salt3nir_m1(phase, wave):
@@ -414,7 +362,7 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     if zp is not None and zpsys is None:
         raise ValueError('zpsys must be given if zp is not None')
     
-    # Convert inputs to arrays
+    # Convert inputs to arrays and check if input was scalar
     phase = jnp.atleast_1d(phase)
     is_scalar = len(phase.shape) == 0
     
@@ -433,18 +381,22 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     wave = bandpass.integration_wave
     dwave = bandpass.integration_spacing
     restwave = wave * a
-    
-    # Get transmission and model components
     trans = bandpass(wave)
-    m0 = salt3nir_m0(restphase[:, None], restwave[None, :])  # Shape: (n_phase, n_wave)
-    m1 = salt3nir_m1(restphase[:, None], restwave[None, :])  # Shape: (n_phase, n_wave)
-    cl = salt3nir_colorlaw(restwave)  # Shape: (n_wave,)
     
-    # Calculate rest-frame flux
-    rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a  # Shape: (n_phase, n_wave)
+    # Pre-compute color law for all wavelengths
+    cl = salt3nir_colorlaw(restwave)
+    
+    # Compute M0 and M1 components for all phases and wavelengths at once
+    m0 = salt3nir_m0(restphase[:, None], restwave[None, :])
+    m1 = salt3nir_m1(restphase[:, None], restwave[None, :])
+    
+    # Calculate rest-frame flux for all phases and wavelengths at once
+    rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
     
     # Integrate flux through bandpass using trapezoidal rule
-    result = jnp.trapezoid(wave[None, :] * trans[None, :] * rest_flux, wave, axis=1) / HC_ERG_AA
+    # Multiply by wave and transmission before integration
+    integrand = wave[None, :] * trans[None, :] * rest_flux
+    result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
     
     # Apply zero point if provided
     if zp is not None:
@@ -468,6 +420,7 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     
     return result
 
+@partial(jax.jit, static_argnames=['bandpasses', 'zpsys'])
 def salt3nir_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
     """Calculate flux for multiple bandpasses at once.
     
@@ -490,9 +443,133 @@ def salt3nir_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
     result = jnp.zeros((n_phase, n_bands))
     
     # Calculate flux for each bandpass
-    for i, bandpass in enumerate(bandpasses):
+    for i in range(n_bands):
         zp = zps[i] if zps is not None else None
-        band_flux = salt3nir_bandflux(phase, bandpass, params, zp=zp, zpsys=zpsys)
+        band_flux = salt3nir_bandflux(phase, bandpasses[i], params, zp=zp, zpsys=zpsys)
+        result = result.at[:, i].set(band_flux)
+    
+    return result 
+
+def precompute_bandflux_bridge(bandpass):
+    """
+    Precompute static components for a given bandpass.
+    
+    Returns a dictionary containing:
+        - 'wave': the integration wavelength grid,
+        - 'dwave': spacing between grid points,
+        - 'trans': the transmission values computed on the grid.
+    """
+    wave = bandpass.integration_wave
+    dwave = bandpass.integration_spacing
+    trans = bandpass(wave)
+    return {'wave': wave, 'dwave': dwave, 'trans': trans}
+
+@partial(jax.jit, static_argnames=['zpsys'])
+def optimized_salt3nir_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=None):
+    """
+    Calculate bandflux for a single bandpass using precomputed static data.
+    
+    Parameters:
+        phase : array or scalar
+            Observer-frame phase(s) at which to compute the flux.
+        wave : array
+            Wavelength grid for integration.
+        dwave : float
+            Spacing between wavelength grid points.
+        trans : array
+            Transmission values on the wavelength grid.
+        params : dict
+            Dictionary containing model parameters: 'z', 't0', 'x0', 'x1', 'c'.
+        zp : float or None
+            Zero point for flux scaling. If provided, zpsys must also be given.
+        zpsys : str or None
+            Magnitude system (e.g. 'ab').
+    
+    Returns:
+        Flux in photons/s/cm^2. If phase is scalar then returns scalar.
+    """
+    if zp is not None and zpsys is None:
+        raise ValueError('zpsys must be given if zp is not None')
+
+    # Convert inputs to arrays and check if input was scalar
+    phase = jnp.atleast_1d(phase)
+    is_scalar = len(phase.shape) == 0
+
+    z = params['z']
+    t0 = params['t0']
+    x0 = params['x0']
+    x1 = params['x1']
+    c  = params['c']
+
+    # Calculate scaling factor and transform phase to rest-frame.
+    a = 1.0 / (1.0 + z)
+    restphase = (phase - t0) * a
+
+    # Scale the integration grid to rest-frame wavelengths.
+    restwave = wave * a
+    # Compute colour law on the restwave grid.
+    cl = salt3nir_colorlaw(restwave)
+
+    # Compute m0 and m1 components over the 2D grid.
+    m0 = salt3nir_m0(restphase[:, None], restwave[None, :])
+    m1 = salt3nir_m1(restphase[:, None], restwave[None, :])
+
+    # Compute rest-frame flux including the colour law effect.
+    rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
+    integrand = wave[None, :] * trans[None, :] * rest_flux
+    result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
+
+    # Apply zero point correction if required.
+    if zp is not None:
+        if zpsys == 'ab':
+            zpbandflux = 3631e-23 * dwave / H_ERG_S * jnp.sum(trans / wave)
+        else:
+            raise ValueError(f"Unsupported magnitude system: {zpsys}")
+        zpnorm = 10**(0.4 * zp) / zpbandflux
+        result = result * zpnorm
+
+    # Return scalar if input was scalar
+    if is_scalar:
+        result = result[0]
+    return result
+
+@partial(jax.jit, static_argnames=['zpsys'])
+def optimized_salt3nir_multiband_flux(phase, bridges, params, zps=None, zpsys=None):
+    """
+    Calculate fluxes for multiple bandpasses.
+    
+    Parameters:
+        phase : array
+            Observer-frame phases.
+        bridges : list of dict
+            Precomputed bridge data for each bandpass.
+        params : dict
+            Model parameters.
+        zps : list or array or None
+            Zero points for each bandpass.
+        zpsys : str or None
+            Magnitude system.
+    
+    Returns:
+        Array of flux values for each phase and band.
+    """
+    phase = jnp.atleast_1d(phase)
+    n_phase = len(phase)
+    n_bands = len(bridges)
+    result = jnp.zeros((n_phase, n_bands))
+    
+    for i in range(n_bands):
+        bp_bridge = bridges[i]
+        curr_zp = zps[i] if zps is not None else None
+        band_flux = optimized_salt3nir_bandflux(
+            phase, 
+            bp_bridge['wave'], 
+            bp_bridge['dwave'], 
+            bp_bridge['trans'], 
+            params, 
+            zp=curr_zp, 
+            zpsys=zpsys
+        )
         result = result.at[:, i].set(band_flux)
     
     return result 
