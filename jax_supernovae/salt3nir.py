@@ -19,7 +19,7 @@ H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
 
 # Get model files from project directory
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-MODEL_DIR = os.path.join(BASE_DIR, 'sncosmo-modelfiles/models/salt3-nir/salt3nir-p22')
+MODEL_DIR = os.path.join(BASE_DIR, 'model_files/models/salt3-nir/salt3nir-p22')
 
 def read_griddata_file(filename):
     """Read 2-d grid data from a text file.
