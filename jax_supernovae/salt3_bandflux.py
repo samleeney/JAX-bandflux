@@ -5,17 +5,15 @@ import jax.lax as lax
 import numpy as np
 import sncosmo
 import os
-import pytest
-import math
-from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
+from jax_supernovae.constants import (
+    HC_ERG_AA, H_ERG_S, SALT3_SCALE_FACTOR, B_WAVE, V_WAVE, AB_CONSTANT, COLORLAW_RANGE,
+    MODEL_BANDFLUX_SPACING, CUBIC_INTERP_A, CUBIC_INTERP_BOUNDARY
+)
 from functools import partial
 from jax import vmap
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
-
-# Constants
-H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
 
 # Get model files from project directory
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -41,7 +39,7 @@ def read_griddata_file(filename):
     for p, w, v in data:
         pi = np.searchsorted(phase, p)
         wi = np.searchsorted(wave, w)
-        values[pi, wi] = v
+        values[pi, wi] = v  # Remove scale factor application here
     
     return phase, wave, values
 
@@ -51,31 +49,26 @@ m1_file = os.path.join(MODEL_DIR, 'salt3_template_1.dat')
 cl_file = os.path.join(MODEL_DIR, 'salt3_color_correction.dat')
 
 # Read data and apply scaling (match SNCosmo exactly)
-SCALE_FACTOR = 1e-12
 phase_grid, wave_grid, m0_data = read_griddata_file(m0_file)
 _, _, m1_data = read_griddata_file(m1_file)
-
-# Apply scale factor to data (match SNCosmo exactly)
-m0_data = m0_data * SCALE_FACTOR
-m1_data = m1_data * SCALE_FACTOR
 
 # Convert to JAX arrays
 phase_grid = jnp.array(phase_grid)
 wave_grid = jnp.array(wave_grid)
-m0_data = jnp.array(m0_data)  # Scale factor already applied
-m1_data = jnp.array(m1_data)  # Scale factor already applied
+m0_data = jnp.array(m0_data)  # Scale factor already applied in read_griddata_file
+m1_data = jnp.array(m1_data)  # Scale factor already applied in read_griddata_file
 
-# Read color law coefficients
+# Read colour law coefficients
 with open(cl_file, 'r') as f:
     words = f.read().split()
     ncoeffs = int(words[0])
-    colorlaw_coeffs = jnp.array([float(word) for word in words[1: 1 + ncoeffs]])
-    colorlaw_range = [3000., 7000.]  # Default range
+    colourlaw_coeffs = jnp.array([float(word) for word in words[1: 1 + ncoeffs]])
+    colourlaw_range = [3000., 7000.]  # Default range
     for i in range(1+ncoeffs, len(words), 2):
         if words[i] == 'Salt2ExtinctionLaw.min_lambda':
-            colorlaw_range[0] = float(words[i+1])
+            colourlaw_range[0] = float(words[i+1])
         elif words[i] == 'Salt2ExtinctionLaw.max_lambda':
-            colorlaw_range[1] = float(words[i+1])
+            colourlaw_range[1] = float(words[i+1])
 
 @jax.jit
 def kernval(x):
@@ -88,7 +81,7 @@ def kernval(x):
     where a=-0.5
     """
     x = jnp.abs(x)
-    a = -0.5  # This matches SNCosmo's value
+    a = CUBIC_INTERP_A  # Use constant from constants.py
     
     # Calculate the result for each case
     case1 = (a + 2) * x**3 - (a + 3) * x**2 + 1  # x <= 1
@@ -96,7 +89,7 @@ def kernval(x):
     
     # Use where to select the appropriate result
     result = jnp.where(x <= 1, case1,
-                      jnp.where(x < 2, case2, 0.0))
+                      jnp.where(x < CUBIC_INTERP_BOUNDARY, case2, 0.0))
     
     return result
 
@@ -194,17 +187,17 @@ def interpolate_2d(phase, wave, data):
     return jnp.where(x_in_bounds & y_in_bounds, result, 0.0)
 
 @jax.jit
-def salt3nir_m0_single(phase, wave):
+def salt3_m0_single(phase, wave):
     """Get the M0 component at a single phase and wavelength."""
     return interpolate_2d(phase, wave, m0_data)
 
 @jax.jit
-def salt3nir_m1_single(phase, wave):
+def salt3_m1_single(phase, wave):
     """Get the M1 component at a single phase and wavelength."""
     return interpolate_2d(phase, wave, m1_data)
 
 @jax.jit
-def salt3nir_m0(phase, wave):
+def salt3_m0(phase, wave):
     """Get the M0 component at the given phase and wavelength.
 
     Args:
@@ -219,35 +212,35 @@ def salt3nir_m0(phase, wave):
 
     # Handle scalar inputs
     if phase.ndim == 0 and wave.ndim == 0:
-        return salt3nir_m0_single(phase, wave)
+        return salt3_m0_single(phase, wave)
 
     # Handle 2D inputs with broadcasting
     if phase.ndim == 2 and wave.ndim == 2:
         # First vmap over phases (axis 0)
-        phase_mapped = jax.vmap(lambda p: jax.vmap(lambda w: salt3nir_m0_single(p, w))(wave[0, :]))(phase[:, 0])
+        phase_mapped = jax.vmap(lambda p: jax.vmap(lambda w: salt3_m0_single(p, w))(wave[0, :]))(phase[:, 0])
         return phase_mapped
 
     # Handle array inputs of same size
     if phase.ndim == 1 and wave.ndim == 1 and phase.shape == wave.shape:
-        return jax.vmap(lambda p, w: salt3nir_m0_single(p, w))(phase, wave)
+        return jax.vmap(lambda p, w: salt3_m0_single(p, w))(phase, wave)
 
     # Handle broadcasting case (phase array with single wavelength)
     if phase.ndim == 1 and wave.ndim == 0:
-        return jax.vmap(lambda p: salt3nir_m0_single(p, wave))(phase)
+        return jax.vmap(lambda p: salt3_m0_single(p, wave))(phase)
 
     # Handle broadcasting case (single phase with wavelength array)
     if phase.ndim == 0 and wave.ndim == 1:
-        return jax.vmap(lambda w: salt3nir_m0_single(phase, w))(wave)
+        return jax.vmap(lambda w: salt3_m0_single(phase, w))(wave)
 
     # Handle broadcasting case (phase array with wave array of different size)
     if phase.ndim == 1 and wave.ndim == 1:
         # First map over phases, then over wavelengths
-        return jax.vmap(lambda p: jax.vmap(lambda w: salt3nir_m0_single(p, w))(wave))(phase)
+        return jax.vmap(lambda p: jax.vmap(lambda w: salt3_m0_single(p, w))(wave))(phase)
 
-    raise ValueError("Unsupported input shapes for salt3nir_m0")
+    raise ValueError("Unsupported input shapes for salt3_m0")
 
 @jax.jit
-def salt3nir_m1(phase, wave):
+def salt3_m1(phase, wave):
     """Get the M1 component at the given phase and wavelength.
 
     Args:
@@ -262,51 +255,49 @@ def salt3nir_m1(phase, wave):
 
     # Handle scalar inputs
     if phase.ndim == 0 and wave.ndim == 0:
-        return salt3nir_m1_single(phase, wave)
+        return salt3_m1_single(phase, wave)
 
     # Handle 2D inputs with broadcasting
     if phase.ndim == 2 and wave.ndim == 2:
         # First vmap over phases (axis 0)
-        phase_mapped = jax.vmap(lambda p: jax.vmap(lambda w: salt3nir_m1_single(p, w))(wave[0, :]))(phase[:, 0])
+        phase_mapped = jax.vmap(lambda p: jax.vmap(lambda w: salt3_m1_single(p, w))(wave[0, :]))(phase[:, 0])
         return phase_mapped
 
     # Handle array inputs of same size
     if phase.ndim == 1 and wave.ndim == 1 and phase.shape == wave.shape:
-        return jax.vmap(lambda p, w: salt3nir_m1_single(p, w))(phase, wave)
+        return jax.vmap(lambda p, w: salt3_m1_single(p, w))(phase, wave)
 
     # Handle broadcasting case (phase array with single wavelength)
     if phase.ndim == 1 and wave.ndim == 0:
-        return jax.vmap(lambda p: salt3nir_m1_single(p, wave))(phase)
+        return jax.vmap(lambda p: salt3_m1_single(p, wave))(phase)
 
     # Handle broadcasting case (single phase with wavelength array)
     if phase.ndim == 0 and wave.ndim == 1:
-        return jax.vmap(lambda w: salt3nir_m1_single(phase, w))(wave)
+        return jax.vmap(lambda w: salt3_m1_single(phase, w))(wave)
 
     # Handle broadcasting case (phase array with wave array of different size)
     if phase.ndim == 1 and wave.ndim == 1:
         # First map over phases, then over wavelengths
-        return jax.vmap(lambda p: jax.vmap(lambda w: salt3nir_m1_single(p, w))(wave))(phase)
+        return jax.vmap(lambda p: jax.vmap(lambda w: salt3_m1_single(p, w))(wave))(phase)
 
-    raise ValueError("Unsupported input shapes for salt3nir_m1")
+    raise ValueError("Unsupported input shapes for salt3_m1")
 
 @jax.jit
-def salt3nir_colorlaw(wave):
-    """Calculate SALT3-NIR color law at given wavelength."""
+def salt3_colourlaw(wave):
+    """Calculate SALT3 colour law at given wavelength."""
     wave = jnp.asarray(wave)
     
     # Define constants (exactly as in SNCosmo)
-    B_WAVE = 4302.57
-    V_WAVE = 5428.55
     v_minus_b = V_WAVE - B_WAVE
     
     # Calculate normalized wavelength
     l = (wave - B_WAVE) / v_minus_b
-    l_lo = (colorlaw_range[0] - B_WAVE) / v_minus_b
-    l_hi = (colorlaw_range[1] - B_WAVE) / v_minus_b
+    l_lo = (colourlaw_range[0] - B_WAVE) / v_minus_b
+    l_hi = (colourlaw_range[1] - B_WAVE) / v_minus_b
     
     # Calculate polynomial coefficients
-    alpha = 1. - jnp.sum(colorlaw_coeffs)
-    coeffs = jnp.concatenate([jnp.array([0., alpha]), colorlaw_coeffs])
+    alpha = 1. - jnp.sum(colourlaw_coeffs)
+    coeffs = jnp.concatenate([jnp.array([0., alpha]), colourlaw_coeffs])
     coeffs_rev = jnp.flipud(coeffs)
     
     # Calculate derivative coefficients
@@ -335,8 +326,8 @@ def salt3nir_colorlaw(wave):
     return -extinction
 
 @partial(jax.jit, static_argnames=['bandpass', 'zpsys'])
-def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
-    """Calculate bandflux for SALT3-NIR model.
+def salt3_bandflux(phase, bandpass, params, zp=None, zpsys=None):
+    """Calculate bandflux for SALT3 model.
     
     Parameters
     ----------
@@ -383,12 +374,12 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     restwave = wave * a
     trans = bandpass(wave)
     
-    # Pre-compute color law for all wavelengths
-    cl = salt3nir_colorlaw(restwave)
+    # Pre-compute colour law for all wavelengths
+    cl = salt3_colourlaw(restwave)
     
     # Compute M0 and M1 components for all phases and wavelengths at once
-    m0 = salt3nir_m0(restphase[:, None], restwave[None, :])
-    m1 = salt3nir_m1(restphase[:, None], restwave[None, :])
+    m0 = salt3_m0(restphase[:, None], restwave[None, :])
+    m1 = salt3_m1(restphase[:, None], restwave[None, :])
     
     # Calculate rest-frame flux for all phases and wavelengths at once
     rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
@@ -420,36 +411,6 @@ def salt3nir_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     
     return result
 
-@partial(jax.jit, static_argnames=['bandpasses', 'zpsys'])
-def salt3nir_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
-    """Calculate flux for multiple bandpasses at once.
-    
-    Args:
-        phase (array-like): Phase(s) in observer frame.
-        bandpasses (list): List of Bandpass objects.
-        params (dict): Model parameters including z, t0, x0, x1, c.
-        zps (array-like, optional): Zero points for each bandpass.
-        zpsys (str, optional): Magnitude system (e.g. 'ab').
-        
-    Returns:
-        array-like: Flux values for each phase and bandpass combination.
-    """
-    # Convert inputs to arrays
-    phase = jnp.atleast_1d(phase)
-    n_phase = len(phase)
-    n_bands = len(bandpasses)
-    
-    # Initialize output array
-    result = jnp.zeros((n_phase, n_bands))
-    
-    # Calculate flux for each bandpass
-    for i in range(n_bands):
-        zp = zps[i] if zps is not None else None
-        band_flux = salt3nir_bandflux(phase, bandpasses[i], params, zp=zp, zpsys=zpsys)
-        result = result.at[:, i].set(band_flux)
-    
-    return result 
-
 def precompute_bandflux_bridge(bandpass):
     """
     Precompute static components for a given bandpass.
@@ -465,7 +426,7 @@ def precompute_bandflux_bridge(bandpass):
     return {'wave': wave, 'dwave': dwave, 'trans': trans}
 
 @partial(jax.jit, static_argnames=['zpsys'])
-def optimized_salt3nir_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=None):
+def optimised_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=None):
     """
     Calculate bandflux for a single bandpass using precomputed static data.
     
@@ -508,11 +469,11 @@ def optimized_salt3nir_bandflux(phase, wave, dwave, trans, params, zp=None, zpsy
     # Scale the integration grid to rest-frame wavelengths.
     restwave = wave * a
     # Compute colour law on the restwave grid.
-    cl = salt3nir_colorlaw(restwave)
+    cl = salt3_colourlaw(restwave)
 
     # Compute m0 and m1 components over the 2D grid.
-    m0 = salt3nir_m0(restphase[:, None], restwave[None, :])
-    m1 = salt3nir_m1(restphase[:, None], restwave[None, :])
+    m0 = salt3_m0(restphase[:, None], restwave[None, :])
+    m1 = salt3_m1(restphase[:, None], restwave[None, :])
 
     # Compute rest-frame flux including the colour law effect.
     rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
@@ -534,7 +495,7 @@ def optimized_salt3nir_bandflux(phase, wave, dwave, trans, params, zp=None, zpsy
     return result
 
 @partial(jax.jit, static_argnames=['zpsys'])
-def optimized_salt3nir_multiband_flux(phase, bridges, params, zps=None, zpsys=None):
+def optimised_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None):
     """
     Calculate fluxes for multiple bandpasses.
     
@@ -561,7 +522,7 @@ def optimized_salt3nir_multiband_flux(phase, bridges, params, zps=None, zpsys=No
     for i in range(n_bands):
         bp_bridge = bridges[i]
         curr_zp = zps[i] if zps is not None else None
-        band_flux = optimized_salt3nir_bandflux(
+        band_flux = optimised_salt3_bandflux(
             phase, 
             bp_bridge['wave'], 
             bp_bridge['dwave'], 

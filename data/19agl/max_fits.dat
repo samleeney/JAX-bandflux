@@ -1,0 +1,16 @@
+bps_used variant success reddening_law gmax e_gmax Jmax e_Jmax st e_st rmax e_rmax Tmax e_Tmax Bmax e_Bmax rchi2_data rchi2_data_model fitprob_data fitprob_data_model
+c-o  False F19 None None None None None None None None None None None None None None None None
+c-o  False O94 18.512097558007017 0.014 None None 1.0 0.03 18.642097558007016 0.022 58542.543673948094 0.34 None None None None None None
+c-o-ztfg  False F19 None None None None None None None None None None None None None None None None
+c-o-ztfg-ztfr  False F19 None None None None None None None None None None None None None None None None
+c-o-ztfg-ztfr  False O94 None None None None None None None None None None None None None None None None
+c-o-ztfr  True F19 18.94531206496222 0.1291062246849275 None None 0.9220912479292043 0.08606710088927501 18.964859970377674 0.05102858413212142 58524.153826883914 1.060232543566364 None None 0.454 0.452 0.949 0.95
+c-ztfg-ztfr  False F19 None None None None None None None None None None None None None None None None
+J-c-o 1D3 False O94 None None 19.119667482319844 0.044 3.386527445668391 0.03 20.657564032669843 0.022 58561.58273353124 0.34 None None None None None None
+J-c-o-ztfg-ztfr 1D3 False O94 None None None None None None None None None None None None None None None None
+J-c-o-ztfg-ztfr 2D True F19 19.21512258292132 0.13194278531018255 18.944699354056567 0.1208259455878205 1.2575209618808938 0.050852571800397976 19.032466457468505 0.05684312571814169 58518.14640463183 1.0027600196341881 19.351144761062077 0.1574230256533205 1.14 0.846 0.299 0.658
+J-o-ztfg 1D3 False O94 None None None None None None None None None None None None None None None None
+J-ztfg-ztfr 1D3 False O94 None None 19.668168332834004 0.044 3.4950878440846904 0.03 19.462924821522208 0.022 58489.62279430078 0.34 None None None None None None
+o-ztfg-ztfr  False F19 None None None None None None None None None None None None None None None None
+ztfg-ztfr  False F19 None None None None None None None None None None None None None None None None
+ztfg-ztfr  False O94 None None None None 1.688681351077343 0.03 19.13584457873782 0.022 58528.50605234909 0.34 18.537327064069796 0.012 None None None None
