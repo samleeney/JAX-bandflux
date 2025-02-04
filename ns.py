@@ -7,14 +7,14 @@ import blackjax
 from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3nir import (
     optimized_salt3nir_multiband_flux,
-    optimized_salt3nir_bandflux,
-    precompute_bandflux_bridge
 )
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_and_process_data
 import matplotlib.pyplot as plt
 import yaml
+from anesthetic import read_chains, make_2d_axes
+
 
 # Load settings
 with open('settings.yaml', 'r') as f:
@@ -176,3 +176,26 @@ print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
 # Save chains using the utility function
 param_names = ['z', 't0', 'x0', 'x1', 'c']
 save_chains_dead_birth(dead, param_names) 
+
+
+# Define parameter names
+param_names = ['z', 't0', 'x0', 'x1', 'c']
+
+# Read the chains
+samples = read_chains('chains/chains', columns=param_names)
+
+# Create corner plot
+fig, axes = make_2d_axes(param_names, figsize=(10, 10), facecolor='w')
+samples.plot_2d(axes, alpha=0.9, label="posterior")
+axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncols=2)
+
+plt.savefig('corner_plot.png')
+plt.close()
+
+# Print parameter statistics
+print("\nParameter Statistics:")
+print("-" * 50)
+for param in param_names:
+    mean = samples[param].mean()
+    std = samples[param].std()
+    print(f"{param}: {mean:.6f} ± {std:.6f}")
