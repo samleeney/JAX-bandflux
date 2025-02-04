@@ -15,12 +15,17 @@ def find_object_filepath(base_dir, object_name):
     Returns:
         str: Full path to the data file
     """
-    # First try direct path for known structure
-    direct_path = os.path.join(base_dir, 'Ia', object_name, 'all.phot')
+    # First try direct path in object directory
+    direct_path = os.path.join(base_dir, object_name, 'all.phot')
     if os.path.exists(direct_path):
         return direct_path
         
-    # If direct path doesn't exist, do a recursive search
+    # Then try path with Ia subdirectory
+    ia_path = os.path.join(base_dir, 'Ia', object_name, 'all.phot')
+    if os.path.exists(ia_path):
+        return ia_path
+        
+    # If neither exists, do a recursive search
     for root, dirs, files in os.walk(base_dir):
         for file in files:
             if (object_name.lower() in file.lower() and 
@@ -28,13 +33,16 @@ def find_object_filepath(base_dir, object_name):
                 return os.path.join(root, file)
     raise FileNotFoundError(f"No data file found for object {object_name}")
 
-def load_hsf_data(object_name, base_dir='hsf_DR1'):
+def load_hsf_data(object_name, base_dir='data'):
     """
     Load HSF data for a given object.
     
     Args:
         object_name (str): Name of the object (e.g., '19agl')
-        base_dir (str): Base directory containing the data files
+        base_dir (str): Base directory containing the data files. Defaults to 'data'.
+                       Expected structure is either:
+                       - [base_dir]/Ia/[object_name]/all.phot
+                       - Or any .dat/.phot file containing the object name
         
     Returns:
         astropy.table.Table: Table containing the processed data with columns:
@@ -42,7 +50,11 @@ def load_hsf_data(object_name, base_dir='hsf_DR1'):
             - band: filter/band names (from bandpass)
             - flux: flux measurements
             - fluxerr: flux measurement errors
-            - zp: zero points
+            - zp: zero points (defaults to 27.5 if not present)
+            
+    Raises:
+        FileNotFoundError: If no data file is found for the given object
+        ValueError: If required columns are missing from the data file
     """
     data_file = find_object_filepath(base_dir, object_name)
     print(f"Loading data from {data_file}")
@@ -74,12 +86,13 @@ def load_hsf_data(object_name, base_dir='hsf_DR1'):
     
     return data
 
-def load_and_process_data(sn_name):
+def load_and_process_data(sn_name, data_dir='data'):
     """
     Load and process supernova data, including bandpass registration and data array setup.
     
     Args:
         sn_name (str): Name of the supernova to load (e.g., '19agl')
+        data_dir (str): Directory containing the data files. Defaults to 'data'.
         
     Returns:
         tuple: Contains processed data arrays and bridges:
@@ -91,7 +104,7 @@ def load_and_process_data(sn_name):
             - bridges (tuple): Precomputed bridge data for each band
     """
     # Load data and register bandpasses
-    data = load_hsf_data(sn_name)
+    data = load_hsf_data(sn_name, base_dir=data_dir)
     bandpass_dict, bridges_dict = register_all_bandpasses()
 
     # Get unique bands and their bridges

@@ -24,7 +24,7 @@ with open('settings.yaml', 'r') as f:
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19agl')
+times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19agl', data_dir='data')
 
 # Define parameter bounds and priors
 param_bounds = {

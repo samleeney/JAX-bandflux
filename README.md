@@ -1,4 +1,3 @@
-
 # JAX Bandflux for Supernovae
 
 A JAX-based implementation of supernova light curve modeling and analysis tools. This codebase provides efficient, differentiable implementations of core SNCosmo functionality using JAX.
@@ -90,13 +89,13 @@ from jax_supernovae.data import load_and_process_data
 
 # Load and process data with automatic bandpass registration
 times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data(
-    sn_name='19agl', 
-    data_root='./data'
+    sn_name='19agl',
+    data_dir='data'  # Optional, defaults to 'data'
 )
 ```
 
 This function:
-1. Loads the raw data
+1. Loads the raw data from the specified directory (defaults to 'data')
 2. Registers all necessary bandpasses
 3. Converts data to JAX arrays
 4. Creates band indices for efficient processing
