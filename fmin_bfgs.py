@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from scipy.optimize import fmin_l_bfgs_b
 import sncosmo
 from jax_supernovae.bandpasses import Bandpass
-from jax_supernovae.salt3_bandflux import salt3_bandflux
+from jax_supernovae.salt3nir import salt3nir_bandflux
 
 # Enable float64 precision for better accuracy
 jax.config.update("jax_enable_x64", True)
@@ -32,7 +32,7 @@ def objective(parameters):
     model_flux = []
     for i, (band_name, t, zp, zpsys) in enumerate(zip(data['band'], data['time'], 
                                                      data['zp'], data['zpsys'])):
-        flux = salt3_bandflux(t, band_dict[band_name], params, 
+        flux = salt3nir_bandflux(t, band_dict[band_name], params, 
                                zp=zp, zpsys=zpsys)
         # Extract the scalar value from the array
         flux_val = float(flux.ravel()[0])
