@@ -1,25 +1,22 @@
-# Nested sampling parameters
 nested_sampling:
+  max_iterations: 10000
+  n_delete: 1
   n_live: 100
   n_params: 5
-  n_delete: 1
-  num_mcmc_steps_multiplier: 5  # Will be multiplied by n_params
-  max_iterations: 10000
-
-# Prior bounds
+  num_mcmc_steps_multiplier: 5
 prior_bounds:
-  z:
-    min: 0.001
-    max: 0.2
-  t0:
-    min: 58000.0
-    max: 59000.0
-  x0:
-    min: -6.0  # log10(1e-6)
-    max: -3.0  # log10(1e-3)
-  x1:
-    min: -4.0
-    max: 4.0
   c:
-    min: -0.3
     max: 0.3
+    min: -0.3
+  t0:
+    max: 59000.0
+    min: 58000.0
+  x0:
+    max: -3.0
+    min: -6.0
+  x1:
+    max: 4.0
+    min: -4.0
+  z:
+    max: 0.2
+    min: 0.001
