@@ -6,3 +6,4 @@ pytest>=7.0.0
 pyyaml>=6.0.0
 matplotlib
 tqdm
+anesthetic
