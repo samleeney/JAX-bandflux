@@ -7,7 +7,7 @@ A JAX-based implementation of supernova light curve modeling and analysis tools.
 ```bash
 # Clone the repository
 git clone https://github.com/samleeney/jax-supernovae.git
-cd sn_anomaly
+cd JAX-bandflux
 
 # Create and activate a virtual environment (recommended)
 python -m venv venv
