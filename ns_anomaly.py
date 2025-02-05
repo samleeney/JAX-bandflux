@@ -215,7 +215,7 @@ def compute_single_loglikelihood(params):
     # Sum the log likelihoods
     total_logL = jnp.sum(logL)
     
-    return total_logL
+    return total_logL, emax
 
 @jax.jit
 def compute_batch_loglikelihood(params):
@@ -224,10 +224,10 @@ def compute_batch_loglikelihood(params):
     params = jnp.atleast_2d(params)
     
     # Use vmap for batch processing
-    batch_loglike = jax.vmap(compute_single_loglikelihood)(params)
+    batch_loglike, batch_emax = jax.vmap(compute_single_loglikelihood)(params)
     
-    # Always return array of shape (n,)
-    return jnp.reshape(batch_loglike, (-1,))
+    # Store emax values in a global array or file
+    return jnp.reshape(batch_loglike, (-1,)), batch_emax
 
 @jax.jit
 def loglikelihood(params):
@@ -235,8 +235,8 @@ def loglikelihood(params):
     # Ensure params is a 2D array
     params = jnp.atleast_2d(params)
     
-    # Compute log-likelihoods for the batch
-    batch_loglike = compute_batch_loglikelihood(params)
+    # Compute log-likelihoods and emax for the batch
+    batch_loglike, batch_emax = compute_batch_loglikelihood(params)
     
     # Always return array of shape (n,)
     return batch_loglike
@@ -319,6 +319,7 @@ def run_nested_sampling(loglikelihood_fn, output_prefix, num_iterations=settings
     
     # Run nested sampling
     dead = []
+    emax_values = []  # Store emax values
     print(f"Running nested sampling for {output_prefix}...")
     for i in tqdm.trange(settings['nested_sampling']['max_iterations']):
         if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
@@ -326,6 +327,12 @@ def run_nested_sampling(loglikelihood_fn, output_prefix, num_iterations=settings
 
         (state, rng_key), dead_info = one_step((state, rng_key), None)
         dead.append(dead_info)
+        
+        # Store emax values if using anomaly likelihood
+        if loglikelihood_fn == loglikelihood:
+            # Get emax only for the dead point
+            _, emax = compute_single_loglikelihood(dead_info.particles[0])
+            emax_values.append(emax)
         
         if i % 10 == 0:
             print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
@@ -344,6 +351,29 @@ def run_nested_sampling(loglikelihood_fn, output_prefix, num_iterations=settings
     else:
         param_names = ['t0', 'log_x0', 'x1', 'c', 'log_p'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c', 'log_p']
     save_chains_dead_birth(dead, param_names, root_dir=output_prefix)
+    
+    # Process and save emax values if using anomaly likelihood
+    if loglikelihood_fn == loglikelihood and emax_values:
+        # Stack all emax values (this should match the number of dead points)
+        emax_array = jnp.stack(emax_values)
+        print(f"emax_array shape: {emax_array.shape}")
+        # Calculate weights by subtracting logsumexp in log space
+        weights = jnp.exp(logw - jax.scipy.special.logsumexp(logw))
+        print(weights)
+        print(f"weights shape before: {weights.shape}")
+        weights = weights[:, 0]
+        print(f"weights shape after: {weights.shape}")
+        # Calculate weighted emax for each data point
+        weighted_emax = jnp.zeros(emax_array.shape[1])
+        for i in range(emax_array.shape[1]):
+            weighted_emax = weighted_emax.at[i].set(
+                jnp.sum(emax_array[:, i] * weights) / jnp.sum(weights)
+            )
+        print(f"weighted_emax shape: {weighted_emax.shape}")
+        # Save weighted emax values
+        emax_output_path = os.path.join(output_prefix, f"{output_prefix}_weighted_emax.txt")
+        np.savetxt(emax_output_path, weighted_emax)
+        print(f"Saved weighted emax values to {emax_output_path}")
 
 # Set up nested sampling
 n_live = settings['nested_sampling']['n_live']
@@ -357,14 +387,14 @@ def get_n_params(loglikelihood_fn):
         return 5 if fix_z else 6
 
 if __name__ == "__main__":
+    # Run anomaly version
+    print("\nRunning anomaly detection version...")
+    n_params = get_n_params(loglikelihood)
+    num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
+    anomaly_samples = run_nested_sampling(loglikelihood, "chains_anomaly")
     # Run standard version
     print("Running standard version...")
     n_params = get_n_params(loglikelihood_standard)
     num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
     standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard")
     
-    # Run anomaly version
-    print("\nRunning anomaly detection version...")
-    n_params = get_n_params(loglikelihood)
-    num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
-    anomaly_samples = run_nested_sampling(loglikelihood, "chains_anomaly")

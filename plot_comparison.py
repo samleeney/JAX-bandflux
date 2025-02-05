@@ -18,6 +18,20 @@ with open('settings.yaml', 'r') as f:
 fix_z = settings.get('fix_z', False)
 times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
+# Load weighted emax values
+weighted_emax = np.loadtxt('chains_anomaly/chains_anomaly_weighted_emax.txt')
+
+# Create a separate plot for weighted emax vs datapoint number
+plt.figure(figsize=(12, 6))
+plt.plot(np.arange(len(weighted_emax)), weighted_emax, 'k-', linewidth=2)
+plt.fill_between(np.arange(len(weighted_emax)), 0, weighted_emax, alpha=0.3)
+plt.xlabel('Data Point Number')
+plt.ylabel('Weighted Emax')
+plt.title('Weighted Emax by Data Point')
+plt.grid(True, alpha=0.3)
+plt.savefig('weighted_emax.png', dpi=300, bbox_inches='tight')
+plt.close()
+
 # Load chains for both runs
 base_params = ['t0', 'log_x0', 'x1', 'c'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c']
 
@@ -50,7 +64,7 @@ if 'log_p' in anomaly_samples.columns:
     plt.savefig('corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-# Now plot light curves
+# Now plot light curves with weighted emax subplot
 def get_model_curve(samples, percentile=50):
     """Get model curve for given percentile of parameters."""
     params = {}
@@ -73,8 +87,12 @@ t_grid = np.linspace(t_min, t_max, 100)
 unique_bands = np.unique(band_indices)
 n_bands = len(unique_bands)
 
-# Set up the plot
-plt.figure(figsize=(15, 10))
+# Set up the plot with two subplots
+fig = plt.figure(figsize=(15, 12))
+gs = plt.GridSpec(2, 1, height_ratios=[4, 1])  # 2 rows with 4:1 ratio
+
+# Main light curve plot
+ax1 = plt.subplot(gs[0])
 
 # Define colours for each band
 colours = ['g', 'c', 'orange', 'r']  # g, c, o, r bands
@@ -83,7 +101,7 @@ markers = ['o', 's', 'D', '^']
 # Plot data points for each band
 for i, band_idx in enumerate(unique_bands):
     mask = band_indices == band_idx
-    plt.errorbar(times[mask], fluxes[mask], yerr=fluxerrs[mask],
+    ax1.errorbar(times[mask], fluxes[mask], yerr=fluxerrs[mask],
                 fmt=markers[i], color=colours[i], label=f'Band {i} Data',
                 markersize=8, alpha=0.6)
 
@@ -109,22 +127,31 @@ for name, samples in [("Standard", standard_samples), ("Anomaly", anomaly_sample
         band_fluxes = model_fluxes[:, i]
         
         # Plot model curve
-        plt.plot(t_grid, band_fluxes, linestyle, color=colours[i], 
+        ax1.plot(t_grid, band_fluxes, linestyle, color=colours[i], 
                 label=f'Band {i} {name}', linewidth=2, alpha=0.8)
 
-# Add labels and title
-plt.xlabel('MJD', fontsize=12)
-plt.ylabel('Flux', fontsize=12)
+# Add labels and title to main plot
+ax1.set_xlabel('MJD', fontsize=12)
+ax1.set_ylabel('Flux', fontsize=12)
 title = 'Light Curve Fit Comparison'
 if 'z' in params:
     title += f' (z = {params["z"]:.4f})'
-plt.title(title, fontsize=14)
+ax1.set_title(title, fontsize=14)
 
-# Add legend
-plt.legend(ncol=2, fontsize=10)
-plt.grid(True, alpha=0.3)
+# Add legend to main plot
+ax1.legend(ncol=2, fontsize=10)
+ax1.grid(True, alpha=0.3)
 
-# Save plot
+# Weighted emax subplot
+ax2 = plt.subplot(gs[1])
+ax2.plot(times, weighted_emax, 'k-', linewidth=2)
+ax2.fill_between(times, 0, weighted_emax, alpha=0.3, color='gray')
+ax2.set_xlabel('MJD', fontsize=12)
+ax2.set_ylabel('Emax', fontsize=12)
+ax2.grid(True, alpha=0.3)
+
+# Adjust layout and save
+plt.tight_layout()
 plt.savefig('light_curve_comparison.png', dpi=300, bbox_inches='tight')
 plt.close()
 
