@@ -29,34 +29,70 @@ times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_
 
 # Define parameter bounds and priors
 if fix_z:
-    param_bounds = {
+    # Standard parameter bounds (without log_p)
+    standard_param_bounds = {
         't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
         'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
         'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
         'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
     }
-    # Create prior distributions without z
-    prior_dists = {
-        't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
-        'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
-        'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
+    # Anomaly parameter bounds (with log_p)
+    anomaly_param_bounds = {
+        't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
+        'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
+        'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
+        'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max']),
+        'log_p': (settings['prior_bounds']['log_p']['min'], settings['prior_bounds']['log_p']['max'])  # Log10 space bounds for anomaly fraction
+    }
+    # Create prior distributions without z for standard case
+    standard_prior_dists = {
+        't0': distrax.Uniform(low=standard_param_bounds['t0'][0], high=standard_param_bounds['t0'][1]),
+        'x0': distrax.Uniform(low=standard_param_bounds['x0'][0], high=standard_param_bounds['x0'][1]),
+        'x1': distrax.Uniform(low=standard_param_bounds['x1'][0], high=standard_param_bounds['x1'][1]),
+        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1])
+    }
+    # Create prior distributions without z for anomaly case
+    anomaly_prior_dists = {
+        't0': distrax.Uniform(low=anomaly_param_bounds['t0'][0], high=anomaly_param_bounds['t0'][1]),
+        'x0': distrax.Uniform(low=anomaly_param_bounds['x0'][0], high=anomaly_param_bounds['x0'][1]),
+        'x1': distrax.Uniform(low=anomaly_param_bounds['x1'][0], high=anomaly_param_bounds['x1'][1]),
+        'c': distrax.Uniform(low=anomaly_param_bounds['c'][0], high=anomaly_param_bounds['c'][1]),
+        'log_p': distrax.Uniform(low=anomaly_param_bounds['log_p'][0], high=anomaly_param_bounds['log_p'][1])
     }
 else:
-    param_bounds = {
+    # Standard parameter bounds (without log_p)
+    standard_param_bounds = {
         'z': (settings['prior_bounds']['z']['min'], settings['prior_bounds']['z']['max']),
         't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
         'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
         'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
         'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
     }
-    # Create prior distributions with z
-    prior_dists = {
-        'z': distrax.Uniform(low=param_bounds['z'][0], high=param_bounds['z'][1]),
-        't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
-        'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
-        'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
+    # Anomaly parameter bounds (with log_p)
+    anomaly_param_bounds = {
+        'z': (settings['prior_bounds']['z']['min'], settings['prior_bounds']['z']['max']),
+        't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
+        'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
+        'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
+        'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max']),
+        'log_p': (settings['prior_bounds']['log_p']['min'], settings['prior_bounds']['log_p']['max'])  # Log10 space bounds for anomaly fraction
+    }
+    # Create prior distributions with z for standard case
+    standard_prior_dists = {
+        'z': distrax.Uniform(low=standard_param_bounds['z'][0], high=standard_param_bounds['z'][1]),
+        't0': distrax.Uniform(low=standard_param_bounds['t0'][0], high=standard_param_bounds['t0'][1]),
+        'x0': distrax.Uniform(low=standard_param_bounds['x0'][0], high=standard_param_bounds['x0'][1]),
+        'x1': distrax.Uniform(low=standard_param_bounds['x1'][0], high=standard_param_bounds['x1'][1]),
+        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1])
+    }
+    # Create prior distributions with z for anomaly case
+    anomaly_prior_dists = {
+        'z': distrax.Uniform(low=anomaly_param_bounds['z'][0], high=anomaly_param_bounds['z'][1]),
+        't0': distrax.Uniform(low=anomaly_param_bounds['t0'][0], high=anomaly_param_bounds['t0'][1]),
+        'x0': distrax.Uniform(low=anomaly_param_bounds['x0'][0], high=anomaly_param_bounds['x0'][1]),
+        'x1': distrax.Uniform(low=anomaly_param_bounds['x1'][0], high=anomaly_param_bounds['x1'][1]),
+        'c': distrax.Uniform(low=anomaly_param_bounds['c'][0], high=anomaly_param_bounds['c'][1]),
+        'log_p': distrax.Uniform(low=anomaly_param_bounds['log_p'][0], high=anomaly_param_bounds['log_p'][1])
     }
 
 @jax.jit
@@ -66,24 +102,47 @@ def logprior(params):
     params = jnp.atleast_2d(params)
     
     if fix_z:
-        # Calculate individual log probabilities without z
-        logp_t0 = prior_dists['t0'].log_prob(params[:, 0])
-        logp_x0 = prior_dists['x0'].log_prob(params[:, 1])
-        logp_x1 = prior_dists['x1'].log_prob(params[:, 2])
-        logp_c = prior_dists['c'].log_prob(params[:, 3])
-        
-        # Calculate total log probability
-        logp = logp_t0 + logp_x0 + logp_x1 + logp_c
+        if params.shape[1] == 4:  # Standard case
+            # Calculate individual log probabilities without z
+            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 0])
+            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 1])
+            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 2])
+            logp_c = standard_prior_dists['c'].log_prob(params[:, 3])
+            
+            # Calculate total log probability
+            logp = logp_t0 + logp_x0 + logp_x1 + logp_c
+        else:  # Anomaly case
+            # Calculate individual log probabilities without z
+            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 0])
+            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 1])
+            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 2])
+            logp_c = anomaly_prior_dists['c'].log_prob(params[:, 3])
+            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 4])
+            
+            # Calculate total log probability
+            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_logp
     else:
-        # Calculate individual log probabilities with z
-        logp_z = prior_dists['z'].log_prob(params[:, 0])
-        logp_t0 = prior_dists['t0'].log_prob(params[:, 1])
-        logp_x0 = prior_dists['x0'].log_prob(params[:, 2])
-        logp_x1 = prior_dists['x1'].log_prob(params[:, 3])
-        logp_c = prior_dists['c'].log_prob(params[:, 4])
-        
-        # Calculate total log probability
-        logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
+        if params.shape[1] == 5:  # Standard case
+            # Calculate individual log probabilities with z
+            logp_z = standard_prior_dists['z'].log_prob(params[:, 0])
+            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 1])
+            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 2])
+            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 3])
+            logp_c = standard_prior_dists['c'].log_prob(params[:, 4])
+            
+            # Calculate total log probability
+            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
+        else:  # Anomaly case
+            # Calculate individual log probabilities with z
+            logp_z = anomaly_prior_dists['z'].log_prob(params[:, 0])
+            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 1])
+            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 2])
+            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 3])
+            logp_c = anomaly_prior_dists['c'].log_prob(params[:, 4])
+            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 5])
+            
+            # Calculate total log probability
+            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_logp
     
     # Always return array of shape (n,)
     return jnp.reshape(logp, (-1,))
@@ -130,30 +189,28 @@ def loglikelihood_standard(params):
 def compute_single_loglikelihood(params):
     """Compute Gaussian log likelihood for a single set of parameters."""
     if fix_z:
-        t0, log_x0, x1, c = params
+        t0, log_x0, x1, c, log_p = params
         z = fixed_z[0]  # Use fixed redshift
     else:
-        z, t0, log_x0, x1, c = params
+        z, t0, log_x0, x1, c, log_p = params
     
     x0 = 10**(log_x0)
+    p = 10**(log_p)  # Transform log10_p to p
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
     
     # Calculate model fluxes for all observations at once using optimized function
     model_fluxes = optimized_salt3nir_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
     model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
     
-    # Get anomaly detection parameters from settings
-    p = 0.08 # from leeney 2023
-    delta =  250 # ~max data     
     # Calculate individual point log likelihoods
     point_logL = -0.5 * ((fluxes - model_fluxes) / fluxerrs)**2 - 0.5 * jnp.log(2 * jnp.pi * fluxerrs**2) + jnp.log(1 - p)
     
     # Calculate threshold for anomalies
-    logp = jnp.log(p)
+    delta = 250  # ~max data
     
     # Apply anomaly detection
-    emax = point_logL > (logp - jnp.log(delta))
-    logL = jnp.where(emax, point_logL, logp - jnp.log(delta))
+    emax = point_logL > (log_p - jnp.log(delta))
+    logL = jnp.where(emax, point_logL, log_p - jnp.log(delta))
     
     # Sum the log likelihoods
     total_logL = jnp.sum(logL)
@@ -184,31 +241,46 @@ def loglikelihood(params):
     # Always return array of shape (n,)
     return batch_loglike
 
-def sample_from_priors(rng_key, n_samples):
+def sample_from_priors(rng_key, n_samples, loglikelihood_fn):
     """Sample from all prior distributions at once."""
     if fix_z:
-        keys = jax.random.split(rng_key, 4)
-        return jnp.column_stack([
-            prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-            prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-            prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-            prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,))
-        ])
+        if loglikelihood_fn == loglikelihood_standard:  # Standard case
+            keys = jax.random.split(rng_key, 4)
+            return jnp.column_stack([
+                standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,))
+            ])
+        else:  # Anomaly case
+            keys = jax.random.split(rng_key, 5)
+            return jnp.column_stack([
+                anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                anomaly_prior_dists['log_p'].sample(seed=keys[4], sample_shape=(n_samples,))
+            ])
     else:
-        keys = jax.random.split(rng_key, 5)
-        return jnp.column_stack([
-            prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-            prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-            prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-            prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-            prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,))
-        ])
-
-# Set up nested sampling
-n_live = settings['nested_sampling']['n_live']
-n_params = 4 if fix_z else 5  # Adjust number of parameters based on fix_z
-n_delete = settings['nested_sampling']['n_delete']
-num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
+        if loglikelihood_fn == loglikelihood_standard:  # Standard case
+            keys = jax.random.split(rng_key, 5)
+            return jnp.column_stack([
+                standard_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                standard_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                standard_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                standard_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                standard_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,))
+            ])
+        else:  # Anomaly case
+            keys = jax.random.split(rng_key, 6)
+            return jnp.column_stack([
+                anomaly_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                anomaly_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                anomaly_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                anomaly_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                anomaly_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
+                anomaly_prior_dists['log_p'].sample(seed=keys[5], sample_shape=(n_samples,))
+            ])
 
 def run_nested_sampling(loglikelihood_fn, output_prefix, num_iterations=settings['nested_sampling']['max_iterations']):
     """Run nested sampling with given likelihood function and save results."""
@@ -228,7 +300,7 @@ def run_nested_sampling(loglikelihood_fn, output_prefix, num_iterations=settings
     # Initialize random key and particles
     rng_key = jax.random.PRNGKey(0)
     rng_key, init_key = jax.random.split(rng_key)
-    initial_particles = sample_from_priors(init_key, n_live)
+    initial_particles = sample_from_priors(init_key, n_live, loglikelihood_fn)
     print("Initial particles generated, shape: ", initial_particles.shape)
     
     # Initialize state with the correct likelihood function
@@ -267,14 +339,32 @@ def run_nested_sampling(loglikelihood_fn, output_prefix, num_iterations=settings
     print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
     
     # Save chains with full path
-    param_names = ['t0', 'x0', 'x1', 'c'] if fix_z else ['z', 't0', 'x0', 'x1', 'c']
+    if loglikelihood_fn == loglikelihood_standard:
+        param_names = ['t0', 'log_x0', 'x1', 'c'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c']
+    else:
+        param_names = ['t0', 'log_x0', 'x1', 'c', 'log_p'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c', 'log_p']
     save_chains_dead_birth(dead, param_names, root_dir=output_prefix)
-    
+
+# Set up nested sampling
+n_live = settings['nested_sampling']['n_live']
+n_delete = settings['nested_sampling']['n_delete']
+
+def get_n_params(loglikelihood_fn):
+    """Get number of parameters based on likelihood function and fix_z setting."""
+    if loglikelihood_fn == loglikelihood_standard:
+        return 4 if fix_z else 5
+    else:
+        return 5 if fix_z else 6
 
 if __name__ == "__main__":
-    # Run both versions with more iterations for testing
+    # Run standard version
     print("Running standard version...")
-    standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard", num_iterations=settings['nested_sampling']['max_iterations'])
+    n_params = get_n_params(loglikelihood_standard)
+    num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
+    standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard")
     
+    # Run anomaly version
     print("\nRunning anomaly detection version...")
-    anomaly_samples = run_nested_sampling(loglikelihood, "chains_anomaly", num_iterations=settings['nested_sampling']['max_iterations'])
+    n_params = get_n_params(loglikelihood)
+    num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
+    anomaly_samples = run_nested_sampling(loglikelihood, "chains_anomaly")

@@ -19,9 +19,17 @@ fix_z = settings.get('fix_z', False)
 times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
 # Load chains for both runs
-param_names = ['t0', 'x0', 'x1', 'c'] if fix_z else ['z', 't0', 'x0', 'x1', 'c']
-standard_samples = read_chains('chains_standard/chains_standard', columns=param_names)
-anomaly_samples = read_chains('chains_anomaly/chains_anomaly', columns=param_names)
+base_params = ['t0', 'log_x0', 'x1', 'c'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c']
+
+# Load standard chains (without log_p)
+standard_samples = read_chains('chains_standard/chains_standard', columns=base_params)
+
+# Load anomaly chains (with log_p)
+anomaly_params = base_params + ['log_p']
+anomaly_samples = read_chains('chains_anomaly/chains_anomaly', columns=anomaly_params)
+
+# Use the appropriate parameter names for plotting
+param_names = base_params  # Only plot the common parameters between both chains
 
 # Create overlaid corner plot
 fig, axes = make_2d_axes(param_names, figsize=(10, 10), facecolor='w')
@@ -32,14 +40,26 @@ axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower cent
 plt.savefig('corner_comparison.png', dpi=300, bbox_inches='tight')
 plt.close()
 
+# Create a separate corner plot for log_p correlations in anomaly case
+if 'log_p' in anomaly_samples.columns:
+    log_p_params = base_params + ['log_p']
+    fig, axes = make_2d_axes(log_p_params, figsize=(12, 12), facecolor='w')
+    anomaly_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
+    plt.suptitle('Anomaly Detection Corner Plot (including log_p)', fontsize=14)
+    axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=2)
+    plt.savefig('corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
 # Now plot light curves
 def get_model_curve(samples, percentile=50):
     """Get model curve for given percentile of parameters."""
     params = {}
     for param in param_names:
-        params[param] = float(np.percentile(samples[param], percentile))
-    if 'x0' in params:
-        params['x0'] = 10**params['x0']
+        if param != 'log_p':  # Skip logp as it's not needed for the model
+            params[param] = float(np.percentile(samples[param], percentile))
+    if 'log_x0' in params:
+        params['x0'] = 10**params['log_x0']
+        del params['log_x0']  # Remove log_x0 as we now have x0
     if fix_z:
         params['z'] = fixed_z[0]
     return params
@@ -118,4 +138,13 @@ for param in param_names:
     anom_std = anomaly_samples[param].std()
     print(f"\n{param}:")
     print(f"  Standard: {std_mean:.6f} ± {std_std:.6f}")
-    print(f"  Anomaly:  {anom_mean:.6f} ± {anom_std:.6f}") 
+    print(f"  Anomaly:  {anom_mean:.6f} ± {anom_std:.6f}")
+
+# Print log_p statistics for anomaly case
+if 'log_p' in anomaly_samples.columns:
+    print("\nlog_p (Anomaly only):")
+    log_p_mean = anomaly_samples['log_p'].mean()
+    log_p_std = anomaly_samples['log_p'].std()
+    print(f"  Mean: {log_p_mean:.6f} ± {log_p_std:.6f}")
+    print(f"  Max: {anomaly_samples['log_p'].max():.6f}")
+    print(f"  Min: {anomaly_samples['log_p'].min():.6f}") 

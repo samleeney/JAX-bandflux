@@ -1,6 +1,6 @@
 fix_z: true
 nested_sampling:
-  max_iterations: 100
+  max_iterations: 10000
   n_delete: 1
   n_live: 100
   n_params: 5
@@ -21,6 +21,8 @@ prior_bounds:
   z:
     max: 0.2
     min: 0.001
+  log_p:  # log10 of anomaly fraction
+    max: -0.1
+    min: -4.0    # log10(1e-4)
 anomaly_detection:
-  p: 0.05  # probability of a point being anomalous
   delta: 250  # threshold parameter for anomaly detection
