@@ -64,7 +64,6 @@ sncosmo/.config_bare
 .config_bare
 archive/
 chains/
-examples
 .config_bare
 sncosmo/
 *.png
