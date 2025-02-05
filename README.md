@@ -5,7 +5,7 @@ A JAX-based implementation of supernova light curve modeling and analysis tools.
 ## Installation
 
 ```bash
-git clone https://github.com/samleeney/jax-supernovae.git && cd JAX-bandflux && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+git clone git@github.com:samleeney/JAX-bandflux.git && cd JAX-bandflux && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
 For nested sampling functionality:
