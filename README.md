@@ -55,9 +55,9 @@ Pass this function to your sampler of choice. A complete example, analogous to t
 
 To execute the code, run:
 
-    ```bash
-    python fmin_bfgs.py
-    ```
+```bash
+python fmin_bfgs.py
+```
 
 ### Data Loading
 
@@ -65,12 +65,12 @@ The repository offers flexible routines for loading supernova light curve data, 
 
 To load data for a specific supernova:
 
-    ```python
-    from jax_supernovae.data import load_hsf_data
-    
-    # Load data for a specific supernova
-    data = load_hsf_data('19agl', base_dir='data')
-    ```
+```python
+from jax_supernovae.data import load_hsf_data
+
+# Load data for a specific supernova
+data = load_hsf_data('19agl', base_dir='data')
+```
 
 The data is returned as an Astropy Table that includes:
 - `time`: Observation times (MJD)
@@ -81,15 +81,15 @@ The data is returned as an Astropy Table that includes:
 
 For analysis-ready JAX arrays and automatic bandpass registration, use:
 
-    ```python
-    from jax_supernovae.data import load_and_process_data
-    
-    # Load and process data with automatic bandpass registration
-    times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data(
-        sn_name='19agl',
-        data_dir='data'  # Optional, the default is 'data'
-    )
-    ```
+```python
+from jax_supernovae.data import load_and_process_data
+
+# Load and process data with automatic bandpass registration
+times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data(
+    sn_name='19agl',
+    data_dir='data'  # Optional, the default is 'data'
+)
+```
 
 This function performs the following steps:
 1. Loads raw data from the specified directory (default: 'data').
