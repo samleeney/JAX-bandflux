@@ -22,34 +22,34 @@ pip install git+https://github.com/handley-lab/blackjax@nested_sampling distrax
 
 This repository follows a structure similar to the `Using a custom fitter` example provided by SNCosmo. You may define the objective function as illustrated below:
 
-    ```python
-    def objective(parameters):
-        # Create a dictionary containing parameters
-        params = {
-            'z': parameters[0],
-            't0': parameters[1],
-            'x0': parameters[2],
-            'x1': parameters[3],
-            'c': parameters[4]
-        }
-        
-        # Compute model fluxes for all observations
-        model_flux = []
-        for i, (band_name, t, zp, zpsys) in enumerate(zip(data['band'], data['time'], data['zp'], data['zpsys'])):
-            flux = salt3_bandflux(t, band_dict[band_name], params, zp=zp, zpsys=zpsys)
-            # Extract the scalar value from the array
-            flux_val = float(flux.ravel()[0])
-            model_flux.append(flux_val)
-        
-        # Convert to a JAX array and calculate the chi-squared statistic
-        model_flux = jnp.array(model_flux)
-        chi2 = jnp.sum(((data['flux'] - model_flux) / data['fluxerr'])**2)
-        
-        # Display the total chi-squared for debugging purposes
-        print(f"\nTotal chi-squared: {float(chi2):.2f}\n")
-        
-        return chi2
-    ```
+```python
+def objective(parameters):
+    # Create a dictionary containing parameters
+    params = {
+        'z': parameters[0],
+        't0': parameters[1],
+        'x0': parameters[2],
+        'x1': parameters[3],
+        'c': parameters[4]
+    }
+    
+    # Compute model fluxes for all observations
+    model_flux = []
+    for i, (band_name, t, zp, zpsys) in enumerate(zip(data['band'], data['time'], data['zp'], data['zpsys'])):
+        flux = salt3_bandflux(t, band_dict[band_name], params, zp=zp, zpsys=zpsys)
+        # Extract the scalar value from the array
+        flux_val = float(flux.ravel()[0])
+        model_flux.append(flux_val)
+    
+    # Convert to a JAX array and calculate the chi-squared statistic
+    model_flux = jnp.array(model_flux)
+    chi2 = jnp.sum(((data['flux'] - model_flux) / data['fluxerr'])**2)
+    
+    # Display the total chi-squared for debugging purposes
+    print(f"\nTotal chi-squared: {float(chi2):.2f}\n")
+    
+    return chi2
+```
 
 Pass this function to your sampler of choice. A complete example, analogous to the SNCosmo case, is provided in [fmin_bfgs.py](fmin_bfgs.py). A nested sampling implementation is also available in [ns.py](ns.py).
 
