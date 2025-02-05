@@ -1,5 +1,7 @@
 # JAX Bandflux for Supernovae
 
+[![PyPI version](https://badge.fury.io/py/jax-bandflux.svg)](https://badge.fury.io/py/jax-bandflux)
+
 This repository presents an implementation of supernova light curve modelling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality implemented in JAX.
 
 ## Installation
