@@ -9,12 +9,11 @@ A JAX-based implementation of supernova light curve modeling and analysis tools.
 git clone https://github.com/samleeney/jax-supernovae.git
 cd JAX-bandflux
 
-# Create and activate a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
+# Create and activate a virtual environment and install dependencies (recommended)
+python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 
-# Install dependencies
-pip install -r requirements.txt
+# For Nested Sampling, install blackjax and distrax
+pip install git+https://github.com/handley-lab/blackjax@nested_sampling git+https://github.com/google-deepmind/distrax
 ```
 
 ## Usage
