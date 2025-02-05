@@ -71,7 +71,7 @@ def get_bandpass_filepath(band):
     Parameters
     ----------
     band : str
-        Bandpass name (e.g., 'c', 'o', 'ztfg')
+        Bandpass name (e.g., 'c', 'o', 'ztfg', 'g', etc.)
         
     Returns
     -------
@@ -82,9 +82,19 @@ def get_bandpass_filepath(band):
         # ATLAS bandpasses
         'c': 'bandpasses/atlas/Atlas.Cyan',
         'o': 'bandpasses/atlas/Atlas.Orange',
+        
         # ZTF bandpasses
         'ztfg': 'bandpasses/ztf/P48_g.dat',
         'ztfr': 'bandpasses/ztf/P48_R.dat',
+        
+        # SDSS bandpasses
+        'g': 'bandpasses/sdss/sdss_g.dat',  # SDSS g-band
+        'r': 'bandpasses/sdss/sdss_r.dat',  # SDSS r-band
+        'i': 'bandpasses/sdss/sdss_i.dat',  # SDSS i-band
+        'z': 'bandpasses/sdss/sdss_z.dat',  # SDSS z-band
+        
+        # 2MASS bandpasses
+        'H': 'bandpasses/2mass/2mass.H',    # 2MASS H-band
     }
     
     if band not in bandpass_map:
@@ -117,7 +127,7 @@ def load_bandpass(band):
             # ZTF files have a header line
             data = np.loadtxt(fname, skiprows=1)
         else:
-            # ATLAS files are simple two-column format
+            # All other files are simple two-column format
             data = np.loadtxt(fname)
             
         # Create bandpass object
@@ -178,10 +188,22 @@ def register_all_bandpasses():
     from jax_supernovae.salt3nir import precompute_bandflux_bridge
     
     bandpass_info = [
+        # ZTF bandpasses
         {'name': 'ztfg', 'file': 'sncosmo-modelfiles/bandpasses/ztf/P48_g.dat', 'skiprows': 1},
         {'name': 'ztfr', 'file': 'sncosmo-modelfiles/bandpasses/ztf/P48_R.dat', 'skiprows': 1},
+        
+        # ATLAS bandpasses
         {'name': 'c', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan', 'skiprows': 0},
-        {'name': 'o', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange', 'skiprows': 0}
+        {'name': 'o', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange', 'skiprows': 0},
+        
+        # SDSS bandpasses
+        {'name': 'g', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_g.dat', 'skiprows': 0},
+        {'name': 'r', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_r.dat', 'skiprows': 0},
+        {'name': 'i', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_i.dat', 'skiprows': 0},
+        {'name': 'z', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_z.dat', 'skiprows': 0},
+        
+        # 2MASS bandpasses
+        {'name': 'H', 'file': 'sncosmo-modelfiles/bandpasses/2mass/2mass.H', 'skiprows': 0},
     ]
     
     bandpass_dict = {}
@@ -195,6 +217,6 @@ def register_all_bandpasses():
             bandpass_dict[info['name']] = jax_bandpass
             bridges_dict[info['name']] = precompute_bandflux_bridge(jax_bandpass)
         except Exception as e:
-            pass
+            print(f"Warning: Failed to load bandpass {info['name']}: {e}")
     
     return bandpass_dict, bridges_dict 

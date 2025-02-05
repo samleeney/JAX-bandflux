@@ -213,7 +213,7 @@ print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
 print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
 
 # Save chains using the utility function
-param_names = ['t0', 'x0', 'x1', 'c'] if fix_z else ['z', 't0', 'x0', 'x1', 'c']
+param_names = ['t0', 'log_x0', 'x1', 'c'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c']
 save_chains_dead_birth(dead, param_names)
 
 # Read the chains

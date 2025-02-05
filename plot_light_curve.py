@@ -19,7 +19,7 @@ fix_z = settings.get('fix_z', False)
 times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
 # Load chains and get best fit parameters
-param_names = ['t0', 'x0', 'x1', 'c'] if fix_z else ['z', 't0', 'x0', 'x1', 'c']
+param_names = ['t0', 'log_x0', 'x1', 'c'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c']
 samples = read_chains('chains/chains', columns=param_names)
 
 # Get mean parameters as our best fit
@@ -31,8 +31,9 @@ for param in param_names:
 if fix_z:
     best_fit_params['z'] = fixed_z[0]
 
-# Convert x0 from log space back to linear
-best_fit_params['x0'] = 10**best_fit_params['x0']
+# Convert log_x0 to x0
+best_fit_params['x0'] = 10**best_fit_params['log_x0']
+del best_fit_params['log_x0']  # Remove log_x0 as we now have x0
 
 # Create time grid for smooth model curves
 t_min = np.min(times) - 5
