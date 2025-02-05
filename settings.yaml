@@ -1,6 +1,6 @@
 fix_z: true
 nested_sampling:
-  max_iterations: 10000
+  max_iterations: 100
   n_delete: 1
   n_live: 100
   n_params: 5
