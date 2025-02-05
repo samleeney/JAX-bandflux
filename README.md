@@ -6,15 +6,15 @@ This repository presents an implementation of supernova light curve modelling us
 
 To install the repository, please execute the following command:
 
-    ```bash
-    git clone git@github.com:samleeney/JAX-bandflux.git && cd JAX-bandflux && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
-    ```
+```bash
+git clone git@github.com:samleeney/JAX-bandflux.git && cd JAX-bandflux && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+```
 
 For nested sampling functionality, install the required packages with:
 
-    ```bash
-    pip install git+https://github.com/handley-lab/blackjax@nested_sampling distrax
-    ```
+```bash
+pip install git+https://github.com/handley-lab/blackjax@nested_sampling distrax
+```
 
 ## Usage
 
