@@ -1,0 +1,116 @@
+# JAX Bandflux for Supernovae - LLM Rules and Context
+
+## Core Purpose
+This codebase implements a JAX-based version of the SALT3-NIR supernova model, specifically focusing on bandflux calculations. The implementation must maintain exact consistency with the SNCosmo implementation. Any modifications to the bandflux calculation functions MUST be verified against SNCosmo outputs using the test suite.
+
+## Critical Rules
+1. NEVER modify the core bandflux calculation without running test_salt3nir_consistency.py
+2. ALL likelihood functions and priors MUST be fully JIT compiled
+3. numpy MUST NOT be used except in data loading functions that are called once
+4. ALL mathematical operations MUST use jax.numpy (imported as jnp)
+5. Maintain float64 precision throughout calculations
+
+## Code Structure
+1. Core Model Implementation:
+   - salt3nir.py: Contains the SALT3-NIR model implementation
+   - Primary functions: salt3nir_m0, salt3nir_m1, salt3nir_colorlaw, salt3nir_bandflux
+   - Optimised versions: optimized_salt3nir_bandflux, optimized_salt3nir_multiband_flux
+
+2. Data Handling:
+   - data.py: Functions for loading HSF DR1 format data
+   - bandpasses.py: Bandpass registration and management
+   - Key classes: Bandpass
+
+3. Testing:
+   - test_salt3nir_consistency.py: Verifies consistency with SNCosmo
+   - test_ns_completion.py: Tests nested sampling functionality
+
+4. Sampling Implementation:
+   - ns.py: Nested sampling implementation
+   - fmin_bfgs.py: BFGS optimisation implementation
+
+## Data Structures
+
+1. Parameter Dictionary Format:
+```python
+params = {
+    'z': float,      # Redshift
+    't0': float,     # Time of peak brightness
+    'x0': float,     # Amplitude
+    'x1': float,     # Light-curve stretch
+    'c': float       # Colour parameter
+}
+```
+
+2. Bandpass Object Structure:
+```python
+class Bandpass:
+    _wave: jnp.array    # Wavelength array
+    _trans: jnp.array   # Transmission array
+    _integration_wave   # Pre-computed integration grid
+    _integration_spacing # Grid spacing
+```
+
+3. Data Format Requirements:
+   - Time (MJD)
+   - Band names
+   - Flux measurements
+   - Flux errors
+   - Zero points (default 27.5)
+
+## Usage Patterns
+
+1. Data Loading:
+```python
+from jax_supernovae.data import load_and_process_data
+times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19agl')
+```
+
+2. Bandflux Calculation:
+```python
+from jax_supernovae.salt3nir import optimized_salt3nir_multiband_flux
+fluxes = optimized_salt3nir_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
+```
+
+3. Likelihood Function Pattern:
+```python
+@jax.jit
+def loglikelihood(params):
+    model_fluxes = optimized_salt3nir_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
+    chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
+    return -0.5 * chi2
+```
+
+## Critical Implementation Details
+
+1. Integration Grid:
+   - Must match SNCosmo's integration grid exactly
+   - Uses MODEL_BANDFLUX_SPACING constant
+   - Grid starts at minwave + 0.5 * spacing
+
+2. Colour Law:
+   - Matches SALT3-NIR implementation
+   - Uses pre-defined wavelength range [3000Å, 7000Å]
+   - Polynomial coefficients must match exactly
+
+3. Interpolation:
+   - Uses bicubic interpolation away from boundaries
+   - Falls back to linear interpolation near boundaries
+   - Must handle edge cases identically to SNCosmo
+
+## Error Handling Rules
+
+1. Input Validation:
+   - Verify parameter dictionary contains all required keys
+   - Check wavelength ranges are within model bounds
+   - Validate zpsys is 'ab' when zp is provided
+
+2. Numerical Stability:
+   - Use jnp.where for conditional operations
+   - Avoid direct boolean indexing
+   - Handle non-finite values in likelihood calculations
+
+3. Shape Handling:
+   - Support both scalar and array inputs
+   - Maintain consistent broadcasting behaviour
+   - Return appropriate shapes for single vs multiple observations 
