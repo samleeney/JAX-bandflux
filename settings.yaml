@@ -21,3 +21,6 @@ prior_bounds:
   z:
     max: 0.2
     min: 0.001
+anomaly_detection:
+  p: 0.05  # probability of a point being anomalous
+  delta: 250  # threshold parameter for anomaly detection

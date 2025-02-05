@@ -99,3 +99,5 @@ salt3nir_samples.npz
 .config_bare
 .config_bare
 .cursorrules
+.config_bare
+chains*
