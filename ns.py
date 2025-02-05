@@ -24,25 +24,40 @@ with open('settings.yaml', 'r') as f:
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19agl', data_dir='data')
+fix_z = settings.get('fix_z', False)  # Get fix_z from settings, default False
+times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
 # Define parameter bounds and priors
-param_bounds = {
-    'z': (settings['prior_bounds']['z']['min'], settings['prior_bounds']['z']['max']),
-    't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
-    'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
-    'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
-    'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
-}
-
-# Create prior distributions
-prior_dists = {
-    'z': distrax.Uniform(low=param_bounds['z'][0], high=param_bounds['z'][1]),
-    't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
-    'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
-    'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
-    'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
-}
+if fix_z:
+    param_bounds = {
+        't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
+        'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
+        'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
+        'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
+    }
+    # Create prior distributions without z
+    prior_dists = {
+        't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
+        'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
+        'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
+        'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
+    }
+else:
+    param_bounds = {
+        'z': (settings['prior_bounds']['z']['min'], settings['prior_bounds']['z']['max']),
+        't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
+        'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
+        'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
+        'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
+    }
+    # Create prior distributions with z
+    prior_dists = {
+        'z': distrax.Uniform(low=param_bounds['z'][0], high=param_bounds['z'][1]),
+        't0': distrax.Uniform(low=param_bounds['t0'][0], high=param_bounds['t0'][1]),
+        'x0': distrax.Uniform(low=param_bounds['x0'][0], high=param_bounds['x0'][1]),
+        'x1': distrax.Uniform(low=param_bounds['x1'][0], high=param_bounds['x1'][1]),
+        'c': distrax.Uniform(low=param_bounds['c'][0], high=param_bounds['c'][1])
+    }
 
 @jax.jit
 def logprior(params):
@@ -50,34 +65,38 @@ def logprior(params):
     # Ensure params is a 2D array
     params = jnp.atleast_2d(params)
     
-    # Calculate individual log probabilities
-    logp_z = prior_dists['z'].log_prob(params[:, 0])
-    logp_t0 = prior_dists['t0'].log_prob(params[:, 1])
-    logp_x0 = prior_dists['x0'].log_prob(params[:, 2])
-    logp_x1 = prior_dists['x1'].log_prob(params[:, 3])
-    logp_c = prior_dists['c'].log_prob(params[:, 4])
-    
-    # Calculate total log probability
-    logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
+    if fix_z:
+        # Calculate individual log probabilities without z
+        logp_t0 = prior_dists['t0'].log_prob(params[:, 0])
+        logp_x0 = prior_dists['x0'].log_prob(params[:, 1])
+        logp_x1 = prior_dists['x1'].log_prob(params[:, 2])
+        logp_c = prior_dists['c'].log_prob(params[:, 3])
+        
+        # Calculate total log probability
+        logp = logp_t0 + logp_x0 + logp_x1 + logp_c
+    else:
+        # Calculate individual log probabilities with z
+        logp_z = prior_dists['z'].log_prob(params[:, 0])
+        logp_t0 = prior_dists['t0'].log_prob(params[:, 1])
+        logp_x0 = prior_dists['x0'].log_prob(params[:, 2])
+        logp_x1 = prior_dists['x1'].log_prob(params[:, 3])
+        logp_c = prior_dists['c'].log_prob(params[:, 4])
+        
+        # Calculate total log probability
+        logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
     
     # Always return array of shape (n,)
     return jnp.reshape(logp, (-1,))
 
-def sample_from_priors(rng_key, n_samples):
-    """Sample from all prior distributions at once."""
-    keys = jax.random.split(rng_key, 5)
-    return jnp.column_stack([
-        prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-        prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-        prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-        prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-        prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,))
-    ])
-
 @jax.jit
 def compute_single_loglikelihood(params):
     """Compute Gaussian log likelihood for a single set of parameters."""
-    z, t0, log_x0, x1, c = params
+    if fix_z:
+        t0, log_x0, x1, c = params
+        z = fixed_z[0]  # Use fixed redshift
+    else:
+        z, t0, log_x0, x1, c = params
+    
     x0 = 10**(log_x0)
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
     
@@ -117,9 +136,29 @@ def loglikelihood(params):
     # Always return array of shape (n,)
     return batch_loglike
 
+def sample_from_priors(rng_key, n_samples):
+    """Sample from all prior distributions at once."""
+    if fix_z:
+        keys = jax.random.split(rng_key, 4)
+        return jnp.column_stack([
+            prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+            prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+            prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+            prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,))
+        ])
+    else:
+        keys = jax.random.split(rng_key, 5)
+        return jnp.column_stack([
+            prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+            prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+            prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+            prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+            prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,))
+        ])
+
 # Set up nested sampling
 n_live = settings['nested_sampling']['n_live']
-n_params = settings['nested_sampling']['n_params']
+n_params = 4 if fix_z else 5  # Adjust number of parameters based on fix_z
 n_delete = settings['nested_sampling']['n_delete']
 num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
 
@@ -174,12 +213,8 @@ print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
 print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
 
 # Save chains using the utility function
-param_names = ['z', 't0', 'x0', 'x1', 'c']
-save_chains_dead_birth(dead, param_names) 
-
-
-# Define parameter names
-param_names = ['z', 't0', 'x0', 'x1', 'c']
+param_names = ['t0', 'x0', 'x1', 'c'] if fix_z else ['z', 't0', 'x0', 'x1', 'c']
+save_chains_dead_birth(dead, param_names)
 
 # Read the chains
 samples = read_chains('chains/chains', columns=param_names)

@@ -86,13 +86,71 @@ def load_hsf_data(object_name, base_dir='data'):
     
     return data
 
-def load_and_process_data(sn_name, data_dir='data'):
+def load_redshift(object_name, redshift_file='data/redshifts.dat'):
+    """
+    Load redshift for a given object from redshifts.dat.
+    
+    Args:
+        object_name (str): Name of the object (e.g., '19agl')
+        redshift_file (str): Path to redshifts.dat file
+        
+    Returns:
+        tuple: (redshift, redshift_err, flag) where:
+            - redshift is the heliocentric redshift
+            - redshift_err is the symmetric error (max of plus/minus)
+            - flag is the reliability flag ('s'=strong, 'w'=weak, 'n'=no features)
+            
+    Raises:
+        FileNotFoundError: If redshift file not found
+        ValueError: If object not found in redshift file
+    """
+    if not os.path.exists(redshift_file):
+        raise FileNotFoundError(f"Redshift file not found: {redshift_file}")
+        
+    # Skip comment lines and read data
+    with open(redshift_file, 'r') as f:
+        lines = f.readlines()
+    
+    data_lines = [l for l in lines if not l.startswith('#')]
+    
+    # Find all measurements for this object
+    measurements = []
+    for line in data_lines:
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 6:
+            continue
+        if parts[0].lower() == object_name.lower():
+            try:
+                z = float(parts[2])
+                plus = float(parts[3])
+                minus = float(parts[4])
+                flag = parts[5] if len(parts) > 5 else 'n'
+                measurements.append((z, plus, minus, flag))
+            except (ValueError, IndexError):
+                continue
+    
+    if not measurements:
+        raise ValueError(f"No redshift measurements found for object {object_name}")
+    
+    # Prefer measurements with 's' flag, then 'w', then 'n'
+    flag_priority = {'s': 0, 'w': 1, 'n': 2}
+    measurements.sort(key=lambda x: flag_priority.get(x[3], 3))
+    
+    z, plus, minus, flag = measurements[0]
+    z_err = max(plus, minus)
+    
+    return z, z_err, flag
+
+def load_and_process_data(sn_name, data_dir='data', fix_z=False):
     """
     Load and process supernova data, including bandpass registration and data array setup.
     
     Args:
         sn_name (str): Name of the supernova to load (e.g., '19agl')
         data_dir (str): Directory containing the data files. Defaults to 'data'.
+        fix_z (bool): Whether to fix redshift to value from redshifts.dat
         
     Returns:
         tuple: Contains processed data arrays and bridges:
@@ -102,6 +160,7 @@ def load_and_process_data(sn_name, data_dir='data'):
             - zps (jnp.array): Zero points
             - band_indices (jnp.array): Band indices
             - bridges (tuple): Precomputed bridge data for each band
+            - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
     """
     # Load data and register bandpasses
     data = load_hsf_data(sn_name, base_dir=data_dir)
@@ -124,5 +183,15 @@ def load_and_process_data(sn_name, data_dir='data'):
     fluxerrs = jnp.array(data['fluxerr'][valid_mask])
     zps = jnp.array(data['zp'][valid_mask])
     band_indices = jnp.array([unique_bands.index(band) for band in data['band'][valid_mask]])
-
-    return times, fluxes, fluxerrs, zps, band_indices, bridges 
+    
+    # Load redshift if requested
+    fixed_z = None
+    if fix_z:
+        try:
+            z, z_err, flag = load_redshift(sn_name)
+            fixed_z = (z, z_err)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Warning: Could not load redshift: {e}")
+            fixed_z = None
+    
+    return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z 

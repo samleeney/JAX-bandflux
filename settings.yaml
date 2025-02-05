@@ -1,3 +1,4 @@
+fix_z: true
 nested_sampling:
   max_iterations: 10000
   n_delete: 1
@@ -12,7 +13,7 @@ prior_bounds:
     max: 59000.0
     min: 58000.0
   x0:
-    max: -3.0
+    max: -2.0
     min: -6.0
   x1:
     max: 4.0
