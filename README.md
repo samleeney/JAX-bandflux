@@ -10,7 +10,7 @@ git clone git@github.com:samleeney/JAX-bandflux.git && cd JAX-bandflux && python
 
 For nested sampling functionality:
 ```bash
-pip install git+https://github.com/handley-lab/blackjax@nested_sampling git+https://github.com/google-deepmind/distrax
+pip install git+https://github.com/handley-lab/blackjax@nested_sampling distrax
 ```
 
 ## Usage
