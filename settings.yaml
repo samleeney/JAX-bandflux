@@ -1,3 +1,5 @@
+anomaly_detection:
+  delta: 250
 fix_z: true
 nested_sampling:
   max_iterations: 10000
@@ -9,11 +11,14 @@ prior_bounds:
   c:
     max: 0.3
     min: -0.3
+  log_p:
+    max: -0.1
+    min: -4.0
   t0:
     max: 59000.0
     min: 58000.0
   x0:
-    max: -2.6 # for some reason setting this too low makes the sampler crash
+    max: -2.6
     min: -5.0
   x1:
     max: 4.0
@@ -21,8 +26,3 @@ prior_bounds:
   z:
     max: 0.2
     min: 0.001
-  log_p:  # log10 of anomaly fraction
-    max: -0.1
-    min: -4.0    # log10(1e-4)
-anomaly_detection:
-  delta: 250  # threshold parameter for anomaly detection

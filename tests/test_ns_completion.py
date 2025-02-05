@@ -27,7 +27,7 @@ def test_ns_completion():
     
     try:
         # Import and run ns.py
-        import ns
+        import examples.ns as ns
         
         # Test passed if we got here without errors
         assert True
