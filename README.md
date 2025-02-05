@@ -102,5 +102,6 @@ This function performs the following steps:
 
 This repository implements the JAX version of the SNCosmo bandflux function. Although the implementations are nearly identical, a minor difference exists due to the absence of a specific interpolation function in JAX, resulting in a discrepancy of approximately 0.001% in bandflux results. Tests have been provided to confirm that key functions in the SNCosmo version correspond with our JAX implementation. It is recommended to run these tests, especially following any modifications.
 
-# What is the .ai rules file?
-Large Language Models are frequently use to optimise research and development. It is useful to include context for the LLM to help it understand the codebase. This is particuarly important for new code that will not have been included in model training datasets. The `.airules` file contains information on data structures, key functions and testing and will greatly improve LLM performance when working with this codebase. If you are using cursor, rename this file to .cursorrules and it will be interpreted as context automatically.
+## What is the .airules file?
+
+Large Language Models are frequently used to optimise research and development. The `.airules` file provides context to help LLMs understand and work with this codebase. This is particularly important for new code that will not have been included in model training datasets. The file contains detailed information about data structures, core functions, critical implementation rules, and testing requirements. If you are using Cursor, rename this file to `.cursorrules` and it will be automatically interpreted as context.
