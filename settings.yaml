@@ -13,8 +13,8 @@ prior_bounds:
     max: 59000.0
     min: 58000.0
   x0:
-    max: -2.0
-    min: -6.0
+    max: -2.6 # for some reason setting this too low makes the sampler crash
+    min: -5.0
   x1:
     max: 4.0
     min: -4.0
