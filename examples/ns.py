@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 import tqdm
 import blackjax
+import os
 from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3 import (
     optimized_salt3_multiband_flux,
@@ -12,28 +13,43 @@ from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_and_process_data
 import matplotlib.pyplot as plt
-import yaml
 from anesthetic import read_chains, make_2d_axes
 
+# Settings that were previously in YAML
+fix_z = True
 
-# Load settings
-with open('settings.yaml', 'r') as f:
-    settings = yaml.safe_load(f)
+# Nested sampling settings
+NS_SETTINGS = {
+    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '10000')),
+    'n_delete': 1,
+    'n_live': 125,
+    'n_params': 5,
+    'num_mcmc_steps_multiplier': 5
+}
+
+# Prior bounds
+PRIOR_BOUNDS = {
+    'z': {'min': 0.001, 'max': 0.2},
+    't0': {'min': 58000.0, 'max': 59000.0},
+    'x0': {'min': -5.0, 'max': -2.6},
+    'x1': {'min': -4.0, 'max': 4.0},
+    'c': {'min': -0.3, 'max': 0.3},
+    'log_p': {'min': -4.0, 'max': -0.1}
+}
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-fix_z = settings.get('fix_z', False)  # Get fix_z from settings, default False
 times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
 # Define parameter bounds and priors
 if fix_z:
     param_bounds = {
-        't0': (settings['nested_sampling']['prior_bounds']['t0']['min'], settings['nested_sampling']['prior_bounds']['t0']['max']),
-        'x0': (settings['nested_sampling']['prior_bounds']['x0']['min'], settings['nested_sampling']['prior_bounds']['x0']['max']),
-        'x1': (settings['nested_sampling']['prior_bounds']['x1']['min'], settings['nested_sampling']['prior_bounds']['x1']['max']),
-        'c': (settings['nested_sampling']['prior_bounds']['c']['min'], settings['nested_sampling']['prior_bounds']['c']['max'])
+        't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
+        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']),
+        'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
+        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max'])
     }
     # Create prior distributions without z
     prior_dists = {
@@ -44,11 +60,11 @@ if fix_z:
     }
 else:
     param_bounds = {
-        'z': (settings['nested_sampling']['prior_bounds']['z']['min'], settings['nested_sampling']['prior_bounds']['z']['max']),
-        't0': (settings['nested_sampling']['prior_bounds']['t0']['min'], settings['nested_sampling']['prior_bounds']['t0']['max']),
-        'x0': (settings['nested_sampling']['prior_bounds']['x0']['min'], settings['nested_sampling']['prior_bounds']['x0']['max']),
-        'x1': (settings['nested_sampling']['prior_bounds']['x1']['min'], settings['nested_sampling']['prior_bounds']['x1']['max']),
-        'c': (settings['nested_sampling']['prior_bounds']['c']['min'], settings['nested_sampling']['prior_bounds']['c']['max'])
+        'z': (PRIOR_BOUNDS['z']['min'], PRIOR_BOUNDS['z']['max']),
+        't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
+        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']),
+        'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
+        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max'])
     }
     # Create prior distributions with z
     prior_dists = {
@@ -157,10 +173,10 @@ def sample_from_priors(rng_key, n_samples):
         ])
 
 # Set up nested sampling
-n_live = settings['nested_sampling']['n_live']
-n_params = 4 if fix_z else 5  # Adjust number of parameters based on fix_z
-n_delete = settings['nested_sampling']['n_delete']
-num_mcmc_steps = n_params * settings['nested_sampling']['num_mcmc_steps_multiplier']
+n_live = NS_SETTINGS['n_live']
+n_params = NS_SETTINGS['n_params']
+n_delete = NS_SETTINGS['n_delete']
+num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
 
 # Initialize nested sampling algorithm
 print("Setting up nested sampling algorithm...")
@@ -193,7 +209,7 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
-num_iterations = settings['nested_sampling']['max_iterations']
+num_iterations = NS_SETTINGS['max_iterations']
 for i in tqdm.trange(num_iterations):
     if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
         break

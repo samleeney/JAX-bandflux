@@ -7,7 +7,6 @@ import sncosmo
 import os
 import pytest
 import math
-import yaml
 from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from functools import partial
 from jax import vmap
@@ -22,10 +21,7 @@ H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
 # Get package directory
 PACKAGE_DIR = os.path.dirname(__file__)
 
-# Load settings from yaml
-with open(os.path.join(os.path.dirname(PACKAGE_DIR), 'settings.yaml'), 'r') as f:
-    settings = yaml.safe_load(f)
-
+# Model directory - hardcoded path
 MODEL_DIR = os.path.join(PACKAGE_DIR, 'data/models/salt3-nir/salt3nir-p22')
 
 def read_griddata_file(filename):

@@ -2,32 +2,26 @@ import os
 import sys
 import pytest
 import jax
-import yaml
+import subprocess
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 def test_ns_completion():
-    """Test that nested sampling runs successfully for 100 iterations."""
-    
-    # First modify settings to run only 100 iterations
-    with open('settings.yaml', 'r') as f:
-        settings = yaml.safe_load(f)
-    
-    # Store original max_iterations
-    original_max_iterations = settings['nested_sampling']['max_iterations']
-    
-    # Modify settings for test
-    settings['nested_sampling']['max_iterations'] = 100
-    
-    # Write modified settings
-    with open('settings.yaml', 'w') as f:
-        yaml.dump(settings, f)
+    """Test that nested sampling runs successfully for a small number of iterations."""
     
     try:
-        # Import and run ns.py
-        import examples.ns as ns
+        # Set environment variable for max iterations
+        os.environ['NS_MAX_ITERATIONS'] = '100'
+        
+        # Run the actual ns.py script
+        script_path = os.path.join(project_root, 'examples/ns.py')
+        result = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
+        
+        # Check if the script ran successfully
+        if result.returncode != 0:
+            pytest.fail(f"Script failed with error: {result.stderr}")
         
         # Test passed if we got here without errors
         assert True
@@ -36,7 +30,6 @@ def test_ns_completion():
         pytest.fail(f"Nested sampling failed: {str(e)}")
         
     finally:
-        # Restore original settings
-        settings['nested_sampling']['max_iterations'] = original_max_iterations
-        with open('settings.yaml', 'w') as f:
-            yaml.dump(settings, f) 
+        # Clean up environment variable
+        if 'NS_MAX_ITERATIONS' in os.environ:
+            del os.environ['NS_MAX_ITERATIONS'] 
