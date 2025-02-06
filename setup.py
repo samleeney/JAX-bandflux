@@ -10,6 +10,10 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/samleeney/JAX-bandflux",
     packages=find_packages(),
+    include_package_data=True,
+    package_data={
+        'jax_supernovae': ['data/models/salt3-nir/salt3nir-p22/*'],
+    },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",

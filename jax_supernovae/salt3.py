@@ -11,6 +11,7 @@ import yaml
 from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from functools import partial
 from jax import vmap
+import importlib.resources
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -18,14 +19,14 @@ jax.config.update("jax_enable_x64", True)
 # Constants
 H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
 
-# Get model files from project directory
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Get package directory
+PACKAGE_DIR = os.path.dirname(__file__)
 
 # Load settings from yaml
-with open(os.path.join(BASE_DIR, 'settings.yaml'), 'r') as f:
+with open(os.path.join(os.path.dirname(PACKAGE_DIR), 'settings.yaml'), 'r') as f:
     settings = yaml.safe_load(f)
 
-MODEL_DIR = os.path.join(BASE_DIR, settings['model_settings']['model_dir'])
+MODEL_DIR = os.path.join(PACKAGE_DIR, 'data/models/salt3-nir/salt3nir-p22')
 
 def read_griddata_file(filename):
     """Read 2-d grid data from a text file.

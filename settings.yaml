@@ -1,6 +1,6 @@
 fix_z: true
 model_settings:
-  model_dir: sncosmo-modelfiles/models/salt3-nir/salt3nir-p22
+  model_dir: jax_supernovae/data/models/salt3-nir/salt3nir-p22
 nested_sampling:
   max_iterations: 10000
   n_delete: 1
