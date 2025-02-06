@@ -1,28 +1,28 @@
-anomaly_detection:
-  delta: 250
 fix_z: true
+model_settings:
+  model_dir: sncosmo-modelfiles/models/salt3-nir/salt3nir-p22
 nested_sampling:
   max_iterations: 10000
   n_delete: 1
   n_live: 125
   n_params: 5
   num_mcmc_steps_multiplier: 5
-prior_bounds:
-  c:
-    max: 0.3
-    min: -0.3
-  log_p:
-    max: -0.1
-    min: -4.0
-  t0:
-    max: 59000.0
-    min: 58000.0
-  x0:
-    max: -2.6
-    min: -5.0
-  x1:
-    max: 4.0
-    min: -4.0
-  z:
-    max: 0.2
-    min: 0.001
+  prior_bounds:
+    c:
+      max: 0.3
+      min: -0.3
+    log_p:
+      max: -0.1
+      min: -4.0
+    t0:
+      max: 59000.0
+      min: 58000.0
+    x0:
+      max: -2.6
+      min: -5.0
+    x1:
+      max: 4.0
+      min: -4.0
+    z:
+      max: 0.2
+      min: 0.001

@@ -55,10 +55,10 @@ def objective(parameters):
 
 Pass this function to your sampler of choice. A complete example, analogous to the SNCosmo case, is provided in [fmin_bfgs.py](fmin_bfgs.py). A nested sampling implementation is also available in [ns.py](ns.py).
 
-To execute the code, run:
+To execute an example, run:
 
 ```bash
-python fmin_bfgs.py
+python examples/fmin_bfgs.py
 ```
 
 ### Data Loading

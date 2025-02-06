@@ -30,10 +30,10 @@ times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_
 # Define parameter bounds and priors
 if fix_z:
     param_bounds = {
-        't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
-        'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
-        'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
-        'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
+        't0': (settings['nested_sampling']['prior_bounds']['t0']['min'], settings['nested_sampling']['prior_bounds']['t0']['max']),
+        'x0': (settings['nested_sampling']['prior_bounds']['x0']['min'], settings['nested_sampling']['prior_bounds']['x0']['max']),
+        'x1': (settings['nested_sampling']['prior_bounds']['x1']['min'], settings['nested_sampling']['prior_bounds']['x1']['max']),
+        'c': (settings['nested_sampling']['prior_bounds']['c']['min'], settings['nested_sampling']['prior_bounds']['c']['max'])
     }
     # Create prior distributions without z
     prior_dists = {
@@ -44,11 +44,11 @@ if fix_z:
     }
 else:
     param_bounds = {
-        'z': (settings['prior_bounds']['z']['min'], settings['prior_bounds']['z']['max']),
-        't0': (settings['prior_bounds']['t0']['min'], settings['prior_bounds']['t0']['max']),
-        'x0': (settings['prior_bounds']['x0']['min'], settings['prior_bounds']['x0']['max']),
-        'x1': (settings['prior_bounds']['x1']['min'], settings['prior_bounds']['x1']['max']),
-        'c': (settings['prior_bounds']['c']['min'], settings['prior_bounds']['c']['max'])
+        'z': (settings['nested_sampling']['prior_bounds']['z']['min'], settings['nested_sampling']['prior_bounds']['z']['max']),
+        't0': (settings['nested_sampling']['prior_bounds']['t0']['min'], settings['nested_sampling']['prior_bounds']['t0']['max']),
+        'x0': (settings['nested_sampling']['prior_bounds']['x0']['min'], settings['nested_sampling']['prior_bounds']['x0']['max']),
+        'x1': (settings['nested_sampling']['prior_bounds']['x1']['min'], settings['nested_sampling']['prior_bounds']['x1']['max']),
+        'c': (settings['nested_sampling']['prior_bounds']['c']['min'], settings['nested_sampling']['prior_bounds']['c']['max'])
     }
     # Create prior distributions with z
     prior_dists = {
