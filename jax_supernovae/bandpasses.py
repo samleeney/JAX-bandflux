@@ -185,7 +185,7 @@ def register_all_bandpasses():
         - bandpass_dict: Dictionary mapping bandpass names to Bandpass objects
         - bridges_dict: Dictionary mapping bandpass names to precomputed bridge data
     """
-    from jax_supernovae.salt3nir import precompute_bandflux_bridge
+    from jax_supernovae.salt3 import precompute_bandflux_bridge
     
     bandpass_info = [
         # ZTF bandpasses

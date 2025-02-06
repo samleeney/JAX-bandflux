@@ -83,7 +83,7 @@ load_hsf_data.py
 output.log
 sampling.log
 sncosmo-fitter.py
-jax_supernovae/salt3nir.py.bak
+jax_supernovae/salt3.py.bak
 test_multiband_flux.py
 test_flux_ordering.py
 sncosmo-fitter.py
@@ -93,8 +93,8 @@ sncosmo-fitter.py
 chains_dead-birth.txt
 output-pool.log
 read_samples.py
-salt3nir_samples.npz.config_bare
-salt3nir_samples.npz
+salt3_samples.npz.config_bare
+salt3_samples.npz
 .config_bare
 .config_bare
 .cursorrules

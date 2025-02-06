@@ -4,7 +4,7 @@
 This codebase implements a JAX-based version of the SALT3-NIR supernova model, specifically focusing on bandflux calculations. The implementation must maintain exact consistency with the SNCosmo implementation. Any modifications to the bandflux calculation functions MUST be verified against SNCosmo outputs using the test suite.
 
 ## Critical Rules
-1. NEVER modify the core bandflux calculation without running test_salt3nir_consistency.py
+1. NEVER modify the core bandflux calculation without running test_salt3_consistency.py
 2. ALL likelihood functions and priors MUST be fully JIT compiled
 3. numpy MUST NOT be used except in data loading functions that are called once
 4. ALL mathematical operations MUST use jax.numpy (imported as jnp)
@@ -12,9 +12,9 @@ This codebase implements a JAX-based version of the SALT3-NIR supernova model, s
 
 ## Code Structure
 1. Core Model Implementation:
-   - salt3nir.py: Contains the SALT3-NIR model implementation
-   - Primary functions: salt3nir_m0, salt3nir_m1, salt3nir_colorlaw, salt3nir_bandflux
-   - Optimised versions: optimized_salt3nir_bandflux, optimized_salt3nir_multiband_flux
+   - salt3.py: Contains the SALT3-NIR model implementation
+   - Primary functions: salt3_m0, salt3_m1, salt3_colorlaw, salt3_bandflux
+   - Optimised versions: optimized_salt3_bandflux, optimized_salt3_multiband_flux
 
 2. Data Handling:
    - data.py: Functions for loading HSF DR1 format data
@@ -22,7 +22,7 @@ This codebase implements a JAX-based version of the SALT3-NIR supernova model, s
    - Key classes: Bandpass
 
 3. Testing:
-   - test_salt3nir_consistency.py: Verifies consistency with SNCosmo
+   - test_salt3_consistency.py: Verifies consistency with SNCosmo
    - test_ns_completion.py: Tests nested sampling functionality
 
 4. Sampling Implementation:
@@ -68,15 +68,15 @@ times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19a
 
 2. Bandflux Calculation:
 ```python
-from jax_supernovae.salt3nir import optimized_salt3nir_multiband_flux
-fluxes = optimized_salt3nir_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
+from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+fluxes = optimized_salt3_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
 ```
 
 3. Likelihood Function Pattern:
 ```python
 @jax.jit
 def loglikelihood(params):
-    model_fluxes = optimized_salt3nir_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
+    model_fluxes = optimized_salt3_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
     chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
     return -0.5 * chi2
 ```

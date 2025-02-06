@@ -5,8 +5,8 @@ import numpy as np
 import tqdm
 import blackjax
 from blackjax.ns.utils import log_weights
-from jax_supernovae.salt3nir import (
-    optimized_salt3nir_multiband_flux,
+from jax_supernovae.salt3 import (
+    optimized_salt3_multiband_flux,
 )
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
 from jax_supernovae.utils import save_chains_dead_birth
@@ -101,7 +101,7 @@ def compute_single_loglikelihood(params):
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
     
     # Calculate model fluxes for all observations at once using optimized function
-    model_fluxes = optimized_salt3nir_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
+    model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
     model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
     
     # Calculate chi-squared using JAX operations

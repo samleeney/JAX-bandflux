@@ -4,7 +4,7 @@ import time
 import numpy as np
 import jax.numpy as jnp
 import sncosmo
-from jax_supernovae.salt3nir import salt3nir_bandflux
+from jax_supernovae.salt3 import salt3_bandflux
 from jax_supernovae.bandpasses import Bandpass
 
 def test_bandflux_performance():
@@ -34,7 +34,7 @@ def test_bandflux_performance():
     # First run JAX implementation 5000 times for warmup
     print("\nWarming up JAX (5000 calls)...")
     for _ in range(5000):
-        _ = salt3nir_bandflux(phase, jax_band, params)
+        _ = salt3_bandflux(phase, jax_band, params)
     
     print("Starting performance comparison...")
     
@@ -50,13 +50,13 @@ def test_bandflux_performance():
     # Time JAX implementation with additional warmup
     # First do 1000 warmup calls that we'll ignore
     for _ in range(1000):
-        _ = salt3nir_bandflux(phase, jax_band, params)
+        _ = salt3_bandflux(phase, jax_band, params)
     
     # Now measure the actual performance
     start_time = time.time()
     jax_fluxes = []
     for _ in range(500):
-        flux = salt3nir_bandflux(phase, jax_band, params)
+        flux = salt3_bandflux(phase, jax_band, params)
         jax_fluxes.append(float(flux[0]))
     jax_time = time.time() - start_time
     jax_fluxes = np.array(jax_fluxes)

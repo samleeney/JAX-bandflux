@@ -10,13 +10,13 @@ import numpy as np
 import jax.numpy as jnp
 import sncosmo
 from sncosmo.utils import integration_grid as sncosmo_integration_grid
-from jax_supernovae.salt3nir import (
-    salt3nir_m0, salt3nir_m1, salt3nir_colorlaw,
-    salt3nir_bandflux
+from jax_supernovae.salt3 import (
+    salt3_m0, salt3_m1, salt3_colorlaw,
+    salt3_bandflux
 )
 from jax_supernovae.bandpasses import Bandpass, MODEL_BANDFLUX_SPACING
 
-def test_salt3nir_consistency():
+def test_salt3_consistency():
     """Test consistency between JAX implementation and sncosmo for SALT3-NIR model."""
     # Set model parameters
     params = {
@@ -45,9 +45,9 @@ def test_salt3nir_consistency():
     snc_cl = snc_model._source._colorlaw(wavelengths)
 
     # Get m0, m1, and color law from JAX implementation
-    jax_m0 = salt3nir_m0(phase, wavelengths)
-    jax_m1 = salt3nir_m1(phase, wavelengths)
-    jax_cl = salt3nir_colorlaw(wavelengths)
+    jax_m0 = salt3_m0(phase, wavelengths)
+    jax_m1 = salt3_m1(phase, wavelengths)
+    jax_cl = salt3_colorlaw(wavelengths)
 
     # Assert that the components match
     np.testing.assert_allclose(jax_m0, snc_m0, rtol=1e-6,
@@ -126,7 +126,7 @@ def test_salt3nir_consistency():
                                         zpsys=test_case['zpsys'])
 
             # Calculate bandflux using JAX implementation
-            jax_flux = salt3nir_bandflux(phase, jax_band, params,
+            jax_flux = salt3_bandflux(phase, jax_band, params,
                                        zp=test_case['zp'],
                                        zpsys=test_case['zpsys'])
             
@@ -145,5 +145,5 @@ def test_salt3nir_consistency():
         print("-" * 60)
 
 if __name__ == "__main__":
-    test_salt3nir_consistency()
+    test_salt3_consistency()
     print("\nAll tests passed.") 

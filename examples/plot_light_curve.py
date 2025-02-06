@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from anesthetic import read_chains
 import yaml
 from jax_supernovae.data import load_and_process_data
-from jax_supernovae.salt3nir import optimized_salt3nir_multiband_flux
+from jax_supernovae.salt3 import optimized_salt3_multiband_flux
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -64,7 +64,7 @@ for i in range(n_bands):
     band_idx_grid = np.full_like(t_grid, i, dtype=int)
     
     # Calculate model fluxes
-    model_fluxes = optimized_salt3nir_multiband_flux(
+    model_fluxes = optimized_salt3_multiband_flux(
         jnp.array(t_grid),
         bridges,
         best_fit_params,
