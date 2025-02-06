@@ -55,10 +55,11 @@ def objective(parameters):
 
 Pass this function to your sampler of choice. A complete example, analogous to the SNCosmo case, is provided in [fmin_bfgs.py](fmin_bfgs.py). A nested sampling implementation is also available in [ns.py](ns.py).
 
-To execute an example, run:
+To execute an example:
 
 ```bash
-python examples/fmin_bfgs.py
+wget https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/examples/fmin_bfgs.py
+python fmin_bfgs.py
 ```
 
 ### Data Loading

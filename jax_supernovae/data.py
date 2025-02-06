@@ -3,6 +3,10 @@ import numpy as np
 import os
 from astropy.table import Table
 from .bandpasses import register_all_bandpasses
+import importlib.resources
+
+# Get package directory
+PACKAGE_DIR = os.path.dirname(__file__)
 
 def find_object_filepath(base_dir, object_name):
     """
@@ -47,7 +51,7 @@ def load_hsf_data(object_name, base_dir='data'):
     Returns:
         astropy.table.Table: Table containing the processed data with columns:
             - time: observation times (from mjd)
-            - band: filter/band names (from bandpass)
+            - band: filter/band names
             - flux: flux measurements
             - fluxerr: flux measurement errors
             - zp: zero points (defaults to 27.5 if not present)
@@ -56,7 +60,14 @@ def load_hsf_data(object_name, base_dir='data'):
         FileNotFoundError: If no data file is found for the given object
         ValueError: If required columns are missing from the data file
     """
-    data_file = find_object_filepath(base_dir, object_name)
+    # Try to find data in package data directory first
+    package_data_dir = os.path.join(PACKAGE_DIR, 'data')
+    try:
+        data_file = find_object_filepath(package_data_dir, object_name)
+    except FileNotFoundError:
+        # If not found in package, try the user-provided directory
+        data_file = find_object_filepath(base_dir, object_name)
+    
     print(f"Loading data from {data_file}")
 
     # Read the data file
@@ -104,7 +115,11 @@ def load_redshift(object_name, redshift_file='data/redshifts.dat'):
         FileNotFoundError: If redshift file not found
         ValueError: If object not found in redshift file
     """
-    if not os.path.exists(redshift_file):
+    # Try package data directory first
+    package_redshift_file = os.path.join(PACKAGE_DIR, 'data', 'redshifts.dat')
+    if os.path.exists(package_redshift_file):
+        redshift_file = package_redshift_file
+    elif not os.path.exists(redshift_file):
         raise FileNotFoundError(f"Redshift file not found: {redshift_file}")
         
     # Skip comment lines and read data

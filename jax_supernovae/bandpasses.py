@@ -7,6 +7,9 @@ import math
 from jax_supernovae.utils import interp
 from jax_supernovae.constants import HC_ERG_AA, C_AA_PER_S, MODEL_BANDFLUX_SPACING
 
+# Get package directory
+PACKAGE_DIR = os.path.dirname(__file__)
+
 class Bandpass:
     """Bandpass filter class."""
     
@@ -101,7 +104,7 @@ def get_bandpass_filepath(band):
         raise ValueError(f"Unknown bandpass: {band}. Available bandpasses: {list(bandpass_map.keys())}")
     
     # Look for the file in sncosmo-modelfiles directory
-    filepath = os.path.join('sncosmo-modelfiles', bandpass_map[band])
+    filepath = os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles', bandpass_map[band])
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Bandpass file not found: {filepath}")
         
@@ -189,21 +192,21 @@ def register_all_bandpasses():
     
     bandpass_info = [
         # ZTF bandpasses
-        {'name': 'ztfg', 'file': 'sncosmo-modelfiles/bandpasses/ztf/P48_g.dat', 'skiprows': 1},
-        {'name': 'ztfr', 'file': 'sncosmo-modelfiles/bandpasses/ztf/P48_R.dat', 'skiprows': 1},
+        {'name': 'ztfg', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_g.dat'), 'skiprows': 1},
+        {'name': 'ztfr', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_R.dat'), 'skiprows': 1},
         
         # ATLAS bandpasses
-        {'name': 'c', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan', 'skiprows': 0},
-        {'name': 'o', 'file': 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange', 'skiprows': 0},
+        {'name': 'c', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan'), 'skiprows': 0},
+        {'name': 'o', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange'), 'skiprows': 0},
         
         # SDSS bandpasses
-        {'name': 'g', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_g.dat', 'skiprows': 0},
-        {'name': 'r', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_r.dat', 'skiprows': 0},
-        {'name': 'i', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_i.dat', 'skiprows': 0},
-        {'name': 'z', 'file': 'sncosmo-modelfiles/bandpasses/sdss/sdss_z.dat', 'skiprows': 0},
+        {'name': 'g', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_g.dat'), 'skiprows': 0},
+        {'name': 'r', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_r.dat'), 'skiprows': 0},
+        {'name': 'i', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_i.dat'), 'skiprows': 0},
+        {'name': 'z', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_z.dat'), 'skiprows': 0},
         
         # 2MASS bandpasses
-        {'name': 'H', 'file': 'sncosmo-modelfiles/bandpasses/2mass/2mass.H', 'skiprows': 0},
+        {'name': 'H', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/2mass/2mass.H'), 'skiprows': 0},
     ]
     
     bandpass_dict = {}
