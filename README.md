@@ -1,4 +1,4 @@
-# JAX Bandflux for Supernovae
+# JAX Bandflux for Supernovae SALT3 model fitting
 
 [![PyPI version](https://badge.fury.io/py/jax-bandflux.svg)](https://badge.fury.io/py/jax-bandflux)
 
