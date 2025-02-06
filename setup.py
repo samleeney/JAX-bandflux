@@ -12,7 +12,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     package_data={
-        'jax_supernovae': ['data/models/salt3-nir/salt3nir-p22/*'],
+        'jax_supernovae': ['data/models/salt3-nir/**/*'],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
