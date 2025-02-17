@@ -14,40 +14,47 @@ from jax_supernovae.data import load_and_process_data
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
 
-# Try to load settings.yaml; if not found, use defaults.
-try:
-    with open('settings.yaml', 'r') as f:
-        settings = yaml.safe_load(f)
-except FileNotFoundError:
-    settings = {}
+# Define default settings for nested sampling and prior bounds
+DEFAULT_NS_SETTINGS = {
+    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '200')),
+    'n_delete': 1,
+    'n_live': 150,
+    'num_mcmc_steps_multiplier': 5,
+    'fit_sigma': False,
+    'fit_log_p': True,
+    'fit_z': True
+}
 
-# Set fix_z from settings (default True) and nested sampling settings.
-fix_z = settings.get('fix_z', True)
-if 'nested_sampling' in settings:
-    NS_SETTINGS = settings['nested_sampling']
-else:
-    NS_SETTINGS = {
-        'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '2000')),
-        'n_delete': 1,
-        'n_live': 125,
-        'num_mcmc_steps_multiplier': 5
-    }
-
-# Define default prior bounds; these may be overridden by settings.
-PRIOR_BOUNDS = {
+DEFAULT_PRIOR_BOUNDS = {
     'z': {'min': 0.001, 'max': 0.2},
     't0': {'min': 58000.0, 'max': 59000.0},
     'x0': {'min': -5.0, 'max': -2.6},
     'x1': {'min': -4.0, 'max': 4.0},
     'c': {'min': -0.3, 'max': 0.3},
-    'sigma': {'min': 0.5, 'max': 1.5},
-    'log_p': {'min': -3.0, 'max': 1.0}
+    'sigma': {'min': 0.001, 'max': 5},
+    'log_p': {'min': -10, 'max': -1}
 }
-if 'prior_bounds' in settings:
-    PRIOR_BOUNDS = settings['prior_bounds']
 
-# Option flag: when fit_sigma is True, an extra parameter is added.
-fit_sigma = False
+# Try to load settings.yaml; if not found, use an empty dictionary
+try:
+    with open('settings.yaml', 'r') as f:
+        settings_from_file = yaml.safe_load(f)
+except FileNotFoundError:
+    settings_from_file = {}
+
+# Merge the settings from file with the defaults
+settings = settings_from_file
+fix_z = settings.get('fix_z', True)
+
+NS_SETTINGS = DEFAULT_NS_SETTINGS.copy()
+NS_SETTINGS.update(settings.get('nested_sampling', {}))
+
+PRIOR_BOUNDS = DEFAULT_PRIOR_BOUNDS.copy()
+if 'prior_bounds' in settings:
+    PRIOR_BOUNDS.update(settings['prior_bounds'])
+
+# Option flag: when fit_sigma is True, an extra parameter is added
+fit_sigma = NS_SETTINGS['fit_sigma']
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -244,14 +251,14 @@ def compute_single_loglikelihood_anomaly(params):
             z, t0, log_x0, x1, c, log_p = params
             sigma = 1.0  # Default value when not fitting sigma
     x0 = 10 ** log_x0
-    p = 10 ** log_p  # Transform log10_p to p
+    p = jnp.exp(log_p)  # Changed: Now using natural exponential
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
     model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
     model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
     eff_fluxerrs = sigma * fluxerrs
     point_logL = -0.5 * (((fluxes - model_fluxes) / eff_fluxerrs) ** 2) - 0.5 * jnp.log(2 * jnp.pi * eff_fluxerrs ** 2) + jnp.log(1 - p)
-    delta = 250  # A threshold roughly corresponding to max data scale
-    emax = point_logL > (log_p - jnp.log(delta))
+    delta = 500  # A threshold roughly corresponding to max data scale
+    emax = point_logL > (log_p - jnp.log(delta))  # Now consistent as both are natural logs
     logL = jnp.where(emax, point_logL, log_p - jnp.log(delta))
     total_logL = jnp.sum(logL)
     return total_logL, emax
@@ -429,7 +436,7 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
             if fit_sigma:
                 param_names.append('sigma')
             param_names.append('log_p')
-    save_chains_dead_birth(dead, param_names)
+    save_chains_dead_birth(dead, param_names, root_dir=output_prefix)
     if ll_fn == loglikelihood_anomaly and emax_values:
         emax_array = jnp.stack(emax_values)
         print(f"emax_array shape: {emax_array.shape}")

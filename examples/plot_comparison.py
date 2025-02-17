@@ -33,7 +33,7 @@ try:
 except FileNotFoundError:
     print("Warning: Weighted emax file not found - skipping initial emax plot")
 
-# Load chains for both runs
+# Define parameter names based on settings
 if fix_z:
     base_params = ['t0', 'log_x0', 'x1', 'c']
 else:
@@ -51,7 +51,7 @@ except FileNotFoundError:
     have_standard = False
     standard_samples = None
 
-# Try to load anomaly chains
+# Try to load anomaly chains with log_p parameter
 try:
     anomaly_params = base_params + ['log_p']
     anomaly_samples = read_chains('chains_anomaly/chains_anomaly', columns=anomaly_params)
