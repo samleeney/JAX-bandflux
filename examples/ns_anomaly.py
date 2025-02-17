@@ -47,7 +47,7 @@ if 'prior_bounds' in settings:
     PRIOR_BOUNDS = settings['prior_bounds']
 
 # Option flag: when fit_sigma is True, an extra parameter is added.
-fit_sigma = True
+fit_sigma = False
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -64,35 +64,40 @@ if fix_z:
         't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
         'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']),
         'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
-        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max']),
-        'sigma': (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
+        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max'])
     }
+    if fit_sigma:
+        standard_param_bounds['sigma'] = (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
 else:
     standard_param_bounds = {
         'z': (PRIOR_BOUNDS['z']['min'], PRIOR_BOUNDS['z']['max']),
         't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
         'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']),
         'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
-        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max']),
-        'sigma': (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
+        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max'])
     }
+    if fit_sigma:
+        standard_param_bounds['sigma'] = (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
+
 if fix_z:
     standard_prior_dists = {
         't0': distrax.Uniform(low=standard_param_bounds['t0'][0], high=standard_param_bounds['t0'][1]),
         'x0': distrax.Uniform(low=standard_param_bounds['x0'][0], high=standard_param_bounds['x0'][1]),
         'x1': distrax.Uniform(low=standard_param_bounds['x1'][0], high=standard_param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1]),
-        'sigma': distrax.Uniform(low=standard_param_bounds['sigma'][0], high=standard_param_bounds['sigma'][1])
+        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1])
     }
+    if fit_sigma:
+        standard_prior_dists['sigma'] = distrax.Uniform(low=standard_param_bounds['sigma'][0], high=standard_param_bounds['sigma'][1])
 else:
     standard_prior_dists = {
         'z': distrax.Uniform(low=standard_param_bounds['z'][0], high=standard_param_bounds['z'][1]),
         't0': distrax.Uniform(low=standard_param_bounds['t0'][0], high=standard_param_bounds['t0'][1]),
         'x0': distrax.Uniform(low=standard_param_bounds['x0'][0], high=standard_param_bounds['x0'][1]),
         'x1': distrax.Uniform(low=standard_param_bounds['x1'][0], high=standard_param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1]),
-        'sigma': distrax.Uniform(low=standard_param_bounds['sigma'][0], high=standard_param_bounds['sigma'][1])
+        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1])
     }
+    if fit_sigma:
+        standard_prior_dists['sigma'] = distrax.Uniform(low=standard_param_bounds['sigma'][0], high=standard_param_bounds['sigma'][1])
 
 # =============================================================================
 # Set up parameter bounds and priors for the anomaly detection version.
@@ -104,9 +109,10 @@ if fix_z:
         'x0': (standard_param_bounds['x0'][0], standard_param_bounds['x0'][1]),
         'x1': (standard_param_bounds['x1'][0], standard_param_bounds['x1'][1]),
         'c': (standard_param_bounds['c'][0], standard_param_bounds['c'][1]),
-        'sigma': (standard_param_bounds['sigma'][0], standard_param_bounds['sigma'][1]),
         'log_p': (PRIOR_BOUNDS['log_p']['min'], PRIOR_BOUNDS['log_p']['max'])
     }
+    if fit_sigma:
+        anomaly_param_bounds['sigma'] = (standard_param_bounds['sigma'][0], standard_param_bounds['sigma'][1])
 else:
     anomaly_param_bounds = {
         'z': (standard_param_bounds['z'][0], standard_param_bounds['z'][1]),
@@ -114,18 +120,21 @@ else:
         'x0': (standard_param_bounds['x0'][0], standard_param_bounds['x0'][1]),
         'x1': (standard_param_bounds['x1'][0], standard_param_bounds['x1'][1]),
         'c': (standard_param_bounds['c'][0], standard_param_bounds['c'][1]),
-        'sigma': (standard_param_bounds['sigma'][0], standard_param_bounds['sigma'][1]),
         'log_p': (PRIOR_BOUNDS['log_p']['min'], PRIOR_BOUNDS['log_p']['max'])
     }
+    if fit_sigma:
+        anomaly_param_bounds['sigma'] = (standard_param_bounds['sigma'][0], standard_param_bounds['sigma'][1])
+
 if fix_z:
     anomaly_prior_dists = {
         't0': distrax.Uniform(low=anomaly_param_bounds['t0'][0], high=anomaly_param_bounds['t0'][1]),
         'x0': distrax.Uniform(low=anomaly_param_bounds['x0'][0], high=anomaly_param_bounds['x0'][1]),
         'x1': distrax.Uniform(low=anomaly_param_bounds['x1'][0], high=anomaly_param_bounds['x1'][1]),
         'c': distrax.Uniform(low=anomaly_param_bounds['c'][0], high=anomaly_param_bounds['c'][1]),
-        'sigma': distrax.Uniform(low=anomaly_param_bounds['sigma'][0], high=anomaly_param_bounds['sigma'][1]),
         'log_p': distrax.Uniform(low=anomaly_param_bounds['log_p'][0], high=anomaly_param_bounds['log_p'][1])
     }
+    if fit_sigma:
+        anomaly_prior_dists['sigma'] = distrax.Uniform(low=anomaly_param_bounds['sigma'][0], high=anomaly_param_bounds['sigma'][1])
 else:
     anomaly_prior_dists = {
         'z': distrax.Uniform(low=anomaly_param_bounds['z'][0], high=anomaly_param_bounds['z'][1]),
@@ -133,9 +142,10 @@ else:
         'x0': distrax.Uniform(low=anomaly_param_bounds['x0'][0], high=anomaly_param_bounds['x0'][1]),
         'x1': distrax.Uniform(low=anomaly_param_bounds['x1'][0], high=anomaly_param_bounds['x1'][1]),
         'c': distrax.Uniform(low=anomaly_param_bounds['c'][0], high=anomaly_param_bounds['c'][1]),
-        'sigma': distrax.Uniform(low=anomaly_param_bounds['sigma'][0], high=anomaly_param_bounds['sigma'][1]),
         'log_p': distrax.Uniform(low=anomaly_param_bounds['log_p'][0], high=anomaly_param_bounds['log_p'][1])
     }
+    if fit_sigma:
+        anomaly_prior_dists['sigma'] = distrax.Uniform(low=anomaly_param_bounds['sigma'][0], high=anomaly_param_bounds['sigma'][1])
 
 # =============================================================================
 # Standard likelihood functions (using salt3 multiband flux).
@@ -145,30 +155,53 @@ def logprior_standard(params):
     """Calculate log prior probability for standard nested sampling."""
     params = jnp.atleast_2d(params)
     if fix_z:
-        logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 0])
-        logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 1])
-        logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 2])
-        logp_c  = standard_prior_dists['c'].log_prob(params[:, 3])
-        logp_sigma = standard_prior_dists['sigma'].log_prob(params[:, 4])
-        logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
+        if fit_sigma:
+            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 0])
+            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 1])
+            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 2])
+            logp_c  = standard_prior_dists['c'].log_prob(params[:, 3])
+            logp_sigma = standard_prior_dists['sigma'].log_prob(params[:, 4])
+            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
+        else:
+            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 0])
+            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 1])
+            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 2])
+            logp_c  = standard_prior_dists['c'].log_prob(params[:, 3])
+            logp = logp_t0 + logp_x0 + logp_x1 + logp_c
     else:
-        logp_z  = standard_prior_dists['z'].log_prob(params[:, 0])
-        logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 1])
-        logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 2])
-        logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 3])
-        logp_c  = standard_prior_dists['c'].log_prob(params[:, 4])
-        logp_sigma = standard_prior_dists['sigma'].log_prob(params[:, 5])
-        logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
+        if fit_sigma:
+            logp_z  = standard_prior_dists['z'].log_prob(params[:, 0])
+            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 1])
+            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 2])
+            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 3])
+            logp_c  = standard_prior_dists['c'].log_prob(params[:, 4])
+            logp_sigma = standard_prior_dists['sigma'].log_prob(params[:, 5])
+            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
+        else:
+            logp_z  = standard_prior_dists['z'].log_prob(params[:, 0])
+            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 1])
+            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 2])
+            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 3])
+            logp_c  = standard_prior_dists['c'].log_prob(params[:, 4])
+            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
     return jnp.reshape(logp, (-1,))
 
 @jax.jit
 def compute_single_loglikelihood_standard(params):
     """Compute Gaussian log likelihood for a single set of parameters (standard)."""
     if fix_z:
-        t0, log_x0, x1, c, sigma = params
+        if fit_sigma:
+            t0, log_x0, x1, c, sigma = params
+        else:
+            t0, log_x0, x1, c = params
+            sigma = 1.0  # Default value when not fitting sigma
         z = fixed_z[0]
     else:
-        z, t0, log_x0, x1, c, sigma = params
+        if fit_sigma:
+            z, t0, log_x0, x1, c, sigma = params
+        else:
+            z, t0, log_x0, x1, c = params
+            sigma = 1.0  # Default value when not fitting sigma
     x0 = 10 ** log_x0
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
     model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
@@ -198,10 +231,18 @@ def loglikelihood_standard(params):
 def compute_single_loglikelihood_anomaly(params):
     """Compute Gaussian log likelihood for a single set of parameters with anomaly detection."""
     if fix_z:
-        t0, log_x0, x1, c, sigma, log_p = params
+        if fit_sigma:
+            t0, log_x0, x1, c, sigma, log_p = params
+        else:
+            t0, log_x0, x1, c, log_p = params
+            sigma = 1.0  # Default value when not fitting sigma
         z = fixed_z[0]
     else:
-        z, t0, log_x0, x1, c, sigma, log_p = params
+        if fit_sigma:
+            z, t0, log_x0, x1, c, sigma, log_p = params
+        else:
+            z, t0, log_x0, x1, c, log_p = params
+            sigma = 1.0  # Default value when not fitting sigma
     x0 = 10 ** log_x0
     p = 10 ** log_p  # Transform log10_p to p
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
@@ -234,46 +275,86 @@ def loglikelihood_anomaly(params):
 def sample_from_priors(rng_key, n_samples, ll_fn=loglikelihood_standard):
     if ll_fn == loglikelihood_anomaly:
         if fix_z:
-            keys = jax.random.split(rng_key, 5)
-            return jnp.column_stack([
-                anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                anomaly_prior_dists['sigma'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                anomaly_prior_dists['log_p'].sample(seed=keys[5], sample_shape=(n_samples,))
-            ])
+            if fit_sigma:
+                keys = jax.random.split(rng_key, 6)
+                return jnp.column_stack([
+                    anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['sigma'].sample(seed=keys[4], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['log_p'].sample(seed=keys[5], sample_shape=(n_samples,))
+                ])
+            else:
+                keys = jax.random.split(rng_key, 5)
+                return jnp.column_stack([
+                    anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['log_p'].sample(seed=keys[4], sample_shape=(n_samples,))
+                ])
         else:
-            keys = jax.random.split(rng_key, 6)
-            return jnp.column_stack([
-                anomaly_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                anomaly_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                anomaly_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                anomaly_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                anomaly_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                anomaly_prior_dists['sigma'].sample(seed=keys[5], sample_shape=(n_samples,)),
-                anomaly_prior_dists['log_p'].sample(seed=keys[6], sample_shape=(n_samples,))
-            ])
+            if fit_sigma:
+                keys = jax.random.split(rng_key, 7)
+                return jnp.column_stack([
+                    anomaly_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['sigma'].sample(seed=keys[5], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['log_p'].sample(seed=keys[6], sample_shape=(n_samples,))
+                ])
+            else:
+                keys = jax.random.split(rng_key, 6)
+                return jnp.column_stack([
+                    anomaly_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
+                    anomaly_prior_dists['log_p'].sample(seed=keys[5], sample_shape=(n_samples,))
+                ])
     else:  # Standard case
         if fix_z:
-            keys = jax.random.split(rng_key, 5)
-            return jnp.column_stack([
-                standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                standard_prior_dists['sigma'].sample(seed=keys[4], sample_shape=(n_samples,))
-            ])
+            if fit_sigma:
+                keys = jax.random.split(rng_key, 5)
+                return jnp.column_stack([
+                    standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    standard_prior_dists['sigma'].sample(seed=keys[4], sample_shape=(n_samples,))
+                ])
+            else:
+                keys = jax.random.split(rng_key, 4)
+                return jnp.column_stack([
+                    standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,))
+                ])
         else:
-            keys = jax.random.split(rng_key, 6)
-            return jnp.column_stack([
-                standard_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                standard_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                standard_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                standard_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                standard_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                standard_prior_dists['sigma'].sample(seed=keys[5], sample_shape=(n_samples,))
-            ])
+            if fit_sigma:
+                keys = jax.random.split(rng_key, 6)
+                return jnp.column_stack([
+                    standard_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    standard_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    standard_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    standard_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    standard_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
+                    standard_prior_dists['sigma'].sample(seed=keys[5], sample_shape=(n_samples,))
+                ])
+            else:
+                keys = jax.random.split(rng_key, 5)
+                return jnp.column_stack([
+                    standard_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
+                    standard_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
+                    standard_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
+                    standard_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
+                    standard_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,))
+                ])
 
 # =============================================================================
 # Set the total number of model parameters for the standard case.
@@ -329,9 +410,25 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
     print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
     print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
     if ll_fn == loglikelihood_standard:
-        param_names = ['t0', 'log_x0', 'x1', 'c', 'sigma'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c', 'sigma']
+        if fix_z:
+            param_names = ['t0', 'log_x0', 'x1', 'c']
+            if fit_sigma:
+                param_names.append('sigma')
+        else:
+            param_names = ['z', 't0', 'log_x0', 'x1', 'c']
+            if fit_sigma:
+                param_names.append('sigma')
     else:
-        param_names = ['t0', 'log_x0', 'x1', 'c', 'sigma', 'log_p'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c', 'sigma', 'log_p']
+        if fix_z:
+            param_names = ['t0', 'log_x0', 'x1', 'c']
+            if fit_sigma:
+                param_names.append('sigma')
+            param_names.append('log_p')
+        else:
+            param_names = ['z', 't0', 'log_x0', 'x1', 'c']
+            if fit_sigma:
+                param_names.append('sigma')
+            param_names.append('log_p')
     save_chains_dead_birth(dead, param_names)
     if ll_fn == loglikelihood_anomaly and emax_values:
         emax_array = jnp.stack(emax_values)
@@ -347,10 +444,17 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
         print(f"Saved weighted emax values to {emax_output_path}")
 
 def get_n_params(ll_fn):
+    """Get the number of parameters being fit."""
     if ll_fn == loglikelihood_standard:
-        return 5 if fix_z else 6
+        if fix_z:
+            return 5 if fit_sigma else 4
+        else:
+            return 6 if fit_sigma else 5
     else:
-        return 6 if fix_z else 7
+        if fix_z:
+            return 6 if fit_sigma else 5
+        else:
+            return 7 if fit_sigma else 6
 
 if __name__ == "__main__":
     print("Running standard version...")

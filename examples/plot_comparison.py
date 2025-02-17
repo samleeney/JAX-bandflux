@@ -11,6 +11,7 @@ jax.config.update("jax_enable_x64", True)
 
 # Set parameters
 fix_z = True  # Whether to fix the redshift
+fit_sigma = False  # Whether sigma is being fitted
 
 # Load data
 times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
@@ -33,7 +34,13 @@ except FileNotFoundError:
     print("Warning: Weighted emax file not found - skipping initial emax plot")
 
 # Load chains for both runs
-base_params = ['t0', 'log_x0', 'x1', 'c', 'sigma'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c', 'sigma']
+if fix_z:
+    base_params = ['t0', 'log_x0', 'x1', 'c']
+else:
+    base_params = ['z', 't0', 'log_x0', 'x1', 'c']
+
+if fit_sigma:
+    base_params.append('sigma')
 
 # Try to load standard chains
 try:
@@ -92,6 +99,8 @@ def get_model_curve(samples, percentile=50):
         del params['log_x0']  # Remove log_x0 as we now have x0
     if fix_z:
         params['z'] = fixed_z[0]
+    if not fit_sigma:
+        params['sigma'] = 1.0  # Add default sigma if not fitted
     return params
 
 # Create time grid for smooth model curves
