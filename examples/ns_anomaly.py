@@ -353,10 +353,10 @@ def get_n_params(ll_fn):
         return 6 if fix_z else 7
 
 if __name__ == "__main__":
-    #print("Running standard version...")
-    #n_params = get_n_params(loglikelihood_standard)
-    #num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
-    #standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard")
+    print("Running standard version...")
+    n_params = get_n_params(loglikelihood_standard)
+    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
+    standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard")
     print("\nRunning anomaly detection version...")
     n_params = get_n_params(loglikelihood_anomaly)
     num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
