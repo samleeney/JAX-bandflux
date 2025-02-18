@@ -16,9 +16,9 @@ from anesthetic import read_chains, make_2d_axes
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '200')),
+    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '10000')),
     'n_delete': 1,
-    'n_live': 150,
+    'n_live': 125,
     'num_mcmc_steps_multiplier': 5,
     'fit_sigma': False,
     'fit_log_p': True,
@@ -32,7 +32,7 @@ DEFAULT_PRIOR_BOUNDS = {
     'x1': {'min': -4.0, 'max': 4.0},
     'c': {'min': -0.3, 'max': 0.3},
     'sigma': {'min': 0.001, 'max': 5},
-    'log_p': {'min': -10, 'max': -1}
+    'log_p': {'min': -20, 'max': -0.001}
 }
 
 # Try to load settings.yaml; if not found, use an empty dictionary
@@ -194,6 +194,46 @@ def logprior_standard(params):
     return jnp.reshape(logp, (-1,))
 
 @jax.jit
+def logprior_anomaly(params):
+    """Calculate log prior probability for anomaly detection nested sampling."""
+    params = jnp.atleast_2d(params)
+    if fix_z:
+        if fit_sigma:
+            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 0])
+            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 1])
+            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 2])
+            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 3])
+            logp_sigma = anomaly_prior_dists['sigma'].log_prob(params[:, 4])
+            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 5])
+            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma + logp_logp
+        else:
+            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 0])
+            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 1])
+            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 2])
+            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 3])
+            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 4])
+            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_logp
+    else:
+        if fit_sigma:
+            logp_z  = anomaly_prior_dists['z'].log_prob(params[:, 0])
+            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 1])
+            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 2])
+            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 3])
+            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 4])
+            logp_sigma = anomaly_prior_dists['sigma'].log_prob(params[:, 5])
+            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 6])
+            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma + logp_logp
+        else:
+            logp_z  = anomaly_prior_dists['z'].log_prob(params[:, 0])
+            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 1])
+            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 2])
+            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 3])
+            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 4])
+            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 5])
+            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_logp
+    return jnp.reshape(logp, (-1,))
+
+@jax.jit
 def compute_single_loglikelihood_standard(params):
     """Compute Gaussian log likelihood for a single set of parameters (standard)."""
     if fix_z:
@@ -257,7 +297,7 @@ def compute_single_loglikelihood_anomaly(params):
     model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
     eff_fluxerrs = sigma * fluxerrs
     point_logL = -0.5 * (((fluxes - model_fluxes) / eff_fluxerrs) ** 2) - 0.5 * jnp.log(2 * jnp.pi * eff_fluxerrs ** 2) + jnp.log(1 - p)
-    delta = 500  # A threshold roughly corresponding to max data scale
+    delta = 340  # A threshold roughly corresponding to max data scale
     emax = point_logL > (log_p - jnp.log(delta))  # Now consistent as both are natural logs
     logL = jnp.where(emax, point_logL, log_p - jnp.log(delta))
     total_logL = jnp.sum(logL)
@@ -379,7 +419,7 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
     os.makedirs(output_prefix, exist_ok=True)
     print("Setting up nested sampling algorithm...")
     algo = blackjax.ns.adaptive.nss(
-        logprior_fn=logprior_standard,
+        logprior_fn=logprior_anomaly if ll_fn == loglikelihood_anomaly else logprior_standard,
         loglikelihood_fn=ll_fn,
         n_delete=NS_SETTINGS['n_delete'],
         num_mcmc_steps=num_mcmc_steps,

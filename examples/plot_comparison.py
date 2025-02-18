@@ -71,6 +71,7 @@ if have_standard or have_anomaly:
     if have_standard:
         standard_samples.plot_2d(axes, alpha=0.7, label="Standard")
     if have_anomaly:
+        print(anomaly_samples)
         anomaly_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
     
     axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=2)
