@@ -102,3 +102,5 @@ salt3_samples.npz
 chains*
 .config_bare
 .config_bare
+jax_supernovae/data/20aai/
+jax_supernovae/data/21yrf/

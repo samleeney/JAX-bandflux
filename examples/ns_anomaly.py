@@ -27,12 +27,18 @@ DEFAULT_NS_SETTINGS = {
 
 DEFAULT_PRIOR_BOUNDS = {
     'z': {'min': 0.001, 'max': 0.2},
-    't0': {'min': 58000.0, 'max': 59000.0},
+    't0': {'min': 58000.0, 'max': 60000.0},
     'x0': {'min': -5.0, 'max': -2.6},
     'x1': {'min': -4.0, 'max': 4.0},
     'c': {'min': -0.3, 'max': 0.3},
     'sigma': {'min': 0.001, 'max': 5},
     'log_p': {'min': -20, 'max': -0.001}
+}
+
+# Default settings
+DEFAULT_SETTINGS = {
+    'fix_z': True,
+    'sn_name': '21yrf'  # Default supernova to analyze
 }
 
 # Try to load settings.yaml; if not found, use an empty dictionary
@@ -43,8 +49,11 @@ except FileNotFoundError:
     settings_from_file = {}
 
 # Merge the settings from file with the defaults
-settings = settings_from_file
-fix_z = settings.get('fix_z', True)
+settings = DEFAULT_SETTINGS.copy()
+settings.update(settings_from_file)
+
+fix_z = settings['fix_z']
+sn_name = settings['sn_name']
 
 NS_SETTINGS = DEFAULT_NS_SETTINGS.copy()
 NS_SETTINGS.update(settings.get('nested_sampling', {}))
@@ -60,7 +69,7 @@ fit_sigma = NS_SETTINGS['fit_sigma']
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(sn_name, data_dir='jax_supernovae/data', fix_z=fix_z)
 
 # =============================================================================
 # Set up parameter bounds and prior distributions for the standard (non‐anomaly)
@@ -297,7 +306,7 @@ def compute_single_loglikelihood_anomaly(params):
     model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
     eff_fluxerrs = sigma * fluxerrs
     point_logL = -0.5 * (((fluxes - model_fluxes) / eff_fluxerrs) ** 2) - 0.5 * jnp.log(2 * jnp.pi * eff_fluxerrs ** 2) + jnp.log(1 - p)
-    delta = 340  # A threshold roughly corresponding to max data scale
+    delta = jnp.max(jnp.abs(fluxes))  # Use maximum absolute flux value as delta
     emax = point_logL > (log_p - jnp.log(delta))  # Now consistent as both are natural logs
     logL = jnp.where(emax, point_logL, log_p - jnp.log(delta))
     total_logL = jnp.sum(logL)
@@ -414,9 +423,19 @@ num_mcmc_steps = n_params_total * NS_SETTINGS['num_mcmc_steps_multiplier']
 # It initialises the BlackJAX nested sampler, runs the sampling loop,
 # and saves output chains (and weighted anomaly indicators for the anomaly run).
 # =============================================================================
-def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_iterations']):
-    import os
-    os.makedirs(output_prefix, exist_ok=True)
+def run_nested_sampling(ll_fn, output_prefix, sn_name, num_iterations=NS_SETTINGS['max_iterations']):
+    """Run nested sampling with output directories/files including supernova name.
+    
+    Args:
+        ll_fn: Likelihood function to use
+        output_prefix: Base prefix for output directory ('chains_standard' or 'chains_anomaly')
+        sn_name: Name of the supernova (e.g. '20aai')
+        num_iterations: Maximum number of iterations
+    """
+    # Add SN name to output directory
+    output_dir = f"{output_prefix}_{sn_name}"
+    os.makedirs(output_dir, exist_ok=True)
+    
     print("Setting up nested sampling algorithm...")
     algo = blackjax.ns.adaptive.nss(
         logprior_fn=logprior_anomaly if ll_fn == loglikelihood_anomaly else logprior_standard,
@@ -440,7 +459,7 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
         return (state, k), dead_point
     dead = []
     emax_values = []  # For anomaly detection runs
-    print(f"Running nested sampling for {output_prefix}...")
+    print(f"Running nested sampling for {output_dir}...")
     for i in tqdm.trange(num_iterations):
         if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
             break
@@ -476,7 +495,7 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
             if fit_sigma:
                 param_names.append('sigma')
             param_names.append('log_p')
-    save_chains_dead_birth(dead, param_names, root_dir=output_prefix)
+    save_chains_dead_birth(dead, param_names, root_dir=output_dir)
     if ll_fn == loglikelihood_anomaly and emax_values:
         emax_array = jnp.stack(emax_values)
         print(f"emax_array shape: {emax_array.shape}")
@@ -486,7 +505,7 @@ def run_nested_sampling(ll_fn, output_prefix, num_iterations=NS_SETTINGS['max_it
         for i in range(emax_array.shape[1]):
             weighted_emax = weighted_emax.at[i].set(jnp.sum(emax_array[:, i] * weights) / jnp.sum(weights))
         print(f"weighted_emax shape: {weighted_emax.shape}")
-        emax_output_path = os.path.join(output_prefix, f"{output_prefix}_weighted_emax.txt")
+        emax_output_path = os.path.join(output_dir, f"{output_prefix}_{sn_name}_weighted_emax.txt")
         np.savetxt(emax_output_path, weighted_emax)
         print(f"Saved weighted emax values to {emax_output_path}")
 
@@ -507,8 +526,9 @@ if __name__ == "__main__":
     print("Running standard version...")
     n_params = get_n_params(loglikelihood_standard)
     num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
-    standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard")
+    standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard", sn_name)
+    
     print("\nRunning anomaly detection version...")
     n_params = get_n_params(loglikelihood_anomaly)
     num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
-    anomaly_samples = run_nested_sampling(loglikelihood_anomaly, "chains_anomaly")
+    anomaly_samples = run_nested_sampling(loglikelihood_anomaly, "chains_anomaly", sn_name)

@@ -14,7 +14,7 @@ fix_z = True  # Whether to fix the redshift
 fit_sigma = False  # Whether sigma is being fitted
 
 # Load data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('21yrf', data_dir='jax_supernovae/data', fix_z=fix_z)
 
 # Try to load weighted emax values
 try:
