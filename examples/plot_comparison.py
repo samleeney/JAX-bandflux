@@ -132,7 +132,7 @@ try:
 
     # Set up the plot with two subplots
     fig = plt.figure(figsize=(15, 12))
-    gs = plt.GridSpec(2, 1, height_ratios=[4, 1])  # 2 rows with 4:1 ratio
+    gs = plt.GridSpec(2, 1, height_ratios=[4, 1], hspace=0.1)  # Reduced spacing between subplots
 
     # Main light curve plot
     ax1 = plt.subplot(gs[0])
@@ -149,13 +149,83 @@ try:
         colours = default_colours[:n_bands]
         markers = default_markers[:n_bands]
 
+    # Load weighted emax values first to identify anomalous points
+    try:
+        weighted_emax = np.loadtxt(f'chains_anomaly_{sn_name}/chains_anomaly_{sn_name}_weighted_emax.txt')
+        plotting_threshold = 0.2
+        
+        # Count total anomalous points
+        total_anomalous_points = 0
+        
+        # Print diagnostic info
+        print(f"Number of weighted_emax values: {len(weighted_emax)}")
+        print(f"Number of points below threshold: {np.sum(weighted_emax < plotting_threshold)}")
+        
+        # Create time points that match the actual data points
+        all_times = np.sort(np.unique(times))
+        if len(all_times) != len(weighted_emax):
+            print(f"Warning: Number of unique time points ({len(all_times)}) "
+                  f"doesn't match number of weighted_emax values ({len(weighted_emax)})")
+        
+        # Create time points for the emax plot - using actual data time points
+        emax_times = all_times
+    except FileNotFoundError:
+        print("Warning: Weighted emax file not found")
+        weighted_emax = None
+
     # Plot data points for each band
     try:
         for i, band_idx in enumerate(unique_bands):
             mask = band_indices == band_idx
-            ax1.errorbar(times[mask], fluxes[mask], yerr=fluxerrs[mask],
-                        fmt=markers[i], color=colours[i], label=f'Band {i} Data',
-                        markersize=8, alpha=0.6)
+            band_times = times[mask]
+            band_fluxes = fluxes[mask]
+            band_errors = fluxerrs[mask]
+
+            if weighted_emax is not None:
+                # Map each data point to its index in the sorted unique times
+                time_indices = np.searchsorted(all_times, band_times)
+                # Ensure indices are within bounds
+                time_indices = np.clip(time_indices, 0, len(weighted_emax) - 1)
+                # Get the emax value for each point
+                point_emax = weighted_emax[time_indices]
+                
+                # Print diagnostic info for this band
+                print(f"\nBand {i}:")
+                print(f"Number of points: {len(band_times)}")
+                print(f"Number of points below threshold: {np.sum(point_emax < plotting_threshold)}")
+                
+                # Determine which points are anomalous
+                normal_mask = point_emax >= plotting_threshold
+                anomaly_mask = point_emax < plotting_threshold
+                
+                # Update total count
+                total_anomalous_points += np.sum(anomaly_mask)
+
+                # Plot normal points
+                if np.any(normal_mask):
+                    ax1.errorbar(band_times[normal_mask], band_fluxes[normal_mask], 
+                               yerr=band_errors[normal_mask],
+                               fmt=markers[i], color=colours[i], 
+                               label=f'Band {i} Data',
+                               markersize=8, alpha=0.6)
+                
+                # Plot anomalous points with star markers
+                if np.any(anomaly_mask):
+                    label = f'Band {i} Anomalous' if np.any(normal_mask) else f'Band {i} Data'
+                    ax1.errorbar(band_times[anomaly_mask], band_fluxes[anomaly_mask], 
+                               yerr=band_errors[anomaly_mask],
+                               fmt='*', color=colours[i], 
+                               label=label,
+                               markersize=15, alpha=0.8)
+                    
+                    # Print times of anomalous points
+                    print(f"Anomalous point times: {band_times[anomaly_mask]}")
+                    print(f"Corresponding emax values: {point_emax[anomaly_mask]}")
+            else:
+                # Plot all points normally if no weighted_emax available
+                ax1.errorbar(band_times, band_fluxes, yerr=band_errors,
+                           fmt=markers[i], color=colours[i], label=f'Band {i} Data',
+                           markersize=8, alpha=0.6)
     except Exception as e:
         print(f"Warning: Failed to plot some data points - {str(e)}")
 
@@ -211,14 +281,24 @@ try:
         weighted_emax = np.loadtxt(f'chains_anomaly_{sn_name}/chains_anomaly_{sn_name}_weighted_emax.txt')
         ax2 = plt.subplot(gs[1])
         
-        # Create x-axis values that match the length of weighted_emax
-        emax_times = np.linspace(np.min(times), np.max(times), len(weighted_emax))
-        
-        ax2.plot(emax_times, weighted_emax, 'k-', linewidth=2)
-        ax2.fill_between(emax_times, 0, weighted_emax, alpha=0.3, color='gray')
+        # Use actual data time points for the emax plot
+        ax2.plot(all_times, weighted_emax, 'k-', linewidth=2)
+        ax2.fill_between(all_times, 0, weighted_emax, alpha=0.3, color='gray')
         ax2.set_xlabel('MJD', fontsize=12)
         ax2.set_ylabel('Emax', fontsize=12)
         ax2.grid(True, alpha=0.3)
+
+        # Add horizontal line at threshold
+        ax2.axhline(y=plotting_threshold, color='r', linestyle='--', alpha=0.5, 
+                   label=f'Threshold ({plotting_threshold}) - {total_anomalous_points} points below')
+        ax2.legend()
+
+        # Ensure x-axis limits match between plots
+        xlim = ax1.get_xlim()
+        ax2.set_xlim(xlim)
+
+        # Remove x-axis labels from top plot
+        ax1.set_xlabel('')
     except FileNotFoundError:
         print("Warning: Weighted emax file not found - skipping emax subplot")
         plt.tight_layout()  # Adjust layout even without the subplot

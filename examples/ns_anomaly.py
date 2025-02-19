@@ -18,8 +18,8 @@ from anesthetic import read_chains, make_2d_axes
 DEFAULT_NS_SETTINGS = {
     'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '10000')),
     'n_delete': 1,
-    'n_live': 125,
-    'num_mcmc_steps_multiplier': 5,
+    'n_live': 200,
+    'num_mcmc_steps_multiplier': 10,
     'fit_sigma': False,
     'fit_log_p': True,
     'fit_z': True
@@ -28,11 +28,11 @@ DEFAULT_NS_SETTINGS = {
 DEFAULT_PRIOR_BOUNDS = {
     'z': {'min': 0.001, 'max': 0.2},
     't0': {'min': 58000.0, 'max': 60000.0},
-    'x0': {'min': -5.0, 'max': -2.6},
+    'x0': {'min': -5.0, 'max': -1},
     'x1': {'min': -4.0, 'max': 4.0},
-    'c': {'min': -0.3, 'max': 0.3},
+    'c': {'min': -0.4, 'max': 0.4},
     'sigma': {'min': 0.001, 'max': 5},
-    'log_p': {'min': -20, 'max': -0.001}
+    'log_p': {'min': -20, 'max': -2}
 }
 
 # Default settings
@@ -523,12 +523,13 @@ def get_n_params(ll_fn):
             return 7 if fit_sigma else 6
 
 if __name__ == "__main__":
+    print("\nRunning anomaly detection version...")
+    n_params = get_n_params(loglikelihood_anomaly)
+    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
+    anomaly_samples = run_nested_sampling(loglikelihood_anomaly, "chains_anomaly", sn_name)
+
     print("Running standard version...")
     n_params = get_n_params(loglikelihood_standard)
     num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
     standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard", sn_name)
     
-    print("\nRunning anomaly detection version...")
-    n_params = get_n_params(loglikelihood_anomaly)
-    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
-    anomaly_samples = run_nested_sampling(loglikelihood_anomaly, "chains_anomaly", sn_name)
