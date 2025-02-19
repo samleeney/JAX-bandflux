@@ -5,21 +5,31 @@ import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
 from jax_supernovae.data import load_and_process_data
 from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+import os
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
-# Set parameters
-fix_z = True  # Whether to fix the redshift
-fit_sigma = False  # Whether sigma is being fitted
+# These settings will be overridden if the script is imported from ns_anomaly.py
+if 'identifier' not in globals():
+    # Set parameters
+    fix_z = True  # Whether to fix the redshift
+    fit_sigma = False  # Whether sigma is being fitted
+    # Set identifier (should match the one used in ns_anomaly.py)
+    identifier = "_v1"  # You can modify this or pass it as a command line argument
+    # Load data
+    sn_name = '21yrf'  # Define the supernova name
 
-# Load data
-sn_name = '21yrf'  # Define the supernova name
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(sn_name, data_dir='jax_supernovae/data', fix_z=fix_z)
+# Define output directories
+output_dir = f'results/chains_{sn_name}{identifier}'
+
+# Load data if not already loaded (will be already loaded if called from ns_anomaly.py)
+if 'times' not in globals():
+    times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(sn_name, data_dir='jax_supernovae/data', fix_z=fix_z)
 
 # Try to load weighted emax values
 try:
-    weighted_emax = np.loadtxt(f'chains_anomaly_{sn_name}/chains_anomaly_{sn_name}_weighted_emax.txt')
+    weighted_emax = np.loadtxt(f'{output_dir}/chains_anomaly_weighted_emax.txt')
     
     # Create a separate plot for weighted emax vs datapoint number
     plt.figure(figsize=(12, 6))
@@ -29,7 +39,7 @@ try:
     plt.ylabel('Weighted Emax')
     plt.title('Weighted Emax by Data Point')
     plt.grid(True, alpha=0.3)
-    plt.savefig('weighted_emax.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{output_dir}/weighted_emax.png', dpi=300, bbox_inches='tight')
     plt.close()
 except FileNotFoundError:
     print("Warning: Weighted emax file not found - skipping initial emax plot")
@@ -45,7 +55,7 @@ if fit_sigma:
 
 # Try to load standard chains
 try:
-    standard_samples = read_chains(f'chains_standard_{sn_name}/chains_standard_{sn_name}', columns=base_params)
+    standard_samples = read_chains(f'{output_dir}/chains_standard', columns=base_params)
     have_standard = True
 except FileNotFoundError:
     print("Warning: Standard chains not found - some plots will be incomplete")
@@ -55,7 +65,7 @@ except FileNotFoundError:
 # Try to load anomaly chains with log_p parameter
 try:
     anomaly_params = base_params + ['log_p']
-    anomaly_samples = read_chains(f'chains_anomaly_{sn_name}/chains_anomaly_{sn_name}', columns=anomaly_params)
+    anomaly_samples = read_chains(f'{output_dir}/chains_anomaly', columns=anomaly_params)
     have_anomaly = True
 except FileNotFoundError:
     print("Warning: Anomaly chains not found - some plots will be incomplete")
@@ -86,7 +96,7 @@ if have_standard or have_anomaly:
                 print(f"Warning: Failed to plot anomaly samples in corner plot - {str(e)}")
         
         axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=2)
-        plt.savefig('corner_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{output_dir}/corner_comparison.png', dpi=300, bbox_inches='tight')
         plt.close()
     except Exception as e:
         print(f"Warning: Failed to create corner comparison plot - {str(e)}")
@@ -99,7 +109,7 @@ if have_anomaly and 'log_p' in anomaly_samples.columns:
         anomaly_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
         plt.suptitle('Anomaly Detection Corner Plot (including log_p)', fontsize=14)
         axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=2)
-        plt.savefig('corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{output_dir}/corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
         plt.close()
     except Exception as e:
         print(f"Warning: Failed to create anomaly corner plot - {str(e)}")
@@ -151,7 +161,7 @@ try:
 
     # Load weighted emax values first to identify anomalous points
     try:
-        weighted_emax = np.loadtxt(f'chains_anomaly_{sn_name}/chains_anomaly_{sn_name}_weighted_emax.txt')
+        weighted_emax = np.loadtxt(f'{output_dir}/chains_anomaly_weighted_emax.txt')
         plotting_threshold = 0.2
         
         # Count total anomalous points
@@ -278,7 +288,7 @@ try:
 
     # Try to load weighted emax values and create subplot
     try:
-        weighted_emax = np.loadtxt(f'chains_anomaly_{sn_name}/chains_anomaly_{sn_name}_weighted_emax.txt')
+        weighted_emax = np.loadtxt(f'{output_dir}/chains_anomaly_weighted_emax.txt')
         ax2 = plt.subplot(gs[1])
         
         # Use actual data time points for the emax plot
@@ -290,7 +300,7 @@ try:
 
         # Add horizontal line at threshold
         ax2.axhline(y=plotting_threshold, color='r', linestyle='--', alpha=0.5, 
-                   label=f'Threshold ({plotting_threshold}) - {total_anomalous_points} points below')
+                   label=f'Plotting threshold ({plotting_threshold}) - {total_anomalous_points} points below')
         ax2.legend()
 
         # Ensure x-axis limits match between plots
@@ -308,33 +318,41 @@ try:
 
     # Adjust layout and save
     plt.tight_layout()
-    plt.savefig('light_curve_comparison.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{output_dir}/light_curve_comparison.png', dpi=300, bbox_inches='tight')
     plt.close()
 
 except Exception as e:
     print(f"Warning: Failed to create light curve comparison plot - {str(e)}")
     plt.close('all')  # Ensure all plots are closed even if we fail
 
-# Print parameter statistics if chains are available
+# Save parameter statistics to a text file if chains are available
 if have_standard or have_anomaly:
-    print("\nParameter Statistics Comparison:")
-    print("-" * 50)
+    stats_text = ["Parameter Statistics Comparison:", "-" * 50]
     for param in param_names:
         if have_standard:
             std_mean = standard_samples[param].mean()
             std_std = standard_samples[param].std()
-            print(f"\n{param}:")
-            print(f"  Standard: {std_mean:.6f} ± {std_std:.6f}")
+            stats_text.append(f"\n{param}:")
+            stats_text.append(f"  Standard: {std_mean:.6f} ± {std_std:.6f}")
         if have_anomaly:
             anom_mean = anomaly_samples[param].mean()
             anom_std = anomaly_samples[param].std()
-            print(f"  Anomaly:  {anom_mean:.6f} ± {anom_std:.6f}")
+            stats_text.append(f"  Anomaly:  {anom_mean:.6f} ± {anom_std:.6f}")
 
-# Print log_p statistics for anomaly case if available
-if have_anomaly and 'log_p' in anomaly_samples.columns:
-    print("\nlog_p (Anomaly only):")
-    log_p_mean = anomaly_samples['log_p'].mean()
-    log_p_std = anomaly_samples['log_p'].std()
-    print(f"  Mean: {log_p_mean:.6f} ± {log_p_std:.6f}")
-    print(f"  Max: {anomaly_samples['log_p'].max():.6f}")
-    print(f"  Min: {anomaly_samples['log_p'].min():.6f}") 
+    # Add log_p statistics for anomaly case if available
+    if have_anomaly and 'log_p' in anomaly_samples.columns:
+        stats_text.extend([
+            "\nlog_p (Anomaly only):",
+            f"  Mean: {anomaly_samples['log_p'].mean():.6f} ± {anomaly_samples['log_p'].std():.6f}",
+            f"  Max: {anomaly_samples['log_p'].max():.6f}",
+            f"  Min: {anomaly_samples['log_p'].min():.6f}"
+        ])
+
+    # Save statistics to both directories if they exist
+    stats_text = '\n'.join(stats_text)
+    if have_standard:
+        with open(f'{output_dir}/parameter_statistics.txt', 'w') as f:
+            f.write(stats_text)
+    if have_anomaly:
+        with open(f'{output_dir}/parameter_statistics.txt', 'w') as f:
+            f.write(stats_text) 
