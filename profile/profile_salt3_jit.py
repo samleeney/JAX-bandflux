@@ -19,6 +19,9 @@ from jax_supernovae.salt3 import (
     H_ERG_S, HC_ERG_AA
 )
 
+# Output directory
+PROFILE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Mock bandpass class for testing
 class MockBandpass:
     def __init__(self, wave_min=3000, wave_max=7000, n_points=200):
@@ -200,10 +203,11 @@ def plot_function_timings(phase, bandpasses, bridges, params, zps, n_iterations=
     
     # Adjust layout and save
     plt.tight_layout()
-    plt.savefig('function_timings.png', dpi=300, bbox_inches='tight')
+    output_file = os.path.join(PROFILE_DIR, 'salt3_function_timings.png')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print("\nTiming plot saved to: function_timings.png")
+    print(f"\nTiming plot saved to: {output_file}")
     
     return timing_stats, compilation_times
 
@@ -213,24 +217,27 @@ def main():
     phase, bandpasses, bridges, params, zps = create_test_data()
     
     # Create temporary directory for profiling output
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Start JAX profiling
-        print("\nStarting JAX profiling...")
-        start_trace(tmpdir)
-        
-        # Profile optimized flux calculations
-        profile_flux_calculations(phase, bandpasses, bridges, params, zps)
-        
-        # Profile and plot all function timings
-        plot_function_timings(phase, bandpasses, bridges, params, zps)
-        
-        # Stop profiling and save memory profile
-        stop_trace()
-        save_device_memory_profile(os.path.join(tmpdir, "memory_profile.prof"))
-        
-        print(f"\nProfiling data saved to: {tmpdir}")
-        print("You can view the profiling data using TensorBoard:")
-        print(f"tensorboard --logdir={tmpdir}")
+    profile_tmp_dir = os.path.join(PROFILE_DIR, 'tmp')
+    os.makedirs(profile_tmp_dir, exist_ok=True)
+    
+    # Start JAX profiling
+    print("\nStarting JAX profiling...")
+    start_trace(profile_tmp_dir)
+    
+    # Profile optimized flux calculations
+    profile_flux_calculations(phase, bandpasses, bridges, params, zps)
+    
+    # Profile and plot all function timings
+    plot_function_timings(phase, bandpasses, bridges, params, zps)
+    
+    # Stop profiling and save memory profile
+    stop_trace()
+    memory_profile_path = os.path.join(PROFILE_DIR, "salt3_memory_profile.prof")
+    save_device_memory_profile(memory_profile_path)
+    
+    print(f"\nProfiling data saved to: {PROFILE_DIR}")
+    print("You can view the profiling data using TensorBoard:")
+    print(f"tensorboard --logdir={profile_tmp_dir}")
 
 if __name__ == "__main__":
     main() 
