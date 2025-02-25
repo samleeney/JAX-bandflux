@@ -210,3 +210,55 @@ def load_and_process_data(sn_name, data_dir='data', fix_z=False):
             fixed_z = None
     
     return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z 
+
+def get_all_supernovae_with_redshifts(redshift_file='data/redshifts.dat'):
+    """
+    Get all supernovae that have measured redshifts in redshifts.dat.
+    
+    Args:
+        redshift_file (str): Path to redshifts.dat file
+        
+    Returns:
+        list: List of tuples (sn_name, z, z_err, flag) for all supernovae with redshifts
+    """
+    # Try package data directory first
+    package_redshift_file = os.path.join(PACKAGE_DIR, 'data', 'redshifts.dat')
+    if os.path.exists(package_redshift_file):
+        redshift_file = package_redshift_file
+    elif not os.path.exists(redshift_file):
+        raise FileNotFoundError(f"Redshift file not found: {redshift_file}")
+        
+    # Skip comment lines and read data
+    with open(redshift_file, 'r') as f:
+        lines = f.readlines()
+    
+    data_lines = [l for l in lines if not l.startswith('#')]
+    
+    # Dictionary to store best measurements for each object
+    best_measurements = {}
+    
+    # Flag priority (prefer strong features)
+    flag_priority = {'s': 0, 'w': 1, 'n': 2}
+    
+    for line in data_lines:
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 6:
+            continue
+        try:
+            sn_name = parts[0]
+            z = float(parts[2])
+            plus = float(parts[3])
+            minus = float(parts[4])
+            flag = parts[5] if len(parts) > 5 else 'n'
+            
+            # If we haven't seen this object before, or if this measurement has higher priority
+            if (sn_name not in best_measurements or 
+                flag_priority.get(flag, 3) < flag_priority.get(best_measurements[sn_name][3], 3)):
+                best_measurements[sn_name] = (sn_name, z, max(plus, minus), flag)
+        except (ValueError, IndexError):
+            continue
+    
+    # Convert dictionary to sorted list
+    return sorted(best_measurements.values())

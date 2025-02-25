@@ -22,7 +22,7 @@ from jax import jit, vmap
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '50')),
+    'max_iterations': 5000,  # Set to 5000 iterations
     'n_delete': 1,
     'n_live': 200,
     'num_mcmc_steps_multiplier': 10,
@@ -632,15 +632,15 @@ def main():
     supernovae = get_all_supernovae_with_redshifts()
     print(f"Found {len(supernovae)} supernovae with redshifts")
     
-    # Limit to first 4 supernovae (for 2 batches of 2)
+    # Take exactly 4 supernovae
     supernovae = supernovae[:4]
-    print(f"Processing first {len(supernovae)} supernovae")
+    print(f"Processing {len(supernovae)} supernovae")
 
     # Create main output directory
     output_dir = os.path.join("results", "parallel_ns")
     os.makedirs(output_dir, exist_ok=True)
 
-    # Process supernovae in small batches
+    # Process supernovae in batches of 2
     BATCH_SIZE = 2  # Process 2 supernovae per batch
     start_time = time.time()
     
