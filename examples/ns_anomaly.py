@@ -6,20 +6,21 @@ import tqdm
 import blackjax
 import os
 import yaml
+import pandas as pd
 from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3 import optimized_salt3_multiband_flux
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
 from jax_supernovae.utils import save_chains_dead_birth
-from jax_supernovae.data import load_and_process_data
+from jax_supernovae.data import load_redshift, load_hsf_data
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '50')),
-    'n_delete': 1,
-    'n_live': 200,
-    'num_mcmc_steps_multiplier': 10,
+    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '500')),
+    'n_delete': 75,
+    'n_live': 150,
+    'num_mcmc_steps_multiplier': 5,
     'fit_sigma': False,
     'fit_log_p': True,
     'fit_z': True
@@ -29,16 +30,17 @@ DEFAULT_PRIOR_BOUNDS = {
     'z': {'min': 0.001, 'max': 0.2},
     't0': {'min': 58000.0, 'max': 60000.0},
     'x0': {'min': -5.0, 'max': -1},
-    'x1': {'min': -4.0, 'max': 4.0},
-    'c': {'min': -0.4, 'max': 0.4},
+    'x1': {'min': -10, 'max': 10},
+    'c': {'min': -0.6, 'max': 0.6},
     'sigma': {'min': 0.001, 'max': 5},
-    'log_p': {'min': -20, 'max': -2}
+    'log_p': {'min': -20, 'max': -1}
 }
 
 # Default settings
 DEFAULT_SETTINGS = {
     'fix_z': True,
-    'sn_name': '21yrf'  # Default supernova to analyze
+    'sn_name': '19vnk',  # Default supernova to analyze
+    'selected_bandpasses': None  # Default: use all available bandpasses
 }
 
 # Try to load settings.yaml; if not found, use an empty dictionary
@@ -54,6 +56,7 @@ settings.update(settings_from_file)
 
 fix_z = settings['fix_z']
 sn_name = settings['sn_name']
+selected_bandpasses = settings.get('selected_bandpasses', None)
 
 NS_SETTINGS = DEFAULT_NS_SETTINGS.copy()
 NS_SETTINGS.update(settings.get('nested_sampling', {}))
@@ -68,8 +71,103 @@ fit_sigma = NS_SETTINGS['fit_sigma']
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
+def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None):
+    """
+    Custom version of load_and_process_data that allows filtering by selected bandpasses.
+    
+    Args:
+        sn_name (str): Name of the supernova to load (e.g., '19agl')
+        data_dir (str): Directory containing the data files. Defaults to 'data'.
+        fix_z (bool): Whether to fix redshift to value from redshifts.dat
+        selected_bandpasses (list): List of bandpass names to include (e.g., ['g', 'r', 'i'])
+                                   If None, all available bandpasses are used.
+        
+    Returns:
+        tuple: Contains processed data arrays and bridges:
+            - times (jnp.array): Observation times
+            - fluxes (jnp.array): Flux measurements
+            - fluxerrs (jnp.array): Flux measurement errors
+            - zps (jnp.array): Zero points
+            - band_indices (jnp.array): Band indices
+            - bridges (tuple): Precomputed bridge data for each band
+            - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
+    """
+    from jax_supernovae.data import load_hsf_data, load_redshift
+    
+    # Load data
+    data = load_hsf_data(sn_name, base_dir=data_dir)
+    bandpass_dict, bridges_dict = register_all_bandpasses()
+
+    # Filter by selected bandpasses if specified
+    if selected_bandpasses is not None:
+        # Convert to list if a single string was provided
+        if isinstance(selected_bandpasses, str):
+            selected_bandpasses = [selected_bandpasses]
+            
+        # Validate that all requested bandpasses exist
+        for band in selected_bandpasses:
+            if band not in bridges_dict:
+                available_bands = list(bridges_dict.keys())
+                raise ValueError(f"Bandpass '{band}' not found. Available bandpasses: {available_bands}")
+        
+        # Get unique bands and their bridges, filtered by selected_bandpasses
+        unique_bands = []
+        bridges = []
+        for band in np.unique(data['band']):
+            if band in bridges_dict and (selected_bandpasses is None or band in selected_bandpasses):
+                unique_bands.append(band)
+                bridges.append(bridges_dict[band])
+    else:
+        # Get all unique bands and their bridges
+        unique_bands = []
+        bridges = []
+        for band in np.unique(data['band']):
+            if band in bridges_dict:
+                unique_bands.append(band)
+                bridges.append(bridges_dict[band])
+    
+    # Convert bridges to tuple for JIT compatibility
+    bridges = tuple(bridges)
+
+    # Set up data arrays, filtering by selected bandpasses
+    valid_mask = np.array([band in unique_bands for band in data['band']])
+    
+    # Check if we have any valid data points after filtering
+    if not np.any(valid_mask):
+        if selected_bandpasses:
+            raise ValueError(f"No data points found for selected bandpasses {selected_bandpasses} in {sn_name}")
+        else:
+            raise ValueError(f"No valid data points found for {sn_name}")
+    
+    times = jnp.array(data['time'][valid_mask])
+    fluxes = jnp.array(data['flux'][valid_mask])
+    fluxerrs = jnp.array(data['fluxerr'][valid_mask])
+    zps = jnp.array(data['zp'][valid_mask])
+    band_indices = jnp.array([unique_bands.index(band) for band in data['band'][valid_mask]])
+    
+    # Print summary of selected data
+    print(f"Using {len(unique_bands)} bandpasses: {unique_bands}")
+    print(f"Total data points: {len(times)}")
+    for i, band in enumerate(unique_bands):
+        band_count = np.sum(band_indices == i)
+        print(f"  Band {band}: {band_count} points")
+    
+    # Load redshift if requested
+    fixed_z = None
+    if fix_z:
+        try:
+            z, z_err, flag = load_redshift(sn_name)
+            fixed_z = (z, z_err)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Warning: Could not load redshift: {e}")
+            fixed_z = None
+    
+    return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z
+
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(sn_name, data_dir='jax_supernovae/data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = custom_load_and_process_data(
+    sn_name, data_dir='hsf_DR1/', fix_z=fix_z, selected_bandpasses=selected_bandpasses
+)
 
 # =============================================================================
 # Set up parameter bounds and prior distributions for the standard (non‐anomaly)
@@ -466,8 +564,10 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
         (state, rng_key), dead_info = one_step((state, rng_key), None)
         dead.append(dead_info)
         if ll_fn == loglikelihood_anomaly:
-            _, emax = compute_single_loglikelihood_anomaly(dead_info.particles[0])
-            emax_values.append(emax)
+            # Handle multiple deleted points when n_delete > 1
+            for j in range(len(dead_info.particles)):
+                _, emax = compute_single_loglikelihood_anomaly(dead_info.particles[j])
+                emax_values.append(emax)
         if i % 10 == 0:
             print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
     dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
@@ -516,7 +616,22 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
         emax_array = jnp.stack(emax_values)
         print(f"emax_array shape: {emax_array.shape}")
         weights = jnp.exp(logw - jax.scipy.special.logsumexp(logw))
-        weights = weights[:, 0]
+        
+        # Ensure weights and emax_array have compatible shapes
+        if weights.ndim > 1:
+            weights = weights[:, 0]
+        
+        # Check if shapes are compatible
+        print(f"weights shape: {weights.shape}")
+        
+        if len(emax_array) != len(weights):
+            print(f"Warning: emax_array length ({len(emax_array)}) doesn't match weights length ({len(weights)})")
+            # Truncate or pad to make them compatible
+            min_len = min(len(emax_array), len(weights))
+            emax_array = emax_array[:min_len]
+            weights = weights[:min_len]
+            print(f"Adjusted to use first {min_len} elements")
+        
         weighted_emax = jnp.zeros(emax_array.shape[1])
         for i in range(emax_array.shape[1]):
             weighted_emax = weighted_emax.at[i].set(jnp.sum(emax_array[:, i] * weights) / jnp.sum(weights))
@@ -538,6 +653,180 @@ def get_n_params(ll_fn):
         else:
             return 7 if fit_sigma else 6
 
+def get_true_values(sn_name, data_dir='hsf_DR1/', selected_bandpasses=None):
+    """
+    Read the true values from the salt_fits.dat file for a given supernova.
+    Only returns values for exactly matching bandpass combinations.
+    
+    Args:
+        sn_name: Name of the supernova (e.g., '21yrf')
+        data_dir: Base directory containing the data
+        selected_bandpasses: List of bandpass names being used in the analysis
+        
+    Returns:
+        Dictionary with true parameter values or None if no matching bandpass combination found
+    """
+    if selected_bandpasses is None:
+        return None
+        
+    salt_fits_path = os.path.join(data_dir, 'Ia', sn_name, 'salt_fits.dat')
+    
+    try:
+        # Read the entire file content
+        with open(salt_fits_path, 'r') as f:
+            lines = f.readlines()
+            
+        # Debug: Print raw file contents
+        print("\nRaw file contents:")
+        for line in lines[:5]:  # Print first 5 lines
+            print(line.strip())
+            
+        # Parse header
+        header = lines[0].strip().split()
+        print("\nHeader:", header)
+        
+        # Sort bandpasses to ensure consistent ordering
+        selected_bandpasses = sorted(selected_bandpasses)
+        target_bps = '-'.join(selected_bandpasses)
+        
+        # Find matching row
+        matching_row = None
+        for line in lines[1:]:  # Skip header
+            values = line.strip().split()
+            if values[0] == target_bps:  # bps_used is always the first column
+                matching_row = values
+                break
+                
+        if matching_row is None:
+            return None
+            
+        # Get the values from the correct columns
+        # The columns are:
+        # bps_used variant success reddening_law t0 e_t0 x0_mag e_x0_mag x1 e_x1 c e_c ...
+        # So: t0 is column 4, x0_mag is column 6, x1 is column 8, c is column 10
+        t0 = float(matching_row[3])  # t0 is in column 3 NOTE that the column headings are 
+        x0_mag = float(matching_row[5])  # x0_mag is in column 5
+        x1 = float(matching_row[8])  # x1 is in column 8
+        c = float(matching_row[10])  # c is in column 10
+        
+        print("\nMatching row found:")
+        print(f"bps_used: {matching_row[0]}")
+        print(f"t0: {t0}")
+        print(f"x0_mag: {x0_mag}")
+        print(f"x1: {x1}")
+        print(f"c: {c}")
+        
+        # Create dictionary with parameter values
+        true_values = {
+            't0': t0,
+            'log_x0': -x0_mag / 2.5,  # Convert x0_mag to log_x0
+            'x1': x1,
+            'c': c
+        }
+            
+        return true_values
+        
+    except Exception as e:
+        print(f"\nError in get_true_values: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def plot_x0mag_dm_relationship(output_dir):
+    """
+    Create a plot showing the relationship between x0_mag and DM.
+    
+    Args:
+        output_dir: Directory to save the plot
+    """
+    try:
+        # Create a range of x0_mag values
+        x0_mag_values = np.linspace(8, 10, 100)
+        
+        # Calculate corresponding DM values (DM = x0_mag + 21.01)
+        dm_values = x0_mag_values + 21.01
+        
+        # Create the plot
+        plt.figure(figsize=(10, 6))
+        plt.plot(x0_mag_values, dm_values, 'b-', linewidth=2)
+        plt.xlabel('x0_mag = -2.5 * log10(x0)', fontsize=12)
+        plt.ylabel('Distance Modulus (DM)', fontsize=12)
+        plt.title('Relationship between x0_mag and Distance Modulus', fontsize=14)
+        plt.grid(True, alpha=0.3)
+        
+        # Add text explaining the relationship
+        plt.text(0.05, 0.95, 'DM = x0_mag + 21.01', transform=plt.gca().transAxes,
+                fontsize=12, bbox=dict(facecolor='white', alpha=0.8))
+        
+        # Save the plot
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, 'x0mag_dm_relationship.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"Saved x0_mag vs DM relationship plot to {os.path.join(output_dir, 'x0mag_dm_relationship.png')}")
+        
+    except Exception as e:
+        print(f"Warning: Failed to create x0_mag vs DM relationship plot - {str(e)}")
+        plt.close()
+
+def plot_samples_x0mag_dm(standard_samples, anomaly_samples, true_values, output_dir):
+    """
+    Create a scatter plot of the samples showing x0_mag vs DM.
+    
+    Args:
+        standard_samples: Samples from standard nested sampling
+        anomaly_samples: Samples from anomaly nested sampling
+        true_values: Dictionary with true parameter values
+        output_dir: Directory to save the plot
+    """
+    try:
+        if (standard_samples is None or 'log_x0' not in standard_samples.columns) and \
+           (anomaly_samples is None or 'log_x0' not in anomaly_samples.columns):
+            print("Warning: log_x0 not found in samples - skipping x0_mag vs DM scatter plot")
+            return
+            
+        plt.figure(figsize=(10, 8))
+        
+        # Calculate x0_mag and DM for standard samples
+        if standard_samples is not None and 'log_x0' in standard_samples.columns:
+            x0_mag_std = -2.5 * standard_samples['log_x0']
+            dm_std = x0_mag_std + 21.01
+            plt.scatter(x0_mag_std, dm_std, alpha=0.5, label='Standard', s=10)
+        
+        # Calculate x0_mag and DM for anomaly samples
+        if anomaly_samples is not None and 'log_x0' in anomaly_samples.columns:
+            x0_mag_anom = -2.5 * anomaly_samples['log_x0']
+            dm_anom = x0_mag_anom + 21.01
+            plt.scatter(x0_mag_anom, dm_anom, alpha=0.5, label='Anomaly', s=10)
+        
+        # Add true value if available
+        if true_values and 'log_x0' in true_values:
+            true_x0_mag = -2.5 * true_values['log_x0']
+            true_dm = true_x0_mag + 21.01
+            plt.scatter([true_x0_mag], [true_dm], color='red', marker='*', s=200, 
+                       label='True Value', zorder=10)
+        
+        # Add the DM = x0_mag + 21.01 line
+        x_range = plt.xlim()
+        x_vals = np.linspace(x_range[0], x_range[1], 100)
+        plt.plot(x_vals, x_vals + 21.01, 'k--', label='DM = x0_mag + 21.01')
+        
+        plt.xlabel('x0_mag = -2.5 * log10(x0)', fontsize=12)
+        plt.ylabel('Distance Modulus (DM = x0_mag + 21.01)', fontsize=12)
+        plt.title('Relationship between x0_mag and Distance Modulus in Samples', fontsize=14)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, 'samples_x0mag_dm.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"Saved samples x0_mag vs DM plot to {os.path.join(output_dir, 'samples_x0mag_dm.png')}")
+        
+    except Exception as e:
+        print(f"Warning: Failed to create samples x0_mag vs DM plot - {str(e)}")
+        plt.close()
+
 if __name__ == "__main__":
     # Add an identifier for this run (e.g. date, version, etc)
     identifier = "_tes"  # You can modify this or pass it as a command line argument
@@ -555,6 +844,9 @@ if __name__ == "__main__":
     print("\nGenerating plots...")
     # Define output directory
     output_dir = f'results/chains_{sn_name}{identifier}'
+    
+    # Create the output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
 
     # Define parameter names based on settings
     if fix_z:
@@ -564,6 +856,10 @@ if __name__ == "__main__":
 
     if fit_sigma:
         base_params.append('sigma')
+        
+    # Get true values from salt_fits.dat with matching bandpasses
+    true_values = get_true_values(sn_name, selected_bandpasses=selected_bandpasses)
+    print(f"True values from salt_fits.dat: {true_values}")
 
     # Try to load weighted emax values and create initial plot
     try:
@@ -577,7 +873,6 @@ if __name__ == "__main__":
         plt.title('Weighted Emax by Data Point')
         plt.grid(True, alpha=0.3)
         plt.savefig(f'{output_dir}/weighted_emax.png', dpi=300, bbox_inches='tight')
-        plt.close()
     except FileNotFoundError:
         print("Warning: Weighted emax file not found - skipping initial emax plot")
 
@@ -607,23 +902,73 @@ if __name__ == "__main__":
     if have_standard or have_anomaly:
         # Create overlaid corner plot
         try:
-            fig, axes = make_2d_axes(param_names, figsize=(10, 10), facecolor='w')
+            # Convert log_x0 to x0_mag in the samples for plotting
+            plot_param_names = param_names.copy()
+            
+            # Replace log_x0 with x0_mag in the parameter names list
+            if 'log_x0' in plot_param_names:
+                plot_param_names[plot_param_names.index('log_x0')] = 'x0_mag'
+            
+            # Create a copy of the samples with x0_mag instead of log_x0
+            if have_standard:
+                standard_plot_samples = standard_samples.copy()
+                if 'log_x0' in standard_plot_samples.columns:
+                    standard_plot_samples['x0_mag'] = -2.5 * standard_plot_samples['log_x0']
+                    standard_plot_samples = standard_plot_samples.drop(columns=['log_x0'])
+            
+            if have_anomaly:
+                anomaly_plot_samples = anomaly_samples.copy()
+                if 'log_x0' in anomaly_plot_samples.columns:
+                    anomaly_plot_samples['x0_mag'] = -2.5 * anomaly_plot_samples['log_x0']
+                    anomaly_plot_samples = anomaly_plot_samples.drop(columns=['log_x0'])
+            
+            # Convert true values from log_x0 to x0_mag if needed
+            plot_true_values = true_values.copy() if true_values else {}
+            if 'log_x0' in plot_true_values:
+                plot_true_values['x0_mag'] = -2.5 * plot_true_values['log_x0']
+                del plot_true_values['log_x0']
+            
+            fig, axes = make_2d_axes(plot_param_names, figsize=(10, 10), facecolor='w')
             
             # Plot standard samples if available
             if have_standard:
                 try:
-                    standard_samples.plot_2d(axes, alpha=0.7, label="Standard")
+                    standard_plot_samples.plot_2d(axes, alpha=0.7, label="Standard")
                 except Exception as e:
                     print(f"Warning: Failed to plot standard samples in corner plot - {str(e)}")
             
             # Plot anomaly samples if available
             if have_anomaly:
                 try:
-                    anomaly_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
+                    anomaly_plot_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
                 except Exception as e:
                     print(f"Warning: Failed to plot anomaly samples in corner plot - {str(e)}")
             
-            axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=2)
+            # Add true values as reference lines if available
+            if plot_true_values:
+                for param in plot_param_names:
+                    if param in plot_true_values:
+                        # Add individual parameter lines
+                        axes.axlines({param: plot_true_values[param]}, c='green', linestyle='--', 
+                                    linewidth=2, alpha=1.0, zorder=10, label='True values')
+                
+                # Add joint parameter lines for each pair of parameters
+                for i, param1 in enumerate(plot_param_names):
+                    if param1 not in plot_true_values:
+                        continue
+                    for param2 in plot_param_names[i+1:]:
+                        if param2 not in plot_true_values:
+                            continue
+                        axes.axlines({param1: plot_true_values[param1], param2: plot_true_values[param2]}, 
+                                    c='green', linestyle='--', linewidth=2, alpha=1.0, zorder=10)
+            
+            # Add legend with unique labels
+            handles, labels = axes.iloc[-1, 0].get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            axes.iloc[-1, 0].legend(by_label.values(), by_label.keys(), 
+                                   bbox_to_anchor=(len(axes)/2, len(axes)), 
+                                   loc='lower center', ncol=3)
+            
             plt.savefig(f'{output_dir}/corner_comparison.png', dpi=300, bbox_inches='tight')
             plt.close()
         except Exception as e:
@@ -632,11 +977,43 @@ if __name__ == "__main__":
     # Create anomaly corner plot only if we have anomaly chains
     if have_anomaly and 'log_p' in anomaly_samples.columns:
         try:
-            log_p_params = base_params + ['log_p']
+            # Create parameter list with x0_mag instead of log_x0
+            log_p_params = base_params.copy()
+            if 'log_x0' in log_p_params:
+                log_p_params[log_p_params.index('log_x0')] = 'x0_mag'
+            log_p_params.append('log_p')
+            
+            # Use the previously created anomaly_plot_samples that has x0_mag
             fig, axes = make_2d_axes(log_p_params, figsize=(12, 12), facecolor='w')
-            anomaly_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
+            anomaly_plot_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
+            
+            # Add true values as reference lines if available
+            if plot_true_values:
+                for param in log_p_params:
+                    if param in plot_true_values:
+                        # Add individual parameter lines
+                        axes.axlines({param: plot_true_values[param]}, c='green', linestyle='--', 
+                                    linewidth=2, alpha=1.0, zorder=10, label='True values')
+                
+                # Add joint parameter lines for each pair of parameters
+                for i, param1 in enumerate(log_p_params):
+                    if param1 not in plot_true_values:
+                        continue
+                    for param2 in log_p_params[i+1:]:
+                        if param2 not in plot_true_values:
+                            continue
+                        axes.axlines({param1: plot_true_values[param1], param2: plot_true_values[param2]}, 
+                                    c='green', linestyle='--', linewidth=2, alpha=1.0, zorder=10)
+            
             plt.suptitle('Anomaly Detection Corner Plot (including log_p)', fontsize=14)
-            axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=2)
+            
+            # Add legend with unique labels
+            handles, labels = axes.iloc[-1, 0].get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            axes.iloc[-1, 0].legend(by_label.values(), by_label.keys(), 
+                                   bbox_to_anchor=(len(axes)/2, len(axes)), 
+                                   loc='lower center', ncol=2)
+            
             plt.savefig(f'{output_dir}/corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
             plt.close()
         except Exception as e:
@@ -649,7 +1026,10 @@ if __name__ == "__main__":
             if param != 'log_p':  # Skip logp as it's not needed for the model
                 params[param] = float(np.percentile(samples[param], percentile))
         if 'log_x0' in params:
+            # Convert log_x0 to x0 for the model calculation
             params['x0'] = 10**params['log_x0']
+            # Also store x0_mag for plotting
+            params['x0_mag'] = -2.5 * params['log_x0']
             del params['log_x0']  # Remove log_x0 as we now have x0
         if fix_z:
             params['z'] = fixed_z[0]
@@ -842,6 +1222,8 @@ if __name__ == "__main__":
     # Save parameter statistics to a text file if chains are available
     if have_standard or have_anomaly:
         stats_text = ["Parameter Statistics Comparison:", "-" * 50]
+        
+        # Add statistics for all parameters
         for param in param_names:
             if have_standard:
                 std_mean = standard_samples[param].mean()
@@ -852,6 +1234,25 @@ if __name__ == "__main__":
                 anom_mean = anomaly_samples[param].mean()
                 anom_std = anomaly_samples[param].std()
                 stats_text.append(f"  Anomaly:  {anom_mean:.6f} ± {anom_std:.6f}")
+        
+        # Add x0_mag statistics
+        if 'log_x0' in param_names:
+            stats_text.append(f"\nx0_mag (calculated from log_x0):")
+            if have_standard:
+                x0_mag_std = -2.5 * standard_samples['log_x0']
+                stats_text.append(f"  Standard: {x0_mag_std.mean():.6f} ± {x0_mag_std.std():.6f}")
+            if have_anomaly:
+                x0_mag_anom = -2.5 * anomaly_samples['log_x0']
+                stats_text.append(f"  Anomaly:  {x0_mag_anom.mean():.6f} ± {x0_mag_anom.std():.6f}")
+            
+            # Add DM estimate (x0_mag + 21.01)
+            stats_text.append(f"\nDistance Modulus (DM = x0_mag + 21.01):")
+            if have_standard:
+                dm_std = x0_mag_std + 21.01
+                stats_text.append(f"  Standard: {dm_std.mean():.6f} ± {dm_std.std():.6f}")
+            if have_anomaly:
+                dm_anom = x0_mag_anom + 21.01
+                stats_text.append(f"  Anomaly:  {dm_anom.mean():.6f} ± {dm_anom.std():.6f}")
 
         # Add log_p statistics for anomaly case if available
         if have_anomaly and 'log_p' in anomaly_samples.columns:
@@ -866,4 +1267,10 @@ if __name__ == "__main__":
         stats_text = '\n'.join(stats_text)
         with open(f'{output_dir}/parameter_statistics.txt', 'w') as f:
             f.write(stats_text)
+
+    # Create x0_mag vs DM relationship plot
+    plot_x0mag_dm_relationship(output_dir)
+    
+    # Create scatter plot of the samples showing x0_mag vs DM
+    plot_samples_x0mag_dm(standard_samples, anomaly_samples, true_values, output_dir)
     
