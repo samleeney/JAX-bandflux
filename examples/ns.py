@@ -1,3 +1,13 @@
+
+'''
+# Nested Sampling with JAX-bandflux
+
+This script demonstrates how to run the nested sampling procedure for supernovae SALT model fitting using the JAX-bandflux package. We will install the package, load the data, set up and run the nested sampling algorithm, and finally produce a corner plot of the posterior samples.
+
+For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux). The academic paper associated with this work can be found [here](https://github.com/samleeney/JAX-bandflux/blob/71ca8d1b3b273147e1e9bf60a9ef11a806363b80/paper.bib).
+'''
+
+
 import distrax
 import jax
 import jax.numpy as jnp
@@ -25,7 +35,7 @@ fit_sigma = False
 fix_z = True
 
 NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '10000')),
+    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '5000')),
     'n_delete': 1,
     'n_live': 125,
     'num_mcmc_steps_multiplier': 5
@@ -276,21 +286,44 @@ if fit_sigma:
     param_names.append('log_sigma')
 save_chains_dead_birth(dead, param_names)
 
-# Read the chains
+# Read the chains and create visualizations
+print("\nCreating corner plot...")
 samples = read_chains('chains/chains', columns=param_names)
 
-# Create corner plot
-fig, axes = make_2d_axes(param_names, figsize=(10, 10), facecolor='w')
+# Create corner plot with improved styling
+fig, axes = make_2d_axes(param_names, figsize=(12, 12), facecolor='w')
 samples.plot_2d(axes, alpha=0.9, label="posterior")
-axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncols=2)
 
-plt.savefig('corner_plot.png')
+# Improve plot aesthetics
+axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)), 
+                       loc='lower center', ncols=2)
+plt.suptitle('SALT3 Parameter Posterior Distributions', y=1.02, fontsize=14)
+
+# Save the plot with high DPI
+print("Saving corner plot to 'corner_plot.png'...")
+plt.savefig('corner_plot.png', dpi=300, bbox_inches='tight')
 plt.close()
 
-# Print parameter statistics
+# Print parameter statistics with improved formatting
 print("\nParameter Statistics:")
+print("-" * 50)
+print(f"{'Parameter':<12} {'Mean':>15} {'Std Dev':>15}")
 print("-" * 50)
 for param in param_names:
     mean = samples[param].mean()
     std = samples[param].std()
-    print(f"{param}: {mean:.6f} ± {std:.6f}")
+    print(f"{param:<12} {mean:>15.6f} {std:>15.6f}")
+print("-" * 50)
+
+# Optional: Save parameter statistics to a file
+with open('parameter_statistics.txt', 'w') as f:
+    f.write("Parameter Statistics:\n")
+    f.write("-" * 50 + "\n")
+    f.write(f"{'Parameter':<12} {'Mean':>15} {'Std Dev':>15}\n")
+    f.write("-" * 50 + "\n")
+    for param in param_names:
+        mean = samples[param].mean()
+        std = samples[param].std()
+        f.write(f"{param:<12} {mean:>15.6f} {std:>15.6f}\n")
+    f.write("-" * 50 + "\n")
+print("\nParameter statistics saved to 'parameter_statistics.txt'")
