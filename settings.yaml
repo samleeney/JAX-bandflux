@@ -1,12 +1,12 @@
 # Settings file with comprehensive configuration options
 
 # Basic settings
-fix_z: false  # Changed to false since we don't have redshift information for 19agl
-sn_name: '19agl'  # Changed to 19agl
+fix_z: true  # No redshift data for 19vnk
+sn_name: '19vnk'  # Example supernova name
 
 # Bandpass selection
 # You can include any combination of standard and custom bandpasses
-selected_bandpasses: ['g', 'ztfg', 'ztfr', 'c', 'o', 'J_1D3', 'J_2D']  # Include correct J variants
+selected_bandpasses: ['g', 'ztfg', 'ztfr', 'c', 'o', 'J_1D3', 'J_2D']  # Only include bandpasses with data points
 
 # Custom bandpass files
 # Set to null if not using custom bandpasses
@@ -36,7 +36,7 @@ nested_sampling:
   num_mcmc_steps_multiplier: 5
   fit_sigma: false
   fit_log_p: true
-  fit_z: true  # Changed to true since fix_z is false
+  fit_z: false  
 
 # Prior bounds
 prior_bounds:
