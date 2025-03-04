@@ -9,11 +9,12 @@ import yaml
 import pandas as pd
 from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3 import optimized_salt3_multiband_flux
-from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
+from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses, Bandpass
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_redshift, load_hsf_data
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
+import requests
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
@@ -40,7 +41,8 @@ DEFAULT_PRIOR_BOUNDS = {
 DEFAULT_SETTINGS = {
     'fix_z': True,
     'sn_name': '19vnk',  # Default supernova to analyze
-    'selected_bandpasses': None  # Default: use all available bandpasses
+    'selected_bandpasses': None,  # Default: use all available bandpasses
+    'custom_bandpass_files': None  # Default: no custom bandpass files
 }
 
 # Try to load settings.yaml; if not found, use an empty dictionary
@@ -57,6 +59,7 @@ settings.update(settings_from_file)
 fix_z = settings['fix_z']
 sn_name = settings['sn_name']
 selected_bandpasses = settings.get('selected_bandpasses', None)
+custom_bandpass_files = settings.get('custom_bandpass_files', None)
 
 NS_SETTINGS = DEFAULT_NS_SETTINGS.copy()
 NS_SETTINGS.update(settings.get('nested_sampling', {}))
@@ -71,7 +74,61 @@ fit_sigma = NS_SETTINGS['fit_sigma']
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
-def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None):
+def create_wfcam_j_bandpass():
+    """
+    Create a bandpass object for the WFCAM J filter.
+    
+    This function attempts to load the WFCAM J filter profile from the SVO Filter Profile Service.
+    The filter profile must be downloaded first using the download_svo_filter.py script.
+    
+    Returns:
+        Bandpass: A Bandpass object for the WFCAM J filter.
+        
+    Raises:
+        FileNotFoundError: If the WFCAM J filter profile file is not found.
+    """
+    from jax_supernovae.bandpasses import Bandpass
+    import os
+    import numpy as np
+    
+    # Define possible paths to the WFCAM J filter profile
+    filter_paths = [
+        # Check in the filter_data directory (where download_svo_filter.py saves it)
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'filter_data', 'UKIRT_WFCAM.J.dat'),
+        
+        # Check in the current directory
+        'WFCAM_J.dat',
+        'UKIRT_WFCAM.J.dat',
+        
+        # Check in the examples directory
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'WFCAM_J.dat'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'UKIRT_WFCAM.J.dat'),
+        
+        # Check in the filter_data directory
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '../filter_data/UKIRT_WFCAM.J.dat'),
+    ]
+    
+    # Try each path
+    for filter_path in filter_paths:
+        if os.path.exists(filter_path):
+            try:
+                print(f"Loading WFCAM J filter from {filter_path}")
+                data = np.loadtxt(filter_path)
+                wave = data[:, 0]  # Wavelength in Angstroms
+                trans = data[:, 1]  # Transmission
+                
+                # Create and return the bandpass object
+                return Bandpass(wave, trans)
+            except Exception as e:
+                print(f"Failed to load filter from {filter_path}: {e}")
+    
+    # If we get here, we couldn't find the filter file
+    raise FileNotFoundError(
+        "WFCAM J filter profile file not found. "
+        "Please run the download_svo_filter.py script to download it."
+    )
+
+def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None, custom_bandpass_files=None):
     """
     Custom version of load_and_process_data that allows filtering by selected bandpasses.
     
@@ -81,6 +138,8 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
         fix_z (bool): Whether to fix redshift to value from redshifts.dat
         selected_bandpasses (list): List of bandpass names to include (e.g., ['g', 'r', 'i'])
                                    If None, all available bandpasses are used.
+        custom_bandpass_files (list or dict): List of file paths to custom bandpass files,
+                                             or a dictionary mapping bandpass names to file paths.
         
     Returns:
         tuple: Contains processed data arrays and bridges:
@@ -93,11 +152,150 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
             - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
     """
     from jax_supernovae.data import load_hsf_data, load_redshift
+    from jax_supernovae.salt3 import precompute_bandflux_bridge
+    from jax_supernovae.bandpasses import register_bandpass
+    import os
     
     # Load data
     data = load_hsf_data(sn_name, base_dir=data_dir)
-    bandpass_dict, bridges_dict = register_all_bandpasses()
-
+    
+    # Define J-band variants - only include the ones we actually need
+    j_variants = ['J', 'J_1D3', 'J_2D']
+    
+    # Keep track of the original selected bandpasses (before any automatic additions)
+    original_selected_bandpasses = None
+    if selected_bandpasses is not None:
+        original_selected_bandpasses = selected_bandpasses.copy() if isinstance(selected_bandpasses, list) else [selected_bandpasses]
+    
+    # Register bandpasses, including custom ones if provided
+    try:
+        # Try with the new function signature that accepts custom_bandpass_files
+        bandpass_dict, bridges_dict = register_all_bandpasses(custom_bandpass_files)
+        
+        # Find all J-band variants in the data
+        data_j_variants = [band for band in np.unique(data['band']) if band in j_variants]
+        
+        # Find all J-band variants in selected_bandpasses
+        selected_j_variants = []
+        if selected_bandpasses is not None:
+            selected_j_variants = [band for band in selected_bandpasses if band in j_variants]
+        
+        # Determine if we need to register the J bandpass
+        j_bandpass_needed = (len(data_j_variants) > 0 or len(selected_j_variants) > 0) and 'J' not in bridges_dict
+        
+        if j_bandpass_needed:
+            print("J-band variant(s) found in data or selected bandpasses. Attempting to register J bandpass...")
+            try:
+                # Create the J bandpass
+                j_bandpass = create_wfcam_j_bandpass()
+                
+                # Register the standard J bandpass if needed
+                if 'J' in selected_j_variants or 'J' in data_j_variants:
+                    register_bandpass('J', j_bandpass, force=True)
+                    bandpass_dict['J'] = j_bandpass
+                    bridges_dict['J'] = precompute_bandflux_bridge(j_bandpass)
+                    print("Successfully registered WFCAM J bandpass")
+                
+                # Register all other J-band variants found in the data or selected bandpasses
+                all_needed_variants = list(set(data_j_variants + selected_j_variants))
+                for variant in all_needed_variants:
+                    if variant != 'J' and variant not in bridges_dict:
+                        register_bandpass(variant, j_bandpass, force=True)
+                        bandpass_dict[variant] = j_bandpass
+                        bridges_dict[variant] = precompute_bandflux_bridge(j_bandpass)
+                        print(f"Successfully registered {variant} bandpass (using standard J filter profile)")
+                
+                # If any J-band variant is in the data but not in selected_bandpasses, add it
+                if selected_bandpasses is not None:
+                    for variant in data_j_variants:
+                        if variant not in selected_bandpasses:
+                            selected_bandpasses.append(variant)
+                            print(f"Added {variant} to selected_bandpasses because it exists in the data")
+            
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                print("Please run the download_svo_filter.py script to download the WFCAM J filter profile.")
+                print("Removing all J-band variants from selected_bandpasses.")
+                if selected_bandpasses is not None:
+                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
+            except Exception as e:
+                print(f"Warning: Failed to register WFCAM J bandpass: {e}")
+                # If we can't register the bandpasses, remove them from selected_bandpasses
+                if selected_bandpasses is not None:
+                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
+                    print("Removed all J-band variants from selected_bandpasses due to registration failure")
+    except TypeError:
+        # Fall back to the old function signature
+        print("Using original register_all_bandpasses function (without custom bandpass support)")
+        bandpass_dict, bridges_dict = register_all_bandpasses()
+        
+        # If custom bandpass files were provided, warn the user
+        if custom_bandpass_files:
+            print("Warning: Custom bandpass files were provided but are not supported by this version of the code.")
+            print("Please update jax_supernovae/bandpasses.py to support custom bandpasses.")
+            
+        # Check for J-band variants in the data or selected bandpasses
+        j_variants = ['J', 'J_1D3', 'J_2D']
+        
+        # Find all J-band variants in the data
+        data_j_variants = [band for band in np.unique(data['band']) if band in j_variants]
+        
+        # Find all J-band variants in selected_bandpasses
+        selected_j_variants = []
+        if selected_bandpasses is not None:
+            selected_j_variants = [band for band in selected_bandpasses if band in j_variants]
+        
+        # Determine if we need to register the J bandpass
+        j_bandpass_needed = (len(data_j_variants) > 0 or len(selected_j_variants) > 0) and 'J' not in bridges_dict
+        
+        if j_bandpass_needed:
+            print("J-band variant(s) found in data or selected bandpasses. Attempting to register J bandpass...")
+            try:
+                # Create the J bandpass
+                j_bandpass = create_wfcam_j_bandpass()
+                
+                # Register the standard J bandpass if needed
+                if 'J' in selected_j_variants or 'J' in data_j_variants:
+                    register_bandpass('J', j_bandpass, force=True)
+                    bandpass_dict['J'] = j_bandpass
+                    bridges_dict['J'] = precompute_bandflux_bridge(j_bandpass)
+                    print("Successfully registered WFCAM J bandpass")
+                
+                # Register all other J-band variants found in the data or selected bandpasses
+                all_needed_variants = list(set(data_j_variants + selected_j_variants))
+                for variant in all_needed_variants:
+                    if variant != 'J' and variant not in bridges_dict:
+                        register_bandpass(variant, j_bandpass, force=True)
+                        bandpass_dict[variant] = j_bandpass
+                        bridges_dict[variant] = precompute_bandflux_bridge(j_bandpass)
+                        print(f"Successfully registered {variant} bandpass (using standard J filter profile)")
+                
+                # If any J-band variant is in the data but not in selected_bandpasses, add it
+                if selected_bandpasses is not None:
+                    for variant in data_j_variants:
+                        if variant not in selected_bandpasses:
+                            selected_bandpasses.append(variant)
+                            print(f"Added {variant} to selected_bandpasses because it exists in the data")
+            
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                print("Please run the download_svo_filter.py script to download the WFCAM J filter profile.")
+                print("Removing all J-band variants from selected_bandpasses.")
+                if selected_bandpasses is not None:
+                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
+            except Exception as e:
+                print(f"Warning: Failed to register WFCAM J bandpass: {e}")
+                # If we can't register the bandpasses, remove them from selected_bandpasses
+                if selected_bandpasses is not None:
+                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
+                    print("Removed all J-band variants from selected_bandpasses due to registration failure")
+    
+    # Print summary of J-band data
+    for variant in j_variants:
+        variant_count = np.sum(data['band'] == variant)
+        if variant_count > 0:
+            print(f"Found {variant_count} {variant} data points in the dataset.")
+    
     # Filter by selected bandpasses if specified
     if selected_bandpasses is not None:
         # Convert to list if a single string was provided
@@ -117,6 +315,14 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
             if band in bridges_dict and (selected_bandpasses is None or band in selected_bandpasses):
                 unique_bands.append(band)
                 bridges.append(bridges_dict[band])
+        
+        # Add selected bandpasses that aren't in the data, but only if they were in the original selection
+        if original_selected_bandpasses:
+            for band in original_selected_bandpasses:
+                if band not in unique_bands and band in bridges_dict:
+                    unique_bands.append(band)
+                    bridges.append(bridges_dict[band])
+                    print(f"Added {band} band to the list of unique bands (explicitly requested)")
     else:
         # Get all unique bands and their bridges
         unique_bands = []
@@ -148,9 +354,37 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
     # Print summary of selected data
     print(f"Using {len(unique_bands)} bandpasses: {unique_bands}")
     print(f"Total data points: {len(times)}")
+    
+    # Count data points for each band and remove bands with 0 points
+    bands_to_keep = []
+    bridges_to_keep = []
     for i, band in enumerate(unique_bands):
         band_count = np.sum(band_indices == i)
         print(f"  Band {band}: {band_count} points")
+        
+        # Keep the band if it has data points or was explicitly requested in the original selection
+        if band_count > 0 or (original_selected_bandpasses is not None and band in original_selected_bandpasses):
+            bands_to_keep.append(band)
+            bridges_to_keep.append(bridges[i])
+    
+    # If we removed any bands, update the data structures
+    if len(bands_to_keep) < len(unique_bands):
+        print(f"Removing {len(unique_bands) - len(bands_to_keep)} bandpasses with no data points")
+        
+        # Create a mapping from old indices to new indices
+        old_to_new = {old_idx: new_idx for new_idx, old_idx in enumerate(
+            [i for i, band in enumerate(unique_bands) if band in bands_to_keep]
+        )}
+        
+        # Update band_indices
+        new_band_indices = np.array([old_to_new[idx] for idx in band_indices])
+        band_indices = jnp.array(new_band_indices)
+        
+        # Update unique_bands and bridges
+        unique_bands = bands_to_keep
+        bridges = tuple(bridges_to_keep)
+        
+        print(f"Final bandpasses: {unique_bands}")
     
     # Load redshift if requested
     fixed_z = None
@@ -166,7 +400,9 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
 
 # Load and process data
 times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = custom_load_and_process_data(
-    sn_name, data_dir='hsf_DR1/', fix_z=fix_z, selected_bandpasses=selected_bandpasses
+    sn_name, data_dir='hsf_DR1/', fix_z=fix_z, 
+    selected_bandpasses=selected_bandpasses,
+    custom_bandpass_files=custom_bandpass_files
 )
 
 # =============================================================================
@@ -448,7 +684,7 @@ def sample_from_priors(rng_key, n_samples, ll_fn=loglikelihood_standard):
                     anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
                     anomaly_prior_dists['log_p'].sample(seed=keys[4], sample_shape=(n_samples,))
                 ])
-        else:
+        else:  # Add case for anomaly model when fix_z is False
             if fit_sigma:
                 keys = jax.random.split(rng_key, 7)
                 return jnp.column_stack([

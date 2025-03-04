@@ -63,6 +63,137 @@ The data is returned as an Astropy Table that includes:
 - `fluxerr`: Errors associated with flux measurements
 - `zp`: Zero points (defaults to 27.5 when not provided)
 
+### Custom Bandpasses
+
+The package supports a variety of standard bandpasses out of the box, including:
+
+- ZTF bandpasses: `ztfg`, `ztfr`
+- ATLAS bandpasses: `c`, `o`
+- SDSS bandpasses: `g`, `r`, `i`, `z`
+- 2MASS bandpasses: `H`
+- WFCAM bandpasses: `J`, `J_1D3`
+
+#### Using the WFCAM J Bandpass
+
+To use the WFCAM J bandpass (or its detector variant J_1D3), you must first download the filter profile from the Spanish Virtual Observatory (SVO) Filter Profile Service. A script is provided for this purpose:
+
+```bash
+# Download the WFCAM J filter profile
+python examples/download_svo_filter.py --filter UKIRT/WFCAM.J
+```
+
+This script downloads the official filter profile and creates the necessary files. Once downloaded, you can include the J or J_1D3 bandpass in your analysis by adding it to your selected bandpasses:
+
+```yaml
+# In your settings.yaml file
+selected_bandpasses: ['g', 'r', 'ztfg', 'ztfr', 'c', 'o', 'J']
+```
+
+Or for the J_1D3 detector variant (which uses the same filter profile):
+
+```yaml
+selected_bandpasses: ['g', 'r', 'ztfg', 'ztfr', 'c', 'o', 'J_1D3']
+```
+
+Note: The J_1D3 designation refers to a specific detector/readout channel in the WFCAM instrument, not a different filter. For photometric analysis, the standard WFCAM J filter profile is used.
+
+#### Adding Your Own Custom Bandpasses
+
+You can add your own custom bandpasses by specifying their file paths in your settings file. There are two ways to do this:
+
+1. As a list of file paths:
+
+```yaml
+# In your settings.yaml file
+custom_bandpass_files:
+  - '/path/to/custom_bandpass1.dat'
+  - '/path/to/custom_bandpass2.dat'
+```
+
+2. As a dictionary mapping names to file paths:
+
+```yaml
+# In your settings.yaml file
+custom_bandpass_files:
+  custom_band1: '/path/to/custom_bandpass1.dat'
+  custom_band2: '/path/to/custom_bandpass2.dat'
+```
+
+Custom bandpass files should be in a simple two-column format:
+
+```
+wavelength1 transmission1
+wavelength2 transmission2
+...
+```
+
+Where:
+- `wavelength` is in Angstroms
+- `transmission` is a value between 0 and 1
+
+Examples of custom bandpass configurations can be found in the `settings.yaml` file.
+
+#### Using the SVO Filter Profile Service
+
+The package includes a utility script to download filter profiles from the Spanish Virtual Observatory (SVO) Filter Profile Service, which hosts a comprehensive database of astronomical filter profiles.
+
+To download a filter profile and use it as a custom bandpass:
+
+```bash
+# Download a filter profile (e.g., the UKIRT WFCAM J filter)
+python examples/download_svo_filter.py --filter UKIRT/WFCAM.J
+
+# List available common filters
+python examples/download_svo_filter.py --list
+```
+
+The script will download the filter profile and save it to the `filter_data` directory. You can then use it in your analysis by including it in your selected bandpasses.
+
+#### Custom Bandpass Example
+
+The `download_svo_filter.py` script also includes functionality to demonstrate how to use custom bandpasses in your analysis:
+
+```bash
+# Run an example of using a custom bandpass in a SALT3 model fit
+python examples/download_svo_filter.py --example
+
+# Run with a different filter and bandpass name
+python examples/download_svo_filter.py --example --filter 2MASS/2MASS.J --bandpass-name custom_2mass_J
+```
+
+Additionally, you can create synthetic filter profiles when needed:
+
+```bash
+# Create a synthetic WFCAM J filter profile
+python examples/download_svo_filter.py --synthetic
+
+# Customize the number of points in the synthetic profile
+python examples/download_svo_filter.py --synthetic --points 200
+```
+
+You can also use custom bandpasses programmatically in your own code:
+
+```python
+from jax_supernovae.bandpasses import Bandpass, register_bandpass, register_all_bandpasses
+from jax_supernovae.salt3 import precompute_bandflux_bridge
+import numpy as np
+import jax.numpy as jnp
+
+# Load filter data from a file
+data = np.loadtxt('filter_data/my_custom_filter.dat')
+wave, trans = data[:, 0], data[:, 1]
+
+# Create a bandpass object
+custom_bandpass = Bandpass(wave=jnp.array(wave), trans=jnp.array(trans))
+
+# Register the bandpass
+register_bandpass('my_custom_filter', custom_bandpass)
+
+# Precompute bridge data for efficient flux calculations
+bandpass_dict, bridges_dict = register_all_bandpasses()
+bridges_dict['my_custom_filter'] = precompute_bandflux_bridge(custom_bandpass)
+```
+
 ### Custom Model Files
 
 The package includes SALT3 model files in the `sncosmo-modelfiles/models` directory. Three model variants are available:

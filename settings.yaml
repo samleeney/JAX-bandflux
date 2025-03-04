@@ -1,0 +1,63 @@
+# Settings file with comprehensive configuration options
+
+# Basic settings
+fix_z: false  # Changed to false since we don't have redshift information for 19agl
+sn_name: '19agl'  # Changed to 19agl
+
+# Bandpass selection
+# You can include any combination of standard and custom bandpasses
+selected_bandpasses: ['g', 'ztfg', 'ztfr', 'c', 'o', 'J_1D3', 'J_2D']  # Include correct J variants
+
+# Custom bandpass files
+# Set to null if not using custom bandpasses
+custom_bandpass_files: null
+
+# Examples of custom bandpass configurations:
+# 1. As a list of file paths:
+# custom_bandpass_files:
+#   - '/path/to/custom_bandpass1.dat'
+#   - '/path/to/custom_bandpass2.dat'
+  
+# 2. As a dictionary mapping names to file paths:
+# custom_bandpass_files:
+#   custom_band1: '/path/to/custom_bandpass1.dat'
+#   custom_band2: '/path/to/custom_bandpass2.dat'
+
+# 3. Using SVO filter profiles:
+# You can download filter profiles using the download_svo_filter.py script:
+# python examples/download_svo_filter.py --filter UKIRT/WFCAM.J
+# python examples/download_svo_filter.py --filter 2MASS/2MASS.J --bandpass-name custom_2mass_J
+
+# Nested sampling settings
+nested_sampling:
+  max_iterations: 500
+  n_delete: 75
+  n_live: 150
+  num_mcmc_steps_multiplier: 5
+  fit_sigma: false
+  fit_log_p: true
+  fit_z: true  # Changed to true since fix_z is false
+
+# Prior bounds
+prior_bounds:
+  z:
+    min: 0.001
+    max: 0.2
+  t0:
+    min: 58000.0
+    max: 60000.0
+  x0:
+    min: -5.0
+    max: -1
+  x1:
+    min: -10
+    max: 10
+  c:
+    min: -0.6
+    max: 0.6
+  sigma:
+    min: 0.001
+    max: 5
+  log_p:
+    min: -20
+    max: -1 
