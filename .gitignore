@@ -109,3 +109,5 @@ jax_supernovae/data/21yrf/
 profile
 examples/ns_anomaly_old.py.config_bare
 .config_bare
+examples/filter_data
+examples/ns_anomaly_old.py

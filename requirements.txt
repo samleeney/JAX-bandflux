@@ -7,4 +7,5 @@ pyyaml>=6.0.0
 matplotlib
 tqdm
 anesthetic
+git+https://github.com/handley-lab/blackjax@proposal
 requests

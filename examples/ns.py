@@ -1,4 +1,3 @@
-
 '''
 # Nested Sampling with JAX-bandflux
 
@@ -35,7 +34,6 @@ fit_sigma = False
 fix_z = True
 
 NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '5000')),
     'n_delete': 1,
     'n_live': 125,
     'num_mcmc_steps_multiplier': 5
@@ -100,42 +98,43 @@ else:
 @jax.jit
 def logprior(params):
     """Calculate log prior probability."""
-    params = jnp.atleast_2d(params)
     if fix_z:
         if fit_sigma:
-            logp_t0 = prior_dists['t0'].log_prob(params[:, 0])
-            logp_x0 = prior_dists['x0'].log_prob(params[:, 1])
-            logp_x1 = prior_dists['x1'].log_prob(params[:, 2])
-            logp_c = prior_dists['c'].log_prob(params[:, 3])
-            logp_sigma = prior_dists['log_sigma'].log_prob(params[:, 4])
-            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
+            logp = (prior_dists['t0'].log_prob(params[0]) +
+                    prior_dists['x0'].log_prob(params[1]) +
+                    prior_dists['x1'].log_prob(params[2]) +
+                    prior_dists['c'].log_prob(params[3]) +
+                    prior_dists['log_sigma'].log_prob(params[4]))
         else:
-            logp_t0 = prior_dists['t0'].log_prob(params[:, 0])
-            logp_x0 = prior_dists['x0'].log_prob(params[:, 1])
-            logp_x1 = prior_dists['x1'].log_prob(params[:, 2])
-            logp_c = prior_dists['c'].log_prob(params[:, 3])
-            logp = logp_t0 + logp_x0 + logp_x1 + logp_c
+            logp = (prior_dists['t0'].log_prob(params[0]) +
+                    prior_dists['x0'].log_prob(params[1]) +
+                    prior_dists['x1'].log_prob(params[2]) +
+                    prior_dists['c'].log_prob(params[3]))
     else:
         if fit_sigma:
-            logp_z = prior_dists['z'].log_prob(params[:, 0])
-            logp_t0 = prior_dists['t0'].log_prob(params[:, 1])
-            logp_x0 = prior_dists['x0'].log_prob(params[:, 2])
-            logp_x1 = prior_dists['x1'].log_prob(params[:, 3])
-            logp_c = prior_dists['c'].log_prob(params[:, 4])
-            logp_sigma = prior_dists['log_sigma'].log_prob(params[:, 5])
-            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
+            logp = (prior_dists['z'].log_prob(params[0]) +
+                    prior_dists['t0'].log_prob(params[1]) +
+                    prior_dists['x0'].log_prob(params[2]) +
+                    prior_dists['x1'].log_prob(params[3]) +
+                    prior_dists['c'].log_prob(params[4]) +
+                    prior_dists['log_sigma'].log_prob(params[5]))
         else:
-            logp_z = prior_dists['z'].log_prob(params[:, 0])
-            logp_t0 = prior_dists['t0'].log_prob(params[:, 1])
-            logp_x0 = prior_dists['x0'].log_prob(params[:, 2])
-            logp_x1 = prior_dists['x1'].log_prob(params[:, 3])
-            logp_c = prior_dists['c'].log_prob(params[:, 4])
-            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
-    return jnp.reshape(logp, (-1,))
+            logp = (prior_dists['z'].log_prob(params[0]) +
+                    prior_dists['t0'].log_prob(params[1]) +
+                    prior_dists['x0'].log_prob(params[2]) +
+                    prior_dists['x1'].log_prob(params[3]) +
+                    prior_dists['c'].log_prob(params[4]))
+    return logp
 
 @jax.jit
 def compute_single_loglikelihood(params):
     """Compute Gaussian log likelihood for a single set of parameters."""
+    # Ensure params is properly handled for both single and batched inputs
+    params = jnp.atleast_1d(params)
+    if params.ndim > 1:
+        # If we have a batch, vmap over it
+        return jax.vmap(compute_single_loglikelihood)(params)
+    
     if fix_z:
         if fit_sigma:
             t0, log_x0, x1, c, log_sigma = params
@@ -162,20 +161,6 @@ def compute_single_loglikelihood(params):
     chi2 = jnp.sum(((fluxes - model_fluxes) / eff_fluxerrs) ** 2)
     log_likelihood = -0.5 * (chi2 + jnp.sum(jnp.log(2 * jnp.pi * eff_fluxerrs ** 2)))
     return log_likelihood
-
-@jax.jit
-def compute_batch_loglikelihood(params):
-    """Compute log likelihood for a batch of parameters."""
-    params = jnp.atleast_2d(params)
-    batch_loglike = jax.vmap(compute_single_loglikelihood)(params)
-    return jnp.reshape(batch_loglike, (-1,))
-
-@jax.jit
-def loglikelihood(params):
-    """Main likelihood function for nested sampling."""
-    params = jnp.atleast_2d(params)
-    batch_loglike = compute_batch_loglikelihood(params)
-    return batch_loglike
 
 def sample_from_priors(rng_key, n_samples):
     """Sample from all prior distributions at once."""
@@ -232,7 +217,7 @@ num_mcmc_steps = n_params_total * NS_SETTINGS['num_mcmc_steps_multiplier']
 print("Setting up nested sampling algorithm...")
 algo = blackjax.ns.adaptive.nss(
     logprior_fn=logprior,
-    loglikelihood_fn=loglikelihood,
+    loglikelihood_fn=compute_single_loglikelihood,
     n_delete=NS_SETTINGS['n_delete'],
     num_mcmc_steps=num_mcmc_steps,
 )
@@ -245,7 +230,7 @@ initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'])
 print("Initial particles generated, shape: ", initial_particles.shape)
 
 # Initialize state
-state = algo.init(initial_particles, compute_batch_loglikelihood)
+state = algo.init(initial_particles, compute_single_loglikelihood)
 
 # Define one_step function with JIT
 @jax.jit
@@ -258,24 +243,23 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
-num_iterations = NS_SETTINGS['max_iterations']
-for i in tqdm.trange(num_iterations):
-    if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
-        break
-
-    (state, rng_key), dead_info = one_step((state, rng_key), None)
-    dead.append(dead_info)
-
-    if i % 10 == 0:  # Print progress every 10 iterations
-        print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
+with tqdm.tqdm(desc="Dead points", unit=" dead points") as pbar:
+    while (not state.sampler_state.logZ_live - state.sampler_state.logZ < -3):
+        (state, rng_key), dead_info = one_step((state, rng_key), None)
+        dead.append(dead_info)
+        pbar.update(NS_SETTINGS['n_delete'])
+        
+        # Optional: Print progress periodically
+        # if len(dead) % 10 == 0:
+        #     print(f"logZ = {state.sampler_state.logZ:.2f}")
 
 # Process results
-dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
+dead = jax.tree_map(lambda *args: jnp.concatenate(args), *dead)
 logw = log_weights(rng_key, dead)
 logZs = jax.scipy.special.logsumexp(logw, axis=0)
 
 print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
-print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
+print(f"Estimated evidence: {logZs.mean():.2f} ± {logZs.std():.2f}")
 
 # Save chains using the utility function
 if fix_z:
