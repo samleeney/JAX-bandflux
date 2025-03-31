@@ -1,20 +1,22 @@
 import distrax
+import os
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
 import jax
 import jax.numpy as jnp
 import numpy as np
 import tqdm
 import blackjax
-import os
 import yaml
 import pandas as pd
 from blackjax.ns.utils import log_weights
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+from jax_supernovae.salt3 import optimized_salt3_multiband_flux, precompute_bandflux_bridge
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses, Bandpass
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_redshift, load_hsf_data
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
 import requests
+
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
@@ -105,7 +107,7 @@ def create_wfcam_j_bandpass():
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'UKIRT_WFCAM.J.dat'),
         
         # Check in the filter_data directory
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), '../filter_data/UKIRT_WFCAM.J.dat'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'filter_data/UKIRT_WFCAM.J.dat'),
     ]
     
     # Try each path
@@ -130,31 +132,19 @@ def create_wfcam_j_bandpass():
 
 def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None, custom_bandpass_files=None):
     """
-    Custom version of load_and_process_data that allows filtering by selected bandpasses.
+    Load and process data for a supernova.
     
     Args:
-        sn_name (str): Name of the supernova to load (e.g., '19agl')
-        data_dir (str): Directory containing the data files. Defaults to 'data'.
-        fix_z (bool): Whether to fix redshift to value from redshifts.dat
+        sn_name (str): Name of the supernova
+        data_dir (str): Directory containing the data
+        fix_z (bool): Whether to fix the redshift
         selected_bandpasses (list): List of bandpass names to include (e.g., ['g', 'r', 'i'])
-                                   If None, all available bandpasses are used.
-        custom_bandpass_files (list or dict): List of file paths to custom bandpass files,
-                                             or a dictionary mapping bandpass names to file paths.
+        custom_bandpass_files (dict): Dictionary mapping bandpass names to file paths
         
     Returns:
-        tuple: Contains processed data arrays and bridges:
-            - times (jnp.array): Observation times
-            - fluxes (jnp.array): Flux measurements
-            - fluxerrs (jnp.array): Flux measurement errors
-            - zps (jnp.array): Zero points
-            - band_indices (jnp.array): Band indices
-            - bridges (tuple): Precomputed bridge data for each band
-            - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
+        tuple: (times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z)
     """
-    from jax_supernovae.data import load_hsf_data, load_redshift
-    from jax_supernovae.salt3 import precompute_bandflux_bridge
-    from jax_supernovae.bandpasses import register_bandpass
-    import os
+    global BAND_NAMES  # Declare a global variable to store band names for plotting
     
     # Load data
     data = load_hsf_data(sn_name, base_dir=data_dir)
@@ -209,8 +199,9 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
                 if selected_bandpasses is not None:
                     for variant in data_j_variants:
                         if variant not in selected_bandpasses:
-                            selected_bandpasses.append(variant)
-                            print(f"Added {variant} to selected_bandpasses because it exists in the data")
+                            # Comment out the automatic addition of J-band variants
+                            # selected_bandpasses.append(variant)
+                            print(f"Found {variant} in data but not adding it to selected_bandpasses (strict mode)")
             
             except FileNotFoundError as e:
                 print(f"Error: {e}")
@@ -274,8 +265,9 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
                 if selected_bandpasses is not None:
                     for variant in data_j_variants:
                         if variant not in selected_bandpasses:
-                            selected_bandpasses.append(variant)
-                            print(f"Added {variant} to selected_bandpasses because it exists in the data")
+                            # Comment out the automatic addition of J-band variants
+                            # selected_bandpasses.append(variant)
+                            print(f"Found {variant} in data but not adding it to selected_bandpasses (strict mode)")
             
             except FileNotFoundError as e:
                 print(f"Error: {e}")
@@ -355,6 +347,9 @@ def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected
     print(f"Using {len(unique_bands)} bandpasses: {unique_bands}")
     print(f"Total data points: {len(times)}")
     
+    # Store band names in global variable for plotting
+    BAND_NAMES = unique_bands.copy()
+    
     # Count data points for each band and remove bands with 0 points
     bands_to_keep = []
     bridges_to_keep = []
@@ -404,6 +399,9 @@ times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = custom_load_and_p
     selected_bandpasses=selected_bandpasses,
     custom_bandpass_files=custom_bandpass_files
 )
+
+# Store the unique bands for later use in plotting
+unique_bands = BAND_NAMES
 
 # =============================================================================
 # Set up parameter bounds and prior distributions for the standard (non‐anomaly)
@@ -772,40 +770,67 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
     os.makedirs(output_dir, exist_ok=True)
     
     print(f"Running {output_prefix} nested sampling for {output_dir}...")
+    
+    # Select the appropriate prior and likelihood functions
+    if ll_fn == loglikelihood_anomaly:
+        logprior_fn = logprior_anomaly
+        compute_batch_ll = compute_batch_loglikelihood_anomaly
+    else:
+        logprior_fn = logprior_standard
+        compute_batch_ll = compute_batch_loglikelihood_standard
+    
+    # Initialize nested sampling algorithm
     algo = blackjax.ns.adaptive.nss(
-        logprior_fn=logprior_anomaly if ll_fn == loglikelihood_anomaly else logprior_standard,
+        logprior_fn=logprior_fn,
         loglikelihood_fn=ll_fn,
         n_delete=NS_SETTINGS['n_delete'],
         num_mcmc_steps=num_mcmc_steps,
     )
+    
+    # Initialize random key and particles
     rng_key = jax.random.PRNGKey(0)
     rng_key, init_key = jax.random.split(rng_key)
+    
+    # Generate initial particles from prior
     initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'], ll_fn)
     print("Initial particles generated, shape: ", initial_particles.shape)
-    if ll_fn == loglikelihood_standard:
-        state = algo.init(initial_particles, compute_batch_loglikelihood_standard)
-    else:
-        state = algo.init(initial_particles, compute_batch_loglikelihood_anomaly)
+    
+    # Initialize state
+    state = algo.init(initial_particles, compute_batch_ll)
+    
+    # Define one_step function with JIT
     @jax.jit
     def one_step(carry, xs):
         state, k = carry
         k, subk = jax.random.split(k, 2)
         state, dead_point = algo.step(subk, state)
         return (state, k), dead_point
+        
+    # Run nested sampling
     dead = []
     emax_values = []  # For anomaly detection runs
-    for i in tqdm.trange(num_iterations):
-        if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
-            break
-        (state, rng_key), dead_info = one_step((state, rng_key), None)
-        dead.append(dead_info)
-        if ll_fn == loglikelihood_anomaly:
-            # Handle multiple deleted points when n_delete > 1
-            for j in range(len(dead_info.particles)):
-                _, emax = compute_single_loglikelihood_anomaly(dead_info.particles[j])
-                emax_values.append(emax)
-        if i % 10 == 0:
-            print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
+    
+    print("Running nested sampling...")
+    with tqdm.tqdm(desc="Dead points", unit=" dead points", total=num_iterations*NS_SETTINGS['n_delete']) as pbar:
+        for i in range(num_iterations):
+            # Check termination criterion
+            if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
+                break
+                
+            # Perform one step of nested sampling
+            (state, rng_key), dead_info = one_step((state, rng_key), None)
+            dead.append(dead_info)
+            pbar.update(NS_SETTINGS['n_delete'])
+            
+            # For anomaly detection, store emax values
+            if ll_fn == loglikelihood_anomaly:
+                # Handle multiple deleted points when n_delete > 1
+                for j in range(len(dead_info.particles)):
+                    _, emax = compute_single_loglikelihood_anomaly(dead_info.particles[j])
+                    emax_values.append(emax)
+            
+            if i % 10 == 0:
+                print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
     dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
     logw = log_weights(rng_key, dead)
     logZs = jax.scipy.special.logsumexp(logw, axis=0)
@@ -1279,10 +1304,14 @@ if __name__ == "__main__":
         t_max = np.max(times) + 5
         t_grid = np.linspace(t_min, t_max, 100)
 
-        # Get unique bands
-        unique_bands = np.unique(band_indices)
-        n_bands = len(unique_bands)
-
+        # Get unique band indices
+        unique_band_indices = np.unique(band_indices)
+        n_bands = len(unique_band_indices)
+        
+        # Use the actual band names from the data loading part
+        # These are stored in the unique_bands variable from custom_load_and_process_data
+        print(f"Using band names for plotting: {unique_bands}")
+        
         # Set up the plot with two subplots
         fig = plt.figure(figsize=(15, 12))
         gs = plt.GridSpec(2, 1, height_ratios=[4, 1], hspace=0.1)
@@ -1324,11 +1353,22 @@ if __name__ == "__main__":
 
         # Plot data points for each band
         try:
-            for i, band_idx in enumerate(unique_bands):
+            # Dictionary to track points below threshold for each band
+            band_threshold_counts = {}
+            band_total_counts = {}
+            
+            for i, band_idx in enumerate(unique_band_indices):
                 mask = band_indices == band_idx
                 band_times = times[mask]
                 band_fluxes = fluxes[mask]
                 band_errors = fluxerrs[mask]
+                
+                # Get the actual band name from unique_bands
+                band_name = unique_bands[i]
+                print(f"Plotting band: {band_name}")
+                
+                # Initialize count for this band
+                band_threshold_counts[band_name] = 0
 
                 if weighted_emax is not None:
                     # Map each data point to its index in the sorted unique times
@@ -1342,20 +1382,21 @@ if __name__ == "__main__":
                     normal_mask = point_emax >= plotting_threshold
                     anomaly_mask = point_emax < plotting_threshold
                     
-                    # Update total count
+                    # Update total count and band-specific count
                     total_anomalous_points += np.sum(anomaly_mask)
+                    band_threshold_counts[band_name] = np.sum(anomaly_mask)
 
                     # Plot normal points
                     if np.any(normal_mask):
                         ax1.errorbar(band_times[normal_mask], band_fluxes[normal_mask], 
                                    yerr=band_errors[normal_mask],
                                    fmt=markers[i], color=colours[i], 
-                                   label=f'Band {i} Data',
+                                   label=f'{band_name} Data',
                                    markersize=8, alpha=0.6)
                     
                     # Plot anomalous points with star markers
                     if np.any(anomaly_mask):
-                        label = f'Band {i} Anomalous' if np.any(normal_mask) else f'Band {i} Data'
+                        label = f'{band_name} Anomalous' if np.any(normal_mask) else f'{band_name} Data'
                         ax1.errorbar(band_times[anomaly_mask], band_fluxes[anomaly_mask], 
                                    yerr=band_errors[anomaly_mask],
                                    fmt='*', color=colours[i], 
@@ -1364,7 +1405,7 @@ if __name__ == "__main__":
                 else:
                     # Plot all points normally if no weighted_emax available
                     ax1.errorbar(band_times, band_fluxes, yerr=band_errors,
-                               fmt=markers[i], color=colours[i], label=f'Band {i} Data',
+                               fmt=markers[i], color=colours[i], label=f'{band_name} Data',
                                markersize=8, alpha=0.6)
         except Exception as e:
             print(f"Warning: Failed to plot some data points - {str(e)}")
@@ -1382,6 +1423,9 @@ if __name__ == "__main__":
                         
                         for i in range(n_bands):
                             try:
+                                # Get the actual band name from unique_bands
+                                band_name = unique_bands[i]
+                                
                                 # Calculate model fluxes
                                 model_fluxes = optimized_salt3_multiband_flux(
                                     jnp.array(t_grid),
@@ -1396,7 +1440,7 @@ if __name__ == "__main__":
                                 
                                 # Plot model curve
                                 ax1.plot(t_grid, band_fluxes, linestyle, color=colours[i], 
-                                        label=f'Band {i} {name}', linewidth=2, alpha=0.8)
+                                        label=f'{band_name} {name}', linewidth=2, alpha=0.8)
                             except Exception as e:
                                 print(f"Warning: Failed to plot {name} model curve for band {i} - {str(e)}")
                                 continue
@@ -1412,6 +1456,18 @@ if __name__ == "__main__":
             title += f' (z = {fixed_z[0]:.4f})'
         ax1.set_title(title, fontsize=14)
 
+        # Add annotation for points below threshold per band in the top left of the main plot
+        if weighted_emax is not None:
+            threshold_text = "Points below threshold:\n"
+            for band_name, count in band_threshold_counts.items():
+                threshold_text += f"{band_name}: {count}\n"
+            threshold_text += f"Total: {total_anomalous_points}"
+            
+            # Position the text in the top left of the main plot
+            ax1.text(0.05, 0.95, threshold_text, transform=ax1.transAxes,
+                    verticalalignment='top', horizontalalignment='left',
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
         # Add legend to main plot
         ax1.legend(ncol=2, fontsize=10)
         ax1.grid(True, alpha=0.3)
@@ -1422,6 +1478,16 @@ if __name__ == "__main__":
             ax2 = plt.subplot(gs[1])
             
             # Use actual data time points for the emax plot
+            # Handle the case where weighted_emax has a different length than all_times
+            if len(all_times) != len(weighted_emax):
+                print(f"Resizing weighted_emax from {len(weighted_emax)} to {len(all_times)} points")
+                # Option 1: Truncate weighted_emax to match all_times
+                if len(weighted_emax) > len(all_times):
+                    weighted_emax = weighted_emax[:len(all_times)]
+                # Option 2: If weighted_emax is shorter, pad with zeros
+                else:
+                    weighted_emax = np.pad(weighted_emax, (0, len(all_times) - len(weighted_emax)), 'constant')
+            
             ax2.plot(all_times, weighted_emax, 'k-', linewidth=2)
             ax2.fill_between(all_times, 0, weighted_emax, alpha=0.3, color='gray')
             ax2.set_xlabel('MJD', fontsize=12)
@@ -1430,7 +1496,9 @@ if __name__ == "__main__":
 
             # Add horizontal line at threshold
             ax2.axhline(y=plotting_threshold, color='r', linestyle='--', alpha=0.5, 
-                       label=f'Plotting threshold ({plotting_threshold}) - {total_anomalous_points} points below')
+                       label=f'Plotting threshold ({plotting_threshold})')
+            
+            # Remove the annotation from the bottom subplot since we moved it to the top plot
             ax2.legend()
 
             # Ensure x-axis limits match between plots
