@@ -604,6 +604,3 @@ def optimized_salt3_multiband_flux(phase, bridges, params):
     result = result_transposed.T
     
     return result
-    result = result_transposed.T
-    
-    return result
