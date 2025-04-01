@@ -11,6 +11,7 @@ from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from functools import partial
 from jax import vmap
 import importlib.resources
+from jax.scipy.integrate import trapezoid
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -453,47 +454,62 @@ def salt3_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
     
     return result 
 
-def precompute_bandflux_bridge(bandpass):
+def precompute_bandflux_bridge(bandpass, max_len=1250):
     """
-    Precompute static components for a given bandpass.
+    Precompute static components for a given bandpass, padding arrays to max_len.
     
-    Returns a dictionary containing:
-        - 'wave': the integration wavelength grid,
-        - 'dwave': spacing between grid points,
-        - 'trans': the transmission values computed on the grid.
-    """
-    wave = bandpass.integration_wave
-    dwave = bandpass.integration_spacing
-    trans = bandpass(wave)
-    return {'wave': wave, 'dwave': dwave, 'trans': trans}
+    Args:
+        bandpass: Bandpass object.
+        max_len: The target length for padding wavelength and transmission arrays.
 
-@partial(jax.jit, static_argnames=['zpsys'])
-def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=None):
+    Returns a dictionary containing:
+        - 'wave': the padded integration wavelength grid,
+        - 'dwave': spacing between grid points,
+        - 'trans': the padded transmission values computed on the grid,
+        - 'mask': boolean mask indicating valid (non-padded) data points.
     """
-    Calculate bandflux for a single bandpass using precomputed static data.
+    orig_wave = bandpass.integration_wave
+    dwave = bandpass.integration_spacing
+    orig_trans = bandpass(orig_wave)
+    orig_len = len(orig_wave)
+
+    if orig_len > max_len:
+        raise ValueError(f"Bandpass {bandpass.name if hasattr(bandpass, 'name') else 'Unnamed'} requires {orig_len} steps, exceeding max_len {max_len}")
+
+    # Create mask
+    mask = jnp.arange(max_len) < orig_len
+
+    # Pad arrays
+    pad_width = (0, max_len - orig_len)
+    wave = jnp.pad(orig_wave, pad_width, mode='constant', constant_values=0.)
+    trans = jnp.pad(orig_trans, pad_width, mode='constant', constant_values=0.)
+
+    return {'wave': wave, 'dwave': dwave, 'trans': trans, 'mask': mask}
+
+@jax.jit
+def optimized_salt3_bandflux(phase, wave, dwave, trans, mask, params):
+    """
+    Calculate bandflux for a single bandpass using precomputed static data (padded).
+    This version does NOT apply zero-point scaling.
     
     Parameters:
         phase : array or scalar
             Observer-frame phase(s) at which to compute the flux.
         wave : array
-            Wavelength grid for integration.
+            Padded wavelength grid for integration.
         dwave : float
             Spacing between wavelength grid points.
         trans : array
-            Transmission values on the wavelength grid.
+            Padded transmission values on the wavelength grid.
+        mask : array
+            Boolean mask indicating valid (non-padded) data points in wave/trans.
         params : dict
             Dictionary containing model parameters: 'z', 't0', 'x0', 'x1', 'c'.
-        zp : float or None
-            Zero point for flux scaling. If provided, zpsys must also be given.
-        zpsys : str or None
-            Magnitude system (e.g. 'ab').
-    
+            
     Returns:
-        Flux in photons/s/cm^2. If phase is scalar then returns scalar.
+        Flux in photons/s/cm^2 (before zero-point scaling).
+        If phase is scalar then returns scalar.
     """
-    if zp is not None and zpsys is None:
-        raise ValueError('zpsys must be given if zp is not None')
-
     # Convert inputs to arrays and check if input was scalar
     phase = jnp.atleast_1d(phase)
     is_scalar = len(phase.shape) == 0
@@ -509,70 +525,85 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=N
     restphase = (phase - t0) * a
 
     # Scale the integration grid to rest-frame wavelengths.
+    # Padded zeros in wave will remain zero.
     restwave = wave * a
-    # Compute colour law on the restwave grid.
-    cl = salt3_colorlaw(restwave)
+    
+    # Compute colour law only on the valid (unmasked) restwave grid points.
+    # Use 0.0 for padded values, assuming colorlaw is 0 outside its range anyway.
+    cl = jnp.where(mask, salt3_colorlaw(restwave), 0.0)
 
     # Compute m0 and m1 components over the 2D grid.
+    # Interpolation should handle padded zeros in restwave correctly (return 0).
     m0 = salt3_m0(restphase[:, None], restwave[None, :])
     m1 = salt3_m1(restphase[:, None], restwave[None, :])
 
     # Compute rest-frame flux including the colour law effect.
-    rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
-    integrand = wave[None, :] * trans[None, :] * rest_flux
-    result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
+    # Mask ensures padded values don't contribute non-physically via color law exponent.
+    rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a * mask[None, :]
 
-    # Apply zero point correction if required.
-    if zp is not None:
-        if zpsys == 'ab':
-            zpbandflux = 3631e-23 * dwave / H_ERG_S * jnp.sum(trans / wave)
-        else:
-            raise ValueError(f"Unsupported magnitude system: {zpsys}")
-        zpnorm = 10**(0.4 * zp) / zpbandflux
-        result = result * zpnorm
+    # Calculate integrand, applying mask again to ensure padded values are zero.
+    integrand = wave[None, :] * trans[None, :] * rest_flux # Mask already applied to rest_flux
+
+    # Integrate over the original wavelength grid points using trapezoidal rule.
+    # Note: jnp.trapz uses dx=1 by default, we need to use the actual grid points (wave).
+    # We integrate over the *original* wavelength points implicitly via the mask in rest_flux.
+    # The 'wave' argument provides the x-coordinates for integration.
+    result = trapezoid(integrand, wave, axis=1) / HC_ERG_AA
 
     # Return scalar if input was scalar
     if is_scalar:
         result = result[0]
     return result
 
-@partial(jax.jit, static_argnames=['zpsys'])
-def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None):
+@jax.jit
+def optimized_salt3_multiband_flux(phase, bridges, params):
     """
-    Calculate fluxes for multiple bandpasses.
+    Calculate fluxes for multiple bandpasses using vmap over precomputed bridge data.
+    This version does NOT apply zero-point scaling.
     
     Parameters:
         phase : array
             Observer-frame phases.
-        bridges : list of dict
-            Precomputed bridge data for each bandpass.
+        bridges : tuple or list of dict
+            Precomputed and padded bridge data for each bandpass.
+            Each dict must contain 'wave', 'dwave', 'trans', 'mask'.
         params : dict
-            Model parameters.
-        zps : list or array or None
-            Zero points for each bandpass.
-        zpsys : str or None
-            Magnitude system.
-    
+            Model parameters ('z', 't0', 'x0', 'x1', 'c').
+            
     Returns:
-        Array of flux values for each phase and band.
+        Array of flux values (before zero-point scaling), shape (n_phase, n_bands).
     """
     phase = jnp.atleast_1d(phase)
-    n_phase = len(phase)
-    n_bands = len(bridges)
-    result = jnp.zeros((n_phase, n_bands))
+    # n_bands = len(bridges) # Not needed directly anymore
+
+    # Stack bridge components for vmap
+    # Ensure bridges is a tuple for JIT compatibility if passed directly
+    all_waves = jnp.stack([b['wave'] for b in bridges])
+    all_dwaves = jnp.array([b['dwave'] for b in bridges]) # dwave is scalar per band
+    all_trans = jnp.stack([b['trans'] for b in bridges])
+    all_masks = jnp.stack([b['mask'] for b in bridges])
+
+    # Define the function signature for vmap
+    # Arguments: phase, wave, dwave, trans, mask, params
+    vmapped_bandflux = jax.vmap(
+        optimized_salt3_bandflux,
+        in_axes=(None, 0, 0, 0, 0, None) # Map over bridge components
+    )
+
+    # Call the vmapped function
+    result_transposed = vmapped_bandflux(
+        phase,
+        all_waves,
+        all_dwaves,
+        all_trans,
+        all_masks,
+        params
+    )
+
+    # Result shape from vmap is (n_bands, n_phase), transpose to (n_phase, n_bands)
+    result = result_transposed.T
     
-    for i in range(n_bands):
-        bp_bridge = bridges[i]
-        curr_zp = zps[i] if zps is not None else None
-        band_flux = optimized_salt3_bandflux(
-            phase, 
-            bp_bridge['wave'], 
-            bp_bridge['dwave'], 
-            bp_bridge['trans'], 
-            params, 
-            zp=curr_zp, 
-            zpsys=zpsys
-        )
-        result = result.at[:, i].set(band_flux)
+    return result
+    result = result_transposed.T
     
-    return result 
+    return result

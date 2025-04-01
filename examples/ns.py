@@ -14,6 +14,7 @@ import numpy as np
 import tqdm
 import blackjax
 import os
+from functools import partial
 from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3 import (
     optimized_salt3_multiband_flux,
@@ -53,7 +54,7 @@ PRIOR_BOUNDS = {
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, bridges, zpbandfluxes, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
 # Define parameter bounds and priors
 if fix_z:
@@ -126,15 +127,38 @@ def logprior(params):
                     prior_dists['c'].log_prob(params[4]))
     return logp
 
+# Placeholder for precomputed zpbandfluxes (needs to be computed alongside bridges)
+# Example computation (outside JIT):
+# zpbandfluxes_per_band = []
+# H_ERG_S = 6.62607015e-27 # Planck constant
+# for bridge in bridges:
+#     mask = bridge['mask']
+#     wave = bridge['wave']
+#     trans = bridge['trans']
+#     dwave = bridge['dwave']
+#     safe_wave = jnp.where(mask, wave, 1.0)
+#     zpbf = 3631e-23 * dwave / H_ERG_S * jnp.sum(jnp.where(mask, trans / safe_wave, 0.0))
+#     zpbandfluxes_per_band.append(zpbf)
+# zpbandfluxes = jnp.array(zpbandfluxes_per_band)
+# For now, we assume zpbandfluxes (shape n_bands) is passed correctly.
+# TODO: Integrate zpbandflux calculation into data loading/processing.
+# Define H_ERG_S constant if not already available globally
+H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
+
+# zpbandfluxes array (shape n_bands) is now loaded by load_and_process_data
+
+
 @jax.jit
-def compute_single_loglikelihood(params):
+def compute_single_loglikelihood(params, zpbandfluxes):
     """Compute Gaussian log likelihood for a single set of parameters."""
     # Ensure params is properly handled for both single and batched inputs
     params = jnp.atleast_1d(params)
     if params.ndim > 1:
         # If we have a batch, vmap over it
-        return jax.vmap(compute_single_loglikelihood)(params)
-    
+        # Pass zpbandfluxes to the vmapped function
+        # Pass zpbandfluxes to the vmapped function using a lambda
+        return jax.vmap(lambda p: compute_single_loglikelihood(p, zpbandfluxes))(params)
+
     if fix_z:
         if fit_sigma:
             t0, log_x0, x1, c, log_sigma = params
@@ -153,12 +177,23 @@ def compute_single_loglikelihood(params):
     x0 = 10 ** log_x0
     param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
 
-    # Calculate model fluxes for all observations at once using optimized function
-    model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
-    model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
+    # Calculate model fluxes (unscaled) for all observations at once
+    model_fluxes_unscaled_allbands = optimized_salt3_multiband_flux(times, bridges, param_dict)
+    # Select the flux for the correct band for each time point
+    model_fluxes_unscaled = model_fluxes_unscaled_allbands[jnp.arange(len(times)), band_indices]
 
+    # Apply zero-point scaling using precomputed zpbandfluxes
+    # Get zpbandflux for each time point based on its band index
+    # zpbandfluxes (shape n_bands) is passed as an argument
+    zpbf_per_time = zpbandfluxes[band_indices]
+    # Calculate normalization factor for each time point using its zp
+    zpnorm_per_time = jnp.where(zpbf_per_time > 1e-30, 10**(0.4 * zps) / zpbf_per_time, 0.0)
+    # Apply scaling
+    model_fluxes_scaled = model_fluxes_unscaled * zpnorm_per_time
+
+    # Calculate likelihood using scaled fluxes
     eff_fluxerrs = sigma * fluxerrs  # effective flux errors
-    chi2 = jnp.sum(((fluxes - model_fluxes) / eff_fluxerrs) ** 2)
+    chi2 = jnp.sum(((fluxes - model_fluxes_scaled) / eff_fluxerrs) ** 2)
     log_likelihood = -0.5 * (chi2 + jnp.sum(jnp.log(2 * jnp.pi * eff_fluxerrs ** 2)))
     return log_likelihood
 
@@ -213,11 +248,14 @@ if fit_sigma:
 
 num_mcmc_steps = n_params_total * NS_SETTINGS['num_mcmc_steps_multiplier']
 
+# Create a partial function for the likelihood with zpbandfluxes bound
+loglikelihood_for_blackjax = partial(compute_single_loglikelihood, zpbandfluxes=zpbandfluxes)
+
 # Initialize nested sampling algorithm
 print("Setting up nested sampling algorithm...")
 algo = blackjax.ns.adaptive.nss(
     logprior_fn=logprior,
-    loglikelihood_fn=compute_single_loglikelihood,
+    loglikelihood_fn=loglikelihood_for_blackjax,
     n_delete=NS_SETTINGS['n_delete'],
     num_mcmc_steps=num_mcmc_steps,
 )
@@ -230,7 +268,7 @@ initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'])
 print("Initial particles generated, shape: ", initial_particles.shape)
 
 # Initialize state
-state = algo.init(initial_particles, compute_single_loglikelihood)
+state = algo.init(initial_particles, loglikelihood_for_blackjax)
 
 # Define one_step function with JIT
 @jax.jit

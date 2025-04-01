@@ -315,28 +315,55 @@ def load_custom_bandpasses(bandpass_files):
     
     return custom_bandpasses
 
-def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
-    """Register bandpasses in JAX and return dictionaries of bandpasses and bridges.
+# Import H_ERG_S if it's defined elsewhere, or define it here
+# Assuming it's defined in constants or salt3
+try:
+    # If salt3 defines it (as it does in the provided context)
+    from jax_supernovae.salt3 import H_ERG_S
+except ImportError:
+    # Fallback definition if needed
+    H_ERG_S = 6.62607015e-27
+
+def _calculate_zpbandflux(bridge):
+    """Helper to calculate AB zpbandflux from a bridge dictionary."""
+    mask = bridge['mask']
+    wave = bridge['wave']
+    trans = bridge['trans']
+    dwave = bridge['dwave']
+    # Avoid division by zero for padded wave values
+    safe_wave = jnp.where(mask, wave, 1.0)
+    # Calculate AB zpbandflux
+    zpbf = 3631e-23 * dwave / H_ERG_S * jnp.sum(jnp.where(mask, trans / safe_wave, 0.0))
+    return zpbf
+
+def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None, max_len=1250):
+    """Register bandpasses, return bandpasses, bridges (with mask), and AB zpbandfluxes.
     
     Parameters
     ----------
     custom_bandpass_files : list or dict, optional
         List of file paths to custom bandpass files, or a dictionary mapping
-        bandpass names to file paths
+        bandpass names to file paths.
     svo_filters : list, optional
         List of dictionaries containing SVO filter information. Each dictionary
         should have the following keys:
         - 'name': Name to register the bandpass under
         - 'filter_id': SVO filter identifier (e.g., 'UKIRT/WFCAM.J')
-        - 'variants': Optional list of variant names to register using the same bandpass
-    
+        - 'variants': Optional list of variant names to register using the same bandpass.
+    max_len : int, optional
+        The maximum length to pad wavelength/transmission arrays in bridges.
+        Defaults to 1250 based on standard bandpasses.
+
     Returns
     -------
     tuple
         A tuple containing:
-        - bandpass_dict: Dictionary mapping bandpass names to Bandpass objects
+        - bandpass_dict: Dictionary mapping bandpass names to Bandpass objects.
         - bridges_dict: Dictionary mapping bandpass names to precomputed bridge data
+                          (including 'wave', 'dwave', 'trans', 'mask').
+        - zpbandfluxes_dict: Dictionary mapping bandpass names to precomputed AB zpbandflux values.
     """
+    # Import moved inside to avoid circular dependency if salt3 imports bandpasses
     from jax_supernovae.salt3 import precompute_bandflux_bridge
     
     bandpass_info = [
@@ -360,6 +387,7 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
     
     bandpass_dict = {}
     bridges_dict = {}
+    zpbandfluxes_dict = {}
     
     # Load standard bandpasses
     for info in bandpass_info:
@@ -369,38 +397,50 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
             jax_bandpass = Bandpass(wave, trans)
             register_bandpass(info['name'], jax_bandpass, force=True)
             bandpass_dict[info['name']] = jax_bandpass
-            bridges_dict[info['name']] = precompute_bandflux_bridge(jax_bandpass)
+            # Call modified bridge function (max_len default is 1250)
+            bridge = precompute_bandflux_bridge(jax_bandpass, max_len=max_len)
+            bridges_dict[info['name']] = bridge
+            # Calculate and store zpbandflux
+            zpbandfluxes_dict[info['name']] = _calculate_zpbandflux(bridge)
         except Exception as e:
-            print(f"Warning: Failed to load bandpass {info['name']}: {e}")
+            print(f"Warning: Failed to load/process bandpass {info['name']}: {e}")
     
     # Load SVO filter bandpasses if provided
     if svo_filters:
         for filter_info in svo_filters:
             try:
-                # Create and register the main bandpass
                 bandpass = create_bandpass_from_svo(filter_info['filter_id'])
-                
+                bridge = precompute_bandflux_bridge(bandpass, max_len=max_len)
+                zpbandflux = _calculate_zpbandflux(bridge)
+
                 # Register the main bandpass
                 register_bandpass(filter_info['name'], bandpass, force=True)
                 bandpass_dict[filter_info['name']] = bandpass
-                bridges_dict[filter_info['name']] = precompute_bandflux_bridge(bandpass)
+                bridges_dict[filter_info['name']] = bridge
+                zpbandfluxes_dict[filter_info['name']] = zpbandflux
                 print(f"Registered {filter_info['name']} bandpass from SVO Filter Profile Service")
                 
                 # Register variants if any
                 if 'variants' in filter_info and filter_info['variants']:
                     for variant in filter_info['variants']:
-                        register_bandpass(variant, bandpass, force=True)
+                        register_bandpass(variant, bandpass, force=True) # Use same bandpass object
                         bandpass_dict[variant] = bandpass
-                        bridges_dict[variant] = precompute_bandflux_bridge(bandpass)
+                        bridges_dict[variant] = bridge # Use same bridge
+                        zpbandfluxes_dict[variant] = zpbandflux # Use same zpbandflux
                     print(f"Registered {len(filter_info['variants'])} variants of {filter_info['name']} bandpass")
             except Exception as e:
-                print(f"Warning: Failed to create {filter_info['name']} bandpass from SVO: {e}")
+                print(f"Warning: Failed to create/process {filter_info['name']} bandpass from SVO: {e}")
     
     # Load custom bandpasses if provided
     if custom_bandpass_files:
-        custom_bandpasses = load_custom_bandpasses(custom_bandpass_files)
+        custom_bandpasses = load_custom_bandpasses(custom_bandpass_files) # This already registers them
         for name, bandpass in custom_bandpasses.items():
-            bandpass_dict[name] = bandpass
-            bridges_dict[name] = precompute_bandflux_bridge(bandpass)
-    
-    return bandpass_dict, bridges_dict 
+            # Ensure they are in the main dict if not already
+            if name not in bandpass_dict:
+                 bandpass_dict[name] = bandpass
+            # Recompute bridge and zpbandflux with correct max_len
+            bridge = precompute_bandflux_bridge(bandpass, max_len=max_len)
+            bridges_dict[name] = bridge
+            zpbandfluxes_dict[name] = _calculate_zpbandflux(bridge)
+            
+    return bandpass_dict, bridges_dict, zpbandfluxes_dict

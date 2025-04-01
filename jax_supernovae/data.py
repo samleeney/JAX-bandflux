@@ -168,35 +168,48 @@ def load_and_process_data(sn_name, data_dir='data', fix_z=False):
         fix_z (bool): Whether to fix redshift to value from redshifts.dat
         
     Returns:
-        tuple: Contains processed data arrays and bridges:
+        tuple: Contains processed data arrays, bridges, and zpbandfluxes:
             - times (jnp.array): Observation times
             - fluxes (jnp.array): Flux measurements
             - fluxerrs (jnp.array): Flux measurement errors
-            - zps (jnp.array): Zero points
-            - band_indices (jnp.array): Band indices
-            - bridges (tuple): Precomputed bridge data for each band
+            - zps (jnp.array): Zero points (per observation time)
+            - band_indices (jnp.array): Indices mapping times to unique bands
+            - bridges (tuple): Precomputed bridge data for each unique band
+            - zpbandfluxes (jnp.array): Precomputed AB zpbandflux for each unique band
             - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
     """
-    # Load data and register bandpasses
+    # Load data and register bandpasses, get bridges and zpbandfluxes
     data = load_hsf_data(sn_name, base_dir=data_dir)
-    bandpass_dict, bridges_dict = register_all_bandpasses()
+    # Assuming register_all_bandpasses now returns zpbandfluxes_dict as the third item
+    bandpass_dict, bridges_dict, zpbandfluxes_dict = register_all_bandpasses()
 
-    # Get unique bands and their bridges
+    # Get unique bands used in this SN's data and their corresponding bridges/zpbandfluxes
     unique_bands = []
     bridges = []
+    zpbandfluxes_list = []
     for band in np.unique(data['band']):
-        if band in bridges_dict:
+        # Only include bands that were successfully registered and processed
+        if band in bridges_dict and band in zpbandfluxes_dict:
             unique_bands.append(band)
             bridges.append(bridges_dict[band])
-    # Convert bridges to tuple for JIT compatibility
-    bridges = tuple(bridges)
+            zpbandfluxes_list.append(zpbandfluxes_dict[band])
+        else:
+             print(f"Warning: Band '{band}' not found in registered bridges/zpbandfluxes. Skipping data points for this band.")
 
-    # Set up data arrays
-    valid_mask = np.array([band in bandpass_dict for band in data['band']])
+    # Convert bridges to tuple for JIT compatibility and zpbandfluxes to JAX array
+    bridges = tuple(bridges)
+    zpbandfluxes = jnp.array(zpbandfluxes_list)
+
+    # Filter data to only include valid, registered bands
+    valid_mask = np.array([band in unique_bands for band in data['band']])
+    if not np.any(valid_mask):
+        raise ValueError(f"No valid data points found for SN {sn_name} with registered bandpasses.")
+        
     times = jnp.array(data['time'][valid_mask])
     fluxes = jnp.array(data['flux'][valid_mask])
     fluxerrs = jnp.array(data['fluxerr'][valid_mask])
-    zps = jnp.array(data['zp'][valid_mask])
+    zps = jnp.array(data['zp'][valid_mask]) # zps are per time point
+    # Map each time point to the index in the unique_bands list
     band_indices = jnp.array([unique_bands.index(band) for band in data['band'][valid_mask]])
     
     # Load redshift if requested
@@ -206,10 +219,11 @@ def load_and_process_data(sn_name, data_dir='data', fix_z=False):
             z, z_err, flag = load_redshift(sn_name)
             fixed_z = (z, z_err)
         except (FileNotFoundError, ValueError) as e:
-            print(f"Warning: Could not load redshift: {e}")
+            print(f"Warning: Could not load redshift for {sn_name}: {e}")
             fixed_z = None
-    
-    return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z 
+            
+    # Return all necessary arrays
+    return times, fluxes, fluxerrs, zps, band_indices, bridges, zpbandfluxes, fixed_z
 
 def get_all_supernovae_with_redshifts(redshift_file='data/redshifts.dat'):
     """
