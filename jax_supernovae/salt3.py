@@ -424,36 +424,6 @@ def salt3_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     
     return result
 
-@partial(jax.jit, static_argnames=['bandpasses', 'zpsys'])
-def salt3_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
-    """Calculate flux for multiple bandpasses at once.
-    
-    Args:
-        phase (array-like): Phase(s) in observer frame.
-        bandpasses (list): List of Bandpass objects.
-        params (dict): Model parameters including z, t0, x0, x1, c.
-        zps (array-like, optional): Zero points for each bandpass.
-        zpsys (str, optional): Magnitude system (e.g. 'ab').
-        
-    Returns:
-        array-like: Flux values for each phase and bandpass combination.
-    """
-    # Convert inputs to arrays
-    phase = jnp.atleast_1d(phase)
-    n_phase = len(phase)
-    n_bands = len(bandpasses)
-    
-    # Initialize output array
-    result = jnp.zeros((n_phase, n_bands))
-    
-    # Calculate flux for each bandpass
-    for i in range(n_bands):
-        zp = zps[i] if zps is not None else None
-        band_flux = salt3_bandflux(phase, bandpasses[i], params, zp=zp, zpsys=zpsys)
-        result = result.at[:, i].set(band_flux)
-    
-    return result 
-
 def precompute_bandflux_bridge(bandpass, max_len=1250):
     """
     Precompute static components for a given bandpass, padding arrays to max_len.
