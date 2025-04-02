@@ -25,7 +25,7 @@ def interp(x, xp, fp):
     slope = (y1 - y0) / (x1 - x0)
     return y0 + slope * (x - x0)
 
-def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
+def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains", sn_name=None):
     """
     Save nested sampling results in dead-birth format without headers.
 
@@ -44,7 +44,9 @@ def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
     The file contains `ndims + 2` columns in space-separated format:
     param1 param2 ... paramN logL logL_birth
 
-    The file will be saved as [root_dir]/[root_dir]_dead-birth.txt
+    If sn_name is provided, the file will be saved as
+    [root_dir]/chains_[sn_name]_dead-birth.txt.
+    Otherwise, it will be saved as [root_dir]/[root_dir]_dead-birth.txt.
     """
     # Create directory if it doesn't exist
     os.makedirs(root_dir, exist_ok=True)
@@ -58,7 +60,13 @@ def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
     data = np.column_stack([points, logls_death, logls_birth])
     
     # Construct output path
-    output_path = os.path.join(root_dir, f"{root_dir}_dead-birth.txt")
+    if sn_name:
+        filename = f"chains_{sn_name}_dead-birth.txt"
+    else:
+        # Use basename of root_dir if no sn_name, handle potential edge case where root_dir is '.'
+        base_name = os.path.basename(root_dir) if os.path.basename(root_dir) else 'chains'
+        filename = f"{base_name}_dead-birth.txt"
+    output_path = os.path.join(root_dir, filename)
     
     # Save without header
     np.savetxt(output_path, data)

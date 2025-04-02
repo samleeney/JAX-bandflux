@@ -443,4 +443,51 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None, max_le
             bridges_dict[name] = bridge
             zpbandfluxes_dict[name] = _calculate_zpbandflux(bridge)
             
+    # Load SVO filter bandpasses if provided
+    if svo_filters:
+        for filter_info in svo_filters:
+            try:
+                # Ensure required keys are present
+                if 'name' not in filter_info or 'filter_id' not in filter_info:
+                    print(f"Warning: Skipping SVO filter definition due to missing 'name' or 'filter_id': {filter_info}")
+                    continue
+                    
+                bandpass = create_bandpass_from_svo(filter_info['filter_id'])
+                bridge = precompute_bandflux_bridge(bandpass, max_len=max_len)
+                zpbandflux = _calculate_zpbandflux(bridge)
+
+                # Register the main bandpass
+                register_bandpass(filter_info['name'], bandpass, force=True)
+                bandpass_dict[filter_info['name']] = bandpass
+                bridges_dict[filter_info['name']] = bridge
+                zpbandfluxes_dict[filter_info['name']] = zpbandflux
+                print(f"Registered {filter_info['name']} bandpass from SVO Filter Profile Service ({filter_info['filter_id']})")
+                
+                # Register variants if any
+                if 'variants' in filter_info and filter_info['variants']:
+                    num_variants = 0
+                    for variant in filter_info['variants']:
+                        if variant: # Ensure variant name is not empty
+                            register_bandpass(variant, bandpass, force=True) # Use same bandpass object
+                            bandpass_dict[variant] = bandpass
+                            bridges_dict[variant] = bridge # Use same bridge
+                            zpbandfluxes_dict[variant] = zpbandflux # Use same zpbandflux
+                            num_variants += 1
+                    if num_variants > 0:
+                        print(f"Registered {num_variants} variants of {filter_info['name']} bandpass")
+            except Exception as e:
+                print(f"Warning: Failed to create/process {filter_info.get('name', 'Unnamed SVO')} bandpass from SVO ({filter_info.get('filter_id', 'Unknown ID')}): {e}")
+    
+    # Load custom bandpasses if provided
+    if custom_bandpass_files:
+        custom_bandpasses = load_custom_bandpasses(custom_bandpass_files) # This already registers them
+        for name, bandpass in custom_bandpasses.items():
+            # Ensure they are in the main dict if not already
+            if name not in bandpass_dict:
+                 bandpass_dict[name] = bandpass
+            # Recompute bridge and zpbandflux with correct max_len
+            bridge = precompute_bandflux_bridge(bandpass, max_len=max_len)
+            bridges_dict[name] = bridge
+            zpbandfluxes_dict[name] = _calculate_zpbandflux(bridge)
+            
     return bandpass_dict, bridges_dict, zpbandfluxes_dict
