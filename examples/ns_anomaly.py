@@ -9,34 +9,37 @@ import blackjax
 import yaml
 import pandas as pd
 from blackjax.ns.utils import log_weights
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux, precompute_bandflux_bridge
+from functools import partial # Added import
+from jax_supernovae.salt3 import optimized_salt3_multiband_flux # Removed precompute_bandflux_bridge import as it's not directly used here
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses, Bandpass
 from jax_supernovae.utils import save_chains_dead_birth
-from jax_supernovae.data import load_redshift, load_hsf_data
+# Import the updated load_and_process_data
+from jax_supernovae.data import load_redshift, load_hsf_data, load_and_process_data
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
 import requests
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = ".2"
 
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '500')),
+    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '500')), # Default 500 iterations
     'n_delete': 75,
     'n_live': 150,
     'num_mcmc_steps_multiplier': 5,
     'fit_sigma': False,
-    'fit_log_p': True,
-    'fit_z': True
+    'fit_log_p': True, # Default to fitting anomaly model
+    'fit_z': True # Default to fixing redshift
 }
 
 DEFAULT_PRIOR_BOUNDS = {
     'z': {'min': 0.001, 'max': 0.2},
     't0': {'min': 58000.0, 'max': 60000.0},
-    'x0': {'min': -5.0, 'max': -1},
+    'x0': {'min': -5.0, 'max': -1}, # log10(x0) bounds
     'x1': {'min': -10, 'max': 10},
     'c': {'min': -0.6, 'max': 0.6},
-    'sigma': {'min': 0.001, 'max': 5},
-    'log_p': {'min': -20, 'max': -1}
+    'sigma': {'min': 0.001, 'max': 5}, # sigma bounds (not log_sigma)
+    'log_p': {'min': -20, 'max': -1} # log10(p) bounds
 }
 
 # Default settings
@@ -56,12 +59,13 @@ except FileNotFoundError:
 
 # Merge the settings from file with the defaults
 settings = DEFAULT_SETTINGS.copy()
-settings.update(settings_from_file)
+settings.update(settings_from_file if settings_from_file else {})
 
 fix_z = settings['fix_z']
 sn_name = settings['sn_name']
 selected_bandpasses = settings.get('selected_bandpasses', None)
 custom_bandpass_files = settings.get('custom_bandpass_files', None)
+svo_filters = settings.get('svo_filters', None) # Get SVO filter definitions
 
 NS_SETTINGS = DEFAULT_NS_SETTINGS.copy()
 NS_SETTINGS.update(settings.get('nested_sampling', {}))
@@ -72,1509 +76,801 @@ if 'prior_bounds' in settings:
 
 # Option flag: when fit_sigma is True, an extra parameter is added
 fit_sigma = NS_SETTINGS['fit_sigma']
+# Flag to determine which model to run primarily (can be overridden)
+fit_anomaly = NS_SETTINGS['fit_log_p']
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
-def create_wfcam_j_bandpass():
-    """
-    Create a bandpass object for the WFCAM J filter.
-    
-    This function attempts to load the WFCAM J filter profile from the SVO Filter Profile Service.
-    The filter profile must be downloaded first using the download_svo_filter.py script.
-    
-    Returns:
-        Bandpass: A Bandpass object for the WFCAM J filter.
-        
-    Raises:
-        FileNotFoundError: If the WFCAM J filter profile file is not found.
-    """
-    from jax_supernovae.bandpasses import Bandpass
-    import os
-    import numpy as np
-    
-    # Define possible paths to the WFCAM J filter profile
-    filter_paths = [
-        # Check in the filter_data directory (where download_svo_filter.py saves it)
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'filter_data', 'UKIRT_WFCAM.J.dat'),
-        
-        # Check in the current directory
-        'WFCAM_J.dat',
-        'UKIRT_WFCAM.J.dat',
-        
-        # Check in the examples directory
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'WFCAM_J.dat'),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'UKIRT_WFCAM.J.dat'),
-        
-        # Check in the filter_data directory
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'filter_data/UKIRT_WFCAM.J.dat'),
-    ]
-    
-    # Try each path
-    for filter_path in filter_paths:
-        if os.path.exists(filter_path):
-            try:
-                print(f"Loading WFCAM J filter from {filter_path}")
-                data = np.loadtxt(filter_path)
-                wave = data[:, 0]  # Wavelength in Angstroms
-                trans = data[:, 1]  # Transmission
-                
-                # Create and return the bandpass object
-                return Bandpass(wave, trans)
-            except Exception as e:
-                print(f"Failed to load filter from {filter_path}: {e}")
-    
-    # If we get here, we couldn't find the filter file
-    raise FileNotFoundError(
-        "WFCAM J filter profile file not found. "
-        "Please run the download_svo_filter.py script to download it."
-    )
+# Define H_ERG_S constant
+H_ERG_S = 6.62607015e-27  # Planck constant in erg*s
 
-def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None, custom_bandpass_files=None):
-    """
-    Load and process data for a supernova.
-    
-    Args:
-        sn_name (str): Name of the supernova
-        data_dir (str): Directory containing the data
-        fix_z (bool): Whether to fix the redshift
-        selected_bandpasses (list): List of bandpass names to include (e.g., ['g', 'r', 'i'])
-        custom_bandpass_files (dict): Dictionary mapping bandpass names to file paths
-        
-    Returns:
-        tuple: (times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z)
-    """
-    global BAND_NAMES  # Declare a global variable to store band names for plotting
-    
-    # Load data
-    data = load_hsf_data(sn_name, base_dir=data_dir)
-    
-    # Define J-band variants - only include the ones we actually need
-    j_variants = ['J', 'J_1D3', 'J_2D']
-    
-    # Keep track of the original selected bandpasses (before any automatic additions)
-    original_selected_bandpasses = None
-    if selected_bandpasses is not None:
-        original_selected_bandpasses = selected_bandpasses.copy() if isinstance(selected_bandpasses, list) else [selected_bandpasses]
-    
-    # Register bandpasses, including custom ones if provided
-    try:
-        # Try with the new function signature that accepts custom_bandpass_files
-        bandpass_dict, bridges_dict = register_all_bandpasses(custom_bandpass_files)
-        
-        # Find all J-band variants in the data
-        data_j_variants = [band for band in np.unique(data['band']) if band in j_variants]
-        
-        # Find all J-band variants in selected_bandpasses
-        selected_j_variants = []
-        if selected_bandpasses is not None:
-            selected_j_variants = [band for band in selected_bandpasses if band in j_variants]
-        
-        # Determine if we need to register the J bandpass
-        j_bandpass_needed = (len(data_j_variants) > 0 or len(selected_j_variants) > 0) and 'J' not in bridges_dict
-        
-        if j_bandpass_needed:
-            print("J-band variant(s) found in data or selected bandpasses. Attempting to register J bandpass...")
-            try:
-                # Create the J bandpass
-                j_bandpass = create_wfcam_j_bandpass()
-                
-                # Register the standard J bandpass if needed
-                if 'J' in selected_j_variants or 'J' in data_j_variants:
-                    register_bandpass('J', j_bandpass, force=True)
-                    bandpass_dict['J'] = j_bandpass
-                    bridges_dict['J'] = precompute_bandflux_bridge(j_bandpass)
-                    print("Successfully registered WFCAM J bandpass")
-                
-                # Register all other J-band variants found in the data or selected bandpasses
-                all_needed_variants = list(set(data_j_variants + selected_j_variants))
-                for variant in all_needed_variants:
-                    if variant != 'J' and variant not in bridges_dict:
-                        register_bandpass(variant, j_bandpass, force=True)
-                        bandpass_dict[variant] = j_bandpass
-                        bridges_dict[variant] = precompute_bandflux_bridge(j_bandpass)
-                        print(f"Successfully registered {variant} bandpass (using standard J filter profile)")
-                
-                # If any J-band variant is in the data but not in selected_bandpasses, add it
-                if selected_bandpasses is not None:
-                    for variant in data_j_variants:
-                        if variant not in selected_bandpasses:
-                            # Comment out the automatic addition of J-band variants
-                            # selected_bandpasses.append(variant)
-                            print(f"Found {variant} in data but not adding it to selected_bandpasses (strict mode)")
-            
-            except FileNotFoundError as e:
-                print(f"Error: {e}")
-                print("Please run the download_svo_filter.py script to download the WFCAM J filter profile.")
-                print("Removing all J-band variants from selected_bandpasses.")
-                if selected_bandpasses is not None:
-                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
-            except Exception as e:
-                print(f"Warning: Failed to register WFCAM J bandpass: {e}")
-                # If we can't register the bandpasses, remove them from selected_bandpasses
-                if selected_bandpasses is not None:
-                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
-                    print("Removed all J-band variants from selected_bandpasses due to registration failure")
-    except TypeError:
-        # Fall back to the old function signature
-        print("Using original register_all_bandpasses function (without custom bandpass support)")
-        bandpass_dict, bridges_dict = register_all_bandpasses()
-        
-        # If custom bandpass files were provided, warn the user
-        if custom_bandpass_files:
-            print("Warning: Custom bandpass files were provided but are not supported by this version of the code.")
-            print("Please update jax_supernovae/bandpasses.py to support custom bandpasses.")
-            
-        # Check for J-band variants in the data or selected bandpasses
-        j_variants = ['J', 'J_1D3', 'J_2D']
-        
-        # Find all J-band variants in the data
-        data_j_variants = [band for band in np.unique(data['band']) if band in j_variants]
-        
-        # Find all J-band variants in selected_bandpasses
-        selected_j_variants = []
-        if selected_bandpasses is not None:
-            selected_j_variants = [band for band in selected_bandpasses if band in j_variants]
-        
-        # Determine if we need to register the J bandpass
-        j_bandpass_needed = (len(data_j_variants) > 0 or len(selected_j_variants) > 0) and 'J' not in bridges_dict
-        
-        if j_bandpass_needed:
-            print("J-band variant(s) found in data or selected bandpasses. Attempting to register J bandpass...")
-            try:
-                # Create the J bandpass
-                j_bandpass = create_wfcam_j_bandpass()
-                
-                # Register the standard J bandpass if needed
-                if 'J' in selected_j_variants or 'J' in data_j_variants:
-                    register_bandpass('J', j_bandpass, force=True)
-                    bandpass_dict['J'] = j_bandpass
-                    bridges_dict['J'] = precompute_bandflux_bridge(j_bandpass)
-                    print("Successfully registered WFCAM J bandpass")
-                
-                # Register all other J-band variants found in the data or selected bandpasses
-                all_needed_variants = list(set(data_j_variants + selected_j_variants))
-                for variant in all_needed_variants:
-                    if variant != 'J' and variant not in bridges_dict:
-                        register_bandpass(variant, j_bandpass, force=True)
-                        bandpass_dict[variant] = j_bandpass
-                        bridges_dict[variant] = precompute_bandflux_bridge(j_bandpass)
-                        print(f"Successfully registered {variant} bandpass (using standard J filter profile)")
-                
-                # If any J-band variant is in the data but not in selected_bandpasses, add it
-                if selected_bandpasses is not None:
-                    for variant in data_j_variants:
-                        if variant not in selected_bandpasses:
-                            # Comment out the automatic addition of J-band variants
-                            # selected_bandpasses.append(variant)
-                            print(f"Found {variant} in data but not adding it to selected_bandpasses (strict mode)")
-            
-            except FileNotFoundError as e:
-                print(f"Error: {e}")
-                print("Please run the download_svo_filter.py script to download the WFCAM J filter profile.")
-                print("Removing all J-band variants from selected_bandpasses.")
-                if selected_bandpasses is not None:
-                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
-            except Exception as e:
-                print(f"Warning: Failed to register WFCAM J bandpass: {e}")
-                # If we can't register the bandpasses, remove them from selected_bandpasses
-                if selected_bandpasses is not None:
-                    selected_bandpasses = [b for b in selected_bandpasses if b not in j_variants]
-                    print("Removed all J-band variants from selected_bandpasses due to registration failure")
-    
-    # Print summary of J-band data
-    for variant in j_variants:
-        variant_count = np.sum(data['band'] == variant)
-        if variant_count > 0:
-            print(f"Found {variant_count} {variant} data points in the dataset.")
-    
-    # Filter by selected bandpasses if specified
-    if selected_bandpasses is not None:
-        # Convert to list if a single string was provided
-        if isinstance(selected_bandpasses, str):
-            selected_bandpasses = [selected_bandpasses]
-            
-        # Validate that all requested bandpasses exist
-        for band in selected_bandpasses:
-            if band not in bridges_dict:
-                available_bands = list(bridges_dict.keys())
-                raise ValueError(f"Bandpass '{band}' not found. Available bandpasses: {available_bands}")
-        
-        # Get unique bands and their bridges, filtered by selected_bandpasses
-        unique_bands = []
-        bridges = []
-        for band in np.unique(data['band']):
-            if band in bridges_dict and (selected_bandpasses is None or band in selected_bandpasses):
-                unique_bands.append(band)
-                bridges.append(bridges_dict[band])
-        
-        # Add selected bandpasses that aren't in the data, but only if they were in the original selection
-        if original_selected_bandpasses:
-            for band in original_selected_bandpasses:
-                if band not in unique_bands and band in bridges_dict:
-                    unique_bands.append(band)
-                    bridges.append(bridges_dict[band])
-                    print(f"Added {band} band to the list of unique bands (explicitly requested)")
-    else:
-        # Get all unique bands and their bridges
-        unique_bands = []
-        bridges = []
-        for band in np.unique(data['band']):
-            if band in bridges_dict:
-                unique_bands.append(band)
-                bridges.append(bridges_dict[band])
-    
-    # Convert bridges to tuple for JIT compatibility
-    bridges = tuple(bridges)
+# Global variable to store band names (will be set in load_and_process_data)
+# This approach is fragile; passing unique_bands explicitly is better.
+# For now, keeping it to minimize changes to plotting functions.
+BAND_NAMES = []
 
-    # Set up data arrays, filtering by selected bandpasses
-    valid_mask = np.array([band in unique_bands for band in data['band']])
-    
-    # Check if we have any valid data points after filtering
-    if not np.any(valid_mask):
-        if selected_bandpasses:
-            raise ValueError(f"No data points found for selected bandpasses {selected_bandpasses} in {sn_name}")
-        else:
-            raise ValueError(f"No valid data points found for {sn_name}")
-    
-    times = jnp.array(data['time'][valid_mask])
-    fluxes = jnp.array(data['flux'][valid_mask])
-    fluxerrs = jnp.array(data['fluxerr'][valid_mask])
-    zps = jnp.array(data['zp'][valid_mask])
-    band_indices = jnp.array([unique_bands.index(band) for band in data['band'][valid_mask]])
-    
-    # Print summary of selected data
-    print(f"Using {len(unique_bands)} bandpasses: {unique_bands}")
-    print(f"Total data points: {len(times)}")
-    
-    # Store band names in global variable for plotting
-    BAND_NAMES = unique_bands.copy()
-    
-    # Count data points for each band and remove bands with 0 points
-    bands_to_keep = []
-    bridges_to_keep = []
-    for i, band in enumerate(unique_bands):
-        band_count = np.sum(band_indices == i)
-        print(f"  Band {band}: {band_count} points")
-        
-        # Keep the band if it has data points or was explicitly requested in the original selection
-        if band_count > 0 or (original_selected_bandpasses is not None and band in original_selected_bandpasses):
-            bands_to_keep.append(band)
-            bridges_to_keep.append(bridges[i])
-    
-    # If we removed any bands, update the data structures
-    if len(bands_to_keep) < len(unique_bands):
-        print(f"Removing {len(unique_bands) - len(bands_to_keep)} bandpasses with no data points")
-        
-        # Create a mapping from old indices to new indices
-        old_to_new = {old_idx: new_idx for new_idx, old_idx in enumerate(
-            [i for i, band in enumerate(unique_bands) if band in bands_to_keep]
-        )}
-        
-        # Update band_indices
-        new_band_indices = np.array([old_to_new[idx] for idx in band_indices])
-        band_indices = jnp.array(new_band_indices)
-        
-        # Update unique_bands and bridges
-        unique_bands = bands_to_keep
-        bridges = tuple(bridges_to_keep)
-        
-        print(f"Final bandpasses: {unique_bands}")
-    
-    # Load redshift if requested
-    fixed_z = None
-    if fix_z:
-        try:
-            z, z_err, flag = load_redshift(sn_name)
-            fixed_z = (z, z_err)
-        except (FileNotFoundError, ValueError) as e:
-            print(f"Warning: Could not load redshift: {e}")
-            fixed_z = None
-    
-    return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z
-
-# Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = custom_load_and_process_data(
-    sn_name, data_dir='hsf_DR1/', fix_z=fix_z, 
-    selected_bandpasses=selected_bandpasses,
-    custom_bandpass_files=custom_bandpass_files
+# Load and process data using the updated function from jax_supernovae.data
+# This now returns zpbandfluxes as the 7th item
+# Note: The custom_load_and_process_data function was removed as its logic
+# should now be handled by the updated load_and_process_data and register_all_bandpasses
+# If specific filtering or J-band handling is needed, it might need re-integration.
+print(f"Loading data for SN: {sn_name}")
+# Pass settings for bandpass selection and custom files
+# Note: svo_filters are not yet implemented in settings.yaml, passing None for now
+times, fluxes, fluxerrs, zps, band_indices, bridges, zpbandfluxes, fixed_z, unique_bands = load_and_process_data(
+    sn_name,
+    data_dir='hsf_DR1/', # Assuming hsf_DR1 is the correct data dir
+    fix_z=fix_z,
+    selected_bandpasses=selected_bandpasses, # Pass from settings
+    custom_bandpass_files=custom_bandpass_files, # Pass from settings
+    svo_filters=svo_filters # Pass SVO filter definitions from settings
 )
 
-# Store the unique bands for later use in plotting
-unique_bands = BAND_NAMES
+# unique_bands is now returned directly from load_and_process_data
+num_unique_bands = len(unique_bands)
+print(f"Using {num_unique_bands} unique bands: {unique_bands}")
+BAND_NAMES = unique_bands # Set global for plotting functions
 
 # =============================================================================
-# Set up parameter bounds and prior distributions for the standard (non‐anomaly)
-# nested sampling version.
+# Set up parameter bounds and prior distributions
 # =============================================================================
+
+# --- Standard Model Priors ---
+standard_param_names = []
+standard_prior_dists = {}
+standard_param_bounds = {}
+
 if fix_z:
+    standard_param_names = ['t0', 'log_x0', 'x1', 'c']
     standard_param_bounds = {
         't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
-        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']),
+        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']), # log_x0 bounds
         'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
         'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max'])
     }
     if fit_sigma:
+        standard_param_names.append('sigma')
         standard_param_bounds['sigma'] = (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
 else:
+    standard_param_names = ['z', 't0', 'log_x0', 'x1', 'c']
     standard_param_bounds = {
         'z': (PRIOR_BOUNDS['z']['min'], PRIOR_BOUNDS['z']['max']),
         't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
-        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']),
+        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']), # log_x0 bounds
         'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
         'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max'])
     }
     if fit_sigma:
+        standard_param_names.append('sigma')
         standard_param_bounds['sigma'] = (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
 
-if fix_z:
-    standard_prior_dists = {
-        't0': distrax.Uniform(low=standard_param_bounds['t0'][0], high=standard_param_bounds['t0'][1]),
-        'x0': distrax.Uniform(low=standard_param_bounds['x0'][0], high=standard_param_bounds['x0'][1]),
-        'x1': distrax.Uniform(low=standard_param_bounds['x1'][0], high=standard_param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1])
-    }
-    if fit_sigma:
-        standard_prior_dists['sigma'] = distrax.Uniform(low=standard_param_bounds['sigma'][0], high=standard_param_bounds['sigma'][1])
-else:
-    standard_prior_dists = {
-        'z': distrax.Uniform(low=standard_param_bounds['z'][0], high=standard_param_bounds['z'][1]),
-        't0': distrax.Uniform(low=standard_param_bounds['t0'][0], high=standard_param_bounds['t0'][1]),
-        'x0': distrax.Uniform(low=standard_param_bounds['x0'][0], high=standard_param_bounds['x0'][1]),
-        'x1': distrax.Uniform(low=standard_param_bounds['x1'][0], high=standard_param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=standard_param_bounds['c'][0], high=standard_param_bounds['c'][1])
-    }
-    if fit_sigma:
-        standard_prior_dists['sigma'] = distrax.Uniform(low=standard_param_bounds['sigma'][0], high=standard_param_bounds['sigma'][1])
+for pname in standard_param_names:
+    p_bounds_lookup_key = pname.replace('log_', '') # Key for PRIOR_BOUNDS might not have log_ prefix
+    if p_bounds_lookup_key not in PRIOR_BOUNDS:
+        raise KeyError(f"Prior bound key '{p_bounds_lookup_key}' (derived from '{pname}') not found in PRIOR_BOUNDS.")
+    p_bounds = PRIOR_BOUNDS[p_bounds_lookup_key]
+    standard_param_bounds[pname] = (p_bounds['min'], p_bounds['max']) # Store bounds with original name
+    standard_prior_dists[pname] = distrax.Uniform(low=p_bounds['min'], high=p_bounds['max']) # Store dist with original name
 
-# =============================================================================
-# Set up parameter bounds and priors for the anomaly detection version.
-# An extra parameter 'log_p' is included.
-# =============================================================================
+
+# --- Anomaly Model Priors ---
+anomaly_param_names = []
+anomaly_prior_dists = {}
+anomaly_param_bounds = {}
+
 if fix_z:
+    anomaly_param_names = ['t0', 'log_x0', 'x1', 'c', 'log_p']
     anomaly_param_bounds = {
-        't0': (standard_param_bounds['t0'][0], standard_param_bounds['t0'][1]),
-        'x0': (standard_param_bounds['x0'][0], standard_param_bounds['x0'][1]),
-        'x1': (standard_param_bounds['x1'][0], standard_param_bounds['x1'][1]),
-        'c': (standard_param_bounds['c'][0], standard_param_bounds['c'][1]),
+        't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
+        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']), # log_x0 bounds
+        'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
+        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max']),
         'log_p': (PRIOR_BOUNDS['log_p']['min'], PRIOR_BOUNDS['log_p']['max'])
     }
     if fit_sigma:
-        anomaly_param_bounds['sigma'] = (standard_param_bounds['sigma'][0], standard_param_bounds['sigma'][1])
+        anomaly_param_names.insert(4, 'sigma') # Insert sigma before log_p
+        anomaly_param_bounds['sigma'] = (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
 else:
+    anomaly_param_names = ['z', 't0', 'log_x0', 'x1', 'c', 'log_p']
     anomaly_param_bounds = {
-        'z': (standard_param_bounds['z'][0], standard_param_bounds['z'][1]),
-        't0': (standard_param_bounds['t0'][0], standard_param_bounds['t0'][1]),
-        'x0': (standard_param_bounds['x0'][0], standard_param_bounds['x0'][1]),
-        'x1': (standard_param_bounds['x1'][0], standard_param_bounds['x1'][1]),
-        'c': (standard_param_bounds['c'][0], standard_param_bounds['c'][1]),
+        'z': (PRIOR_BOUNDS['z']['min'], PRIOR_BOUNDS['z']['max']),
+        't0': (PRIOR_BOUNDS['t0']['min'], PRIOR_BOUNDS['t0']['max']),
+        'x0': (PRIOR_BOUNDS['x0']['min'], PRIOR_BOUNDS['x0']['max']), # log_x0 bounds
+        'x1': (PRIOR_BOUNDS['x1']['min'], PRIOR_BOUNDS['x1']['max']),
+        'c': (PRIOR_BOUNDS['c']['min'], PRIOR_BOUNDS['c']['max']),
         'log_p': (PRIOR_BOUNDS['log_p']['min'], PRIOR_BOUNDS['log_p']['max'])
     }
     if fit_sigma:
-        anomaly_param_bounds['sigma'] = (standard_param_bounds['sigma'][0], standard_param_bounds['sigma'][1])
+        anomaly_param_names.insert(5, 'sigma') # Insert sigma before log_p
+        anomaly_param_bounds['sigma'] = (PRIOR_BOUNDS['sigma']['min'], PRIOR_BOUNDS['sigma']['max'])
 
-if fix_z:
-    anomaly_prior_dists = {
-        't0': distrax.Uniform(low=anomaly_param_bounds['t0'][0], high=anomaly_param_bounds['t0'][1]),
-        'x0': distrax.Uniform(low=anomaly_param_bounds['x0'][0], high=anomaly_param_bounds['x0'][1]),
-        'x1': distrax.Uniform(low=anomaly_param_bounds['x1'][0], high=anomaly_param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=anomaly_param_bounds['c'][0], high=anomaly_param_bounds['c'][1]),
-        'log_p': distrax.Uniform(low=anomaly_param_bounds['log_p'][0], high=anomaly_param_bounds['log_p'][1])
-    }
-    if fit_sigma:
-        anomaly_prior_dists['sigma'] = distrax.Uniform(low=anomaly_param_bounds['sigma'][0], high=anomaly_param_bounds['sigma'][1])
-else:
-    anomaly_prior_dists = {
-        'z': distrax.Uniform(low=anomaly_param_bounds['z'][0], high=anomaly_param_bounds['z'][1]),
-        't0': distrax.Uniform(low=anomaly_param_bounds['t0'][0], high=anomaly_param_bounds['t0'][1]),
-        'x0': distrax.Uniform(low=anomaly_param_bounds['x0'][0], high=anomaly_param_bounds['x0'][1]),
-        'x1': distrax.Uniform(low=anomaly_param_bounds['x1'][0], high=anomaly_param_bounds['x1'][1]),
-        'c': distrax.Uniform(low=anomaly_param_bounds['c'][0], high=anomaly_param_bounds['c'][1]),
-        'log_p': distrax.Uniform(low=anomaly_param_bounds['log_p'][0], high=anomaly_param_bounds['log_p'][1])
-    }
-    if fit_sigma:
-        anomaly_prior_dists['sigma'] = distrax.Uniform(low=anomaly_param_bounds['sigma'][0], high=anomaly_param_bounds['sigma'][1])
+for pname in anomaly_param_names:
+    # Determine the key for PRIOR_BOUNDS dictionary
+    if pname == 'log_x0':
+        p_bounds_lookup_key = 'x0'
+    else:
+        p_bounds_lookup_key = pname
+        
+    if p_bounds_lookup_key not in PRIOR_BOUNDS:
+         raise KeyError(f"Prior bound key '{p_bounds_lookup_key}' (for parameter '{pname}') not found in PRIOR_BOUNDS.")
+    p_bounds = PRIOR_BOUNDS[p_bounds_lookup_key]
+    anomaly_param_bounds[pname] = (p_bounds['min'], p_bounds['max']) # Store bounds with original name
+    anomaly_prior_dists[pname] = distrax.Uniform(low=p_bounds['min'], high=p_bounds['max']) # Store dist with original name
+
 
 # =============================================================================
-# Standard likelihood functions (using salt3 multiband flux).
+# Log Prior Functions
 # =============================================================================
 @jax.jit
 def logprior_standard(params):
     """Calculate log prior probability for standard nested sampling."""
-    params = jnp.atleast_2d(params)
-    if fix_z:
-        if fit_sigma:
-            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 0])
-            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 1])
-            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 2])
-            logp_c  = standard_prior_dists['c'].log_prob(params[:, 3])
-            logp_sigma = standard_prior_dists['sigma'].log_prob(params[:, 4])
-            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
-        else:
-            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 0])
-            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 1])
-            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 2])
-            logp_c  = standard_prior_dists['c'].log_prob(params[:, 3])
-            logp = logp_t0 + logp_x0 + logp_x1 + logp_c
-    else:
-        if fit_sigma:
-            logp_z  = standard_prior_dists['z'].log_prob(params[:, 0])
-            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 1])
-            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 2])
-            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 3])
-            logp_c  = standard_prior_dists['c'].log_prob(params[:, 4])
-            logp_sigma = standard_prior_dists['sigma'].log_prob(params[:, 5])
-            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma
-        else:
-            logp_z  = standard_prior_dists['z'].log_prob(params[:, 0])
-            logp_t0 = standard_prior_dists['t0'].log_prob(params[:, 1])
-            logp_x0 = standard_prior_dists['x0'].log_prob(params[:, 2])
-            logp_x1 = standard_prior_dists['x1'].log_prob(params[:, 3])
-            logp_c  = standard_prior_dists['c'].log_prob(params[:, 4])
-            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c
-    return jnp.reshape(logp, (-1,))
+    logp = 0.0
+    for i, pname in enumerate(standard_param_names):
+        logp += standard_prior_dists[pname].log_prob(params[i])
+    return logp
 
 @jax.jit
 def logprior_anomaly(params):
     """Calculate log prior probability for anomaly detection nested sampling."""
-    params = jnp.atleast_2d(params)
-    if fix_z:
-        if fit_sigma:
-            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 0])
-            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 1])
-            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 2])
-            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 3])
-            logp_sigma = anomaly_prior_dists['sigma'].log_prob(params[:, 4])
-            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 5])
-            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma + logp_logp
-        else:
-            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 0])
-            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 1])
-            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 2])
-            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 3])
-            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 4])
-            logp = logp_t0 + logp_x0 + logp_x1 + logp_c + logp_logp
-    else:
-        if fit_sigma:
-            logp_z  = anomaly_prior_dists['z'].log_prob(params[:, 0])
-            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 1])
-            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 2])
-            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 3])
-            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 4])
-            logp_sigma = anomaly_prior_dists['sigma'].log_prob(params[:, 5])
-            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 6])
-            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_sigma + logp_logp
-        else:
-            logp_z  = anomaly_prior_dists['z'].log_prob(params[:, 0])
-            logp_t0 = anomaly_prior_dists['t0'].log_prob(params[:, 1])
-            logp_x0 = anomaly_prior_dists['x0'].log_prob(params[:, 2])
-            logp_x1 = anomaly_prior_dists['x1'].log_prob(params[:, 3])
-            logp_c  = anomaly_prior_dists['c'].log_prob(params[:, 4])
-            logp_logp = anomaly_prior_dists['log_p'].log_prob(params[:, 5])
-            logp = logp_z + logp_t0 + logp_x0 + logp_x1 + logp_c + logp_logp
-    return jnp.reshape(logp, (-1,))
+    logp = 0.0
+    for i, pname in enumerate(anomaly_param_names):
+         logp += anomaly_prior_dists[pname].log_prob(params[i])
+    return logp
 
+# =============================================================================
+# Likelihood Functions (Updated)
+# =============================================================================
 @jax.jit
-def compute_single_loglikelihood_standard(params):
-    """Compute Gaussian log likelihood for a single set of parameters (standard)."""
-    if fix_z:
-        if fit_sigma:
-            t0, log_x0, x1, c, sigma = params
-        else:
-            t0, log_x0, x1, c = params
-            sigma = 1.0  # Default value when not fitting sigma
-        z = fixed_z[0]
+def compute_single_loglikelihood_standard(params, zpbandfluxes):
+    """Compute Gaussian log likelihood for standard nested sampling."""
+    # Ensure params is properly handled for both single and batched inputs
+    params = jnp.atleast_1d(params) # Use atleast_1d based on ns.py fix
+    if params.ndim > 1:
+        # If we have a batch, vmap over it
+        # Pass zpbandfluxes to the vmapped function using a lambda
+        return jax.vmap(lambda p: compute_single_loglikelihood_standard(p, zpbandfluxes))(params)
+
+    # Unpack parameters based on whether sigma and z are fixed
+    param_dict_local = {}
+    current_idx = 0
+    if not fix_z:
+        param_dict_local['z'] = params[current_idx]
+        current_idx += 1
     else:
-        if fit_sigma:
-            z, t0, log_x0, x1, c, sigma = params
-        else:
-            z, t0, log_x0, x1, c = params
-            sigma = 1.0  # Default value when not fitting sigma
-    x0 = 10 ** log_x0
-    param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
-    model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
-    model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
+        param_dict_local['z'] = fixed_z[0]
+
+    param_dict_local['t0'] = params[current_idx]
+    current_idx += 1
+    param_dict_local['x0'] = 10**params[current_idx] # log_x0 -> x0
+    current_idx += 1
+    param_dict_local['x1'] = params[current_idx]
+    current_idx += 1
+    param_dict_local['c'] = params[current_idx]
+    current_idx += 1
+
+    if fit_sigma:
+        sigma = params[current_idx]
+    else:
+        sigma = 1.0
+
+    # Calculate model fluxes (unscaled) for all observations at once
+    model_fluxes_unscaled_allbands = optimized_salt3_multiband_flux(times, bridges, param_dict_local)
+    # Select the flux for the correct band for each time point
+    model_fluxes_unscaled = model_fluxes_unscaled_allbands[jnp.arange(len(times)), band_indices]
+
+    # Apply zero-point scaling using precomputed zpbandfluxes
+    zpbf_per_time = zpbandfluxes[band_indices]
+    zpnorm_per_time = jnp.where(zpbf_per_time > 1e-30, 10**(0.4 * zps) / zpbf_per_time, 0.0)
+    model_fluxes_scaled = model_fluxes_unscaled * zpnorm_per_time
+
+    # Calculate likelihood using scaled fluxes
     eff_fluxerrs = sigma * fluxerrs
-    chi2 = jnp.sum(((fluxes - model_fluxes) / eff_fluxerrs) ** 2)
+    chi2 = jnp.sum(((fluxes - model_fluxes_scaled) / eff_fluxerrs) ** 2)
     log_likelihood = -0.5 * (chi2 + jnp.sum(jnp.log(2 * jnp.pi * eff_fluxerrs ** 2)))
     return log_likelihood
 
 @jax.jit
-def compute_batch_loglikelihood_standard(params):
-    params = jnp.atleast_2d(params)
-    batch_loglike = jax.vmap(compute_single_loglikelihood_standard)(params)
-    return jnp.reshape(batch_loglike, (-1,))
-
-@jax.jit
-def loglikelihood_standard(params):
-    params = jnp.atleast_2d(params)
-    batch_loglike = compute_batch_loglikelihood_standard(params)
-    return batch_loglike
-
-# =============================================================================
-# Anomaly detection likelihood functions (using salt3 multiband flux).
-# An extra parameter 'log_p' is used to weight the likelihood for anomalies.
-# =============================================================================
-@jax.jit
-def compute_single_loglikelihood_anomaly(params):
+def compute_single_loglikelihood_anomaly(params, zpbandfluxes):
     """Compute Gaussian log likelihood for a single set of parameters with anomaly detection."""
-    if fix_z:
-        if fit_sigma:
-            t0, log_x0, x1, c, sigma, log_p = params
-        else:
-            t0, log_x0, x1, c, log_p = params
-            sigma = 1.0  # Default value when not fitting sigma
-        z = fixed_z[0]
+    params = jnp.atleast_1d(params)
+    if params.ndim > 1:
+        return jax.vmap(lambda p: compute_single_loglikelihood_anomaly(p, zpbandfluxes))(params)
+
+    # Unpack parameters
+    param_dict_local = {}
+    current_idx = 0
+    if not fix_z:
+        param_dict_local['z'] = params[current_idx]
+        current_idx += 1
     else:
-        if fit_sigma:
-            z, t0, log_x0, x1, c, sigma, log_p = params
-        else:
-            z, t0, log_x0, x1, c, log_p = params
-            sigma = 1.0  # Default value when not fitting sigma
-    x0 = 10 ** log_x0
-    p = jnp.exp(log_p)  # Changed: Now using natural exponential
-    param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
-    model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
-    model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
+        param_dict_local['z'] = fixed_z[0]
+
+    param_dict_local['t0'] = params[current_idx]
+    current_idx += 1
+    param_dict_local['x0'] = 10**params[current_idx] # log_x0 -> x0
+    current_idx += 1
+    param_dict_local['x1'] = params[current_idx]
+    current_idx += 1
+    param_dict_local['c'] = params[current_idx]
+    current_idx += 1
+
+    if fit_sigma:
+        sigma = params[current_idx]
+        current_idx += 1
+    else:
+        sigma = 1.0
+
+    log_p = params[current_idx] # Last param is log_p
+    p = jnp.exp(log_p)
+    p = jnp.clip(p, 1e-9, 1.0 - 1e-9)
+
+    # Calculate model fluxes (unscaled)
+    model_fluxes_unscaled_allbands = optimized_salt3_multiband_flux(times, bridges, param_dict_local)
+    model_fluxes_unscaled = model_fluxes_unscaled_allbands[jnp.arange(len(times)), band_indices]
+
+    # Apply zero-point scaling
+    zpbf_per_time = zpbandfluxes[band_indices]
+    zpnorm_per_time = jnp.where(zpbf_per_time > 1e-30, 10**(0.4 * zps) / zpbf_per_time, 0.0)
+    model_fluxes_scaled = model_fluxes_unscaled * zpnorm_per_time
+
+    # Calculate likelihood using scaled fluxes, incorporating anomaly probability
     eff_fluxerrs = sigma * fluxerrs
-    point_logL = -0.5 * (((fluxes - model_fluxes) / eff_fluxerrs) ** 2) - 0.5 * jnp.log(2 * jnp.pi * eff_fluxerrs ** 2) + jnp.log(1 - p)
-    delta = jnp.max(jnp.abs(fluxes))  # Use maximum absolute flux value as delta
-    emax = point_logL > (log_p - jnp.log(delta))  # Now consistent as both are natural logs
-    logL = jnp.where(emax, point_logL, log_p - jnp.log(delta))
-    total_logL = jnp.sum(logL)
-    return total_logL, emax
 
-@jax.jit
-def compute_batch_loglikelihood_anomaly(params):
-    params = jnp.atleast_2d(params)
-    batch_loglike, batch_emax = jax.vmap(compute_single_loglikelihood_anomaly)(params)
-    return jnp.reshape(batch_loglike, (-1,)), batch_emax
+    # Standard Gaussian likelihood component
+    chi2_standard = ((fluxes - model_fluxes_scaled) / eff_fluxerrs) ** 2
+    log_likelihood_standard = -0.5 * (chi2_standard + jnp.log(2 * jnp.pi * eff_fluxerrs ** 2))
 
-@jax.jit
-def loglikelihood_anomaly(params):
-    params = jnp.atleast_2d(params)
-    batch_loglike, batch_emax = compute_batch_loglikelihood_anomaly(params)
-    return batch_loglike
+    # Outlier likelihood component (broad Gaussian)
+    flux_range = jnp.max(fluxes) - jnp.min(fluxes)
+    outlier_variance = (flux_range)**2
+    outlier_variance = jnp.maximum(outlier_variance, 1e-9)
+    chi2_outlier = ((fluxes - model_fluxes_scaled)**2) / outlier_variance
+    log_likelihood_outlier = -0.5 * (chi2_outlier + jnp.log(2 * jnp.pi * outlier_variance))
+
+    # Combine standard and outlier likelihoods
+    log_likelihood_combined = jnp.logaddexp(
+        jnp.log(1 - p) + log_likelihood_standard,
+        jnp.log(p) + log_likelihood_outlier
+    )
+
+    total_log_likelihood = jnp.sum(log_likelihood_combined)
+    return total_log_likelihood
 
 # =============================================================================
 # Function to sample from the prior distributions.
-# It chooses between the standard and anomaly priors based on the likelihood function.
 # =============================================================================
-def sample_from_priors(rng_key, n_samples, ll_fn=loglikelihood_standard):
-    if ll_fn == loglikelihood_anomaly:
-        if fix_z:
-            if fit_sigma:
-                keys = jax.random.split(rng_key, 6)
-                return jnp.column_stack([
-                    anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['sigma'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['log_p'].sample(seed=keys[5], sample_shape=(n_samples,))
-                ])
-            else:
-                keys = jax.random.split(rng_key, 5)
-                return jnp.column_stack([
-                    anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['log_p'].sample(seed=keys[4], sample_shape=(n_samples,))
-                ])
-        else:  # Add case for anomaly model when fix_z is False
-            if fit_sigma:
-                keys = jax.random.split(rng_key, 7)
-                return jnp.column_stack([
-                    anomaly_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['sigma'].sample(seed=keys[5], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['log_p'].sample(seed=keys[6], sample_shape=(n_samples,))
-                ])
-            else:
-                keys = jax.random.split(rng_key, 6)
-                return jnp.column_stack([
-                    anomaly_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                    anomaly_prior_dists['log_p'].sample(seed=keys[5], sample_shape=(n_samples,))
-                ])
-    else:  # Standard case
-        if fix_z:
-            if fit_sigma:
-                keys = jax.random.split(rng_key, 5)
-                return jnp.column_stack([
-                    standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    standard_prior_dists['sigma'].sample(seed=keys[4], sample_shape=(n_samples,))
-                ])
-            else:
-                keys = jax.random.split(rng_key, 4)
-                return jnp.column_stack([
-                    standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,))
-                ])
-        else:
-            if fit_sigma:
-                keys = jax.random.split(rng_key, 6)
-                return jnp.column_stack([
-                    standard_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    standard_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    standard_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    standard_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    standard_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,)),
-                    standard_prior_dists['sigma'].sample(seed=keys[5], sample_shape=(n_samples,))
-                ])
-            else:
-                keys = jax.random.split(rng_key, 5)
-                return jnp.column_stack([
-                    standard_prior_dists['z'].sample(seed=keys[0], sample_shape=(n_samples,)),
-                    standard_prior_dists['t0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-                    standard_prior_dists['x0'].sample(seed=keys[2], sample_shape=(n_samples,)),
-                    standard_prior_dists['x1'].sample(seed=keys[3], sample_shape=(n_samples,)),
-                    standard_prior_dists['c'].sample(seed=keys[4], sample_shape=(n_samples,))
-                ])
-
-# =============================================================================
-# Set the total number of model parameters for the standard case.
-# =============================================================================
-n_params_total = 5 if fix_z else 6
-num_mcmc_steps = n_params_total * NS_SETTINGS['num_mcmc_steps_multiplier']
+def sample_from_priors(rng_key, n_samples, param_names, prior_dists):
+    """Samples from the prior distributions for the given parameter names."""
+    keys = jax.random.split(rng_key, len(param_names))
+    samples = [prior_dists[param].sample(seed=k, sample_shape=(n_samples,))
+               for param, k in zip(param_names, keys)]
+    return jnp.column_stack(samples)
 
 # =============================================================================
 # Function to run nested sampling.
-# It initialises the BlackJAX nested sampler, runs the sampling loop,
-# and saves output chains (and weighted anomaly indicators for the anomaly run).
 # =============================================================================
-def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterations=NS_SETTINGS['max_iterations']):
-    """Run nested sampling with output directories/files including supernova name.
-    
-    Args:
-        ll_fn: Likelihood function to use
-        output_prefix: Base prefix for output directory ('chains_standard' or 'chains_anomaly')
-        sn_name: Name of the supernova (e.g. '20aai')
-        identifier: Additional string to append to output directory and filenames
-        num_iterations: Maximum number of iterations
-    """
-    # Create the main output directory
+def run_nested_sampling(ll_fn, logprior_fn, param_names, prior_dists, output_prefix, sn_name, identifier="", num_iterations=NS_SETTINGS['max_iterations']):
+    """Run nested sampling with output directories/files including supernova name."""
+
     output_dir = os.path.join("results", f"chains_{sn_name}{identifier}")
     os.makedirs(output_dir, exist_ok=True)
-    
+
     print(f"Running {output_prefix} nested sampling for {output_dir}...")
-    
-    # Select the appropriate prior and likelihood functions
-    if ll_fn == loglikelihood_anomaly:
-        logprior_fn = logprior_anomaly
-        compute_batch_ll = compute_batch_loglikelihood_anomaly
-    else:
-        logprior_fn = logprior_standard
-        compute_batch_ll = compute_batch_loglikelihood_standard
-    
+
+    n_params = len(param_names)
+    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
+
+    # Create partial function for the likelihood with zpbandfluxes bound
+    # Note: zpbandfluxes is available in the global scope where run_nested_sampling is called
+    loglikelihood_partial = partial(ll_fn, zpbandfluxes=zpbandfluxes)
+
     # Initialize nested sampling algorithm
     algo = blackjax.ns.adaptive.nss(
         logprior_fn=logprior_fn,
-        loglikelihood_fn=ll_fn,
+        loglikelihood_fn=loglikelihood_partial, # Use the partial function
         n_delete=NS_SETTINGS['n_delete'],
         num_mcmc_steps=num_mcmc_steps,
     )
-    
+
     # Initialize random key and particles
     rng_key = jax.random.PRNGKey(0)
     rng_key, init_key = jax.random.split(rng_key)
-    
+
     # Generate initial particles from prior
-    initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'], ll_fn)
+    initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'], param_names, prior_dists)
     print("Initial particles generated, shape: ", initial_particles.shape)
-    
-    # Initialize state
-    state = algo.init(initial_particles, compute_batch_ll)
-    
+
+    # Initialize state using the partial likelihood function
+    # Blackjax init expects a function that takes only params
+    state = algo.init(initial_particles, loglikelihood_partial)
+
     # Define one_step function with JIT
     @jax.jit
     def one_step(carry, xs):
         state, k = carry
         k, subk = jax.random.split(k, 2)
+        # algo.step uses the loglikelihood_fn provided during algo creation (the partial one)
         state, dead_point = algo.step(subk, state)
         return (state, k), dead_point
-        
+
     # Run nested sampling
     dead = []
-    emax_values = []  # For anomaly detection runs
-    
+
     print("Running nested sampling...")
     with tqdm.tqdm(desc="Dead points", unit=" dead points", total=num_iterations*NS_SETTINGS['n_delete']) as pbar:
         for i in range(num_iterations):
-            # Check termination criterion
             if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
                 break
-                
-            # Perform one step of nested sampling
             (state, rng_key), dead_info = one_step((state, rng_key), None)
             dead.append(dead_info)
             pbar.update(NS_SETTINGS['n_delete'])
-            
-            # For anomaly detection, store emax values
-            if ll_fn == loglikelihood_anomaly:
-                # Handle multiple deleted points when n_delete > 1
-                for j in range(len(dead_info.particles)):
-                    _, emax = compute_single_loglikelihood_anomaly(dead_info.particles[j])
-                    emax_values.append(emax)
-            
             if i % 10 == 0:
                 print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
+
     dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
     logw = log_weights(rng_key, dead)
     logZs = jax.scipy.special.logsumexp(logw, axis=0)
     print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
     print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
-    if ll_fn == loglikelihood_standard:
-        if fix_z:
-            param_names = ['t0', 'log_x0', 'x1', 'c']
-            if fit_sigma:
-                param_names.append('sigma')
-        else:
-            param_names = ['z', 't0', 'log_x0', 'x1', 'c']
-            if fit_sigma:
-                param_names.append('sigma')
-    else:
-        if fix_z:
-            param_names = ['t0', 'log_x0', 'x1', 'c']
-            if fit_sigma:
-                param_names.append('sigma')
-            param_names.append('log_p')
-        else:
-            param_names = ['z', 't0', 'log_x0', 'x1', 'c']
-            if fit_sigma:
-                param_names.append('sigma')
-            param_names.append('log_p')
-    
+
     # Save chains with the correct filename
     chains_filename = f"{output_prefix}_dead-birth.txt"
     final_path = os.path.join(output_dir, chains_filename)
-    
+
     # Extract data from dead info
     points = np.array(dead.particles)
     logls_death = np.array(dead.logL)
     logls_birth = np.array(dead.logL_birth)
-    
-    # Combine data: parameters, death likelihood, birth likelihood
-    data = np.column_stack([points, logls_death, logls_birth])
-    
-    # Save directly to final location
-    np.savetxt(final_path, data)
-    print(f"Saved {data.shape[0]} samples to {final_path}")
-    
-    if ll_fn == loglikelihood_anomaly and emax_values:
-        emax_array = jnp.stack(emax_values)
-        print(f"emax_array shape: {emax_array.shape}")
-        weights = jnp.exp(logw - jax.scipy.special.logsumexp(logw))
-        
-        # Ensure weights and emax_array have compatible shapes
-        if weights.ndim > 1:
-            weights = weights[:, 0]
-        
-        # Check if shapes are compatible
-        print(f"weights shape: {weights.shape}")
-        
-        if len(emax_array) != len(weights):
-            print(f"Warning: emax_array length ({len(emax_array)}) doesn't match weights length ({len(weights)})")
-            # Truncate or pad to make them compatible
-            min_len = min(len(emax_array), len(weights))
-            emax_array = emax_array[:min_len]
-            weights = weights[:min_len]
-            print(f"Adjusted to use first {min_len} elements")
-        
-        weighted_emax = jnp.zeros(emax_array.shape[1])
-        for i in range(emax_array.shape[1]):
-            weighted_emax = weighted_emax.at[i].set(jnp.sum(emax_array[:, i] * weights) / jnp.sum(weights))
-        print(f"weighted_emax shape: {weighted_emax.shape}")
-        emax_output_path = os.path.join(output_dir, f"{output_prefix}_weighted_emax.txt")
-        np.savetxt(emax_output_path, weighted_emax)
-        print(f"Saved weighted emax values to {emax_output_path}")
 
-def get_n_params(ll_fn):
+    # Combine data: parameters, death likelihood, birth likelihood
+    data_to_save = np.column_stack([points, logls_death, logls_birth])
+
+    # Save directly to final location
+    np.savetxt(final_path, data_to_save)
+    print(f"Saved {data_to_save.shape[0]} samples to {final_path}")
+
+    # Return samples for plotting by reading the saved file
+    # anesthetic expects the root path for the chains file
+    return read_chains(final_path, columns=param_names)
+
+
+# =============================================================================
+# Helper functions for plotting and analysis (modified)
+# =============================================================================
+
+def get_n_params(param_names):
     """Get the number of parameters being fit."""
-    if ll_fn == loglikelihood_standard:
-        if fix_z:
-            return 5 if fit_sigma else 4
-        else:
-            return 6 if fit_sigma else 5
-    else:
-        if fix_z:
-            return 6 if fit_sigma else 5
-        else:
-            return 7 if fit_sigma else 6
+    return len(param_names)
 
 def get_true_values(sn_name, data_dir='hsf_DR1/', selected_bandpasses=None):
     """
     Read the true values from the salt_fits.dat file for a given supernova.
     Only returns values for exactly matching bandpass combinations.
-    
-    Args:
-        sn_name: Name of the supernova (e.g., '21yrf')
-        data_dir: Base directory containing the data
-        selected_bandpasses: List of bandpass names being used in the analysis
-        
-    Returns:
-        Dictionary with true parameter values or None if no matching bandpass combination found
     """
     if selected_bandpasses is None:
+        print("Warning: No selected_bandpasses provided to get_true_values. Cannot find true values.")
         return None
-        
-    salt_fits_path = os.path.join(data_dir, 'Ia', sn_name, 'salt_fits.dat')
-    
+
+    project_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    salt_fits_path = os.path.join(project_root_dir, data_dir, 'Ia', sn_name, 'salt_fits.dat')
+
+    if not os.path.exists(salt_fits_path):
+        print(f"Warning: salt_fits.dat not found at {salt_fits_path}")
+        return None
+
     try:
-        # Read the entire file content
-        with open(salt_fits_path, 'r') as f:
-            lines = f.readlines()
-            
-        # Debug: Print raw file contents
-        print("\nRaw file contents:")
-        for line in lines[:5]:  # Print first 5 lines
-            print(line.strip())
-            
-        # Parse header
+        with open(salt_fits_path, 'r') as f: lines = f.readlines()
         header = lines[0].strip().split()
-        print("\nHeader:", header)
-        
-        # Sort bandpasses to ensure consistent ordering
-        selected_bandpasses = sorted(selected_bandpasses)
-        target_bps = '-'.join(selected_bandpasses)
-        
-        # Find matching row
+        selected_bandpasses_sorted = sorted(selected_bandpasses)
+        target_bps = '-'.join(selected_bandpasses_sorted)
+
         matching_row = None
-        for line in lines[1:]:  # Skip header
+        for line in lines[1:]:
             values = line.strip().split()
-            if values[0] == target_bps:  # bps_used is always the first column
+            if not values: continue
+            # Sort the bands listed in the file's first column
+            file_bps_sorted = '-'.join(sorted(values[0].split('-')))
+            if file_bps_sorted == target_bps:
                 matching_row = values
                 break
-                
+
         if matching_row is None:
+            print(f"Warning: No matching band combination '{target_bps}' found in {salt_fits_path}")
             return None
-            
-        # Get the values from the correct columns
-        # The columns are:
-        # bps_used variant success reddening_law t0 e_t0 x0_mag e_x0_mag x1 e_x1 c e_c ...
-        # So: t0 is column 4, x0_mag is column 6, x1 is column 8, c is column 10
-        t0 = float(matching_row[3])  # t0 is in column 3 NOTE that the column headings are 
-        x0_mag = float(matching_row[5])  # x0_mag is in column 5
-        x1 = float(matching_row[8])  # x1 is in column 8
-        c = float(matching_row[10])  # c is in column 10
-        
-        print("\nMatching row found:")
-        print(f"bps_used: {matching_row[0]}")
-        print(f"t0: {t0}")
-        print(f"x0_mag: {x0_mag}")
-        print(f"x1: {x1}")
-        print(f"c: {c}")
-        
-        # Create dictionary with parameter values
-        true_values = {
-            't0': t0,
-            'log_x0': -x0_mag / 2.5,  # Convert x0_mag to log_x0
-            'x1': x1,
-            'c': c
-        }
-            
+
+        try:
+            t0_idx = header.index('t0')
+            x0_mag_idx = header.index('x0_mag')
+            x1_idx = header.index('x1')
+            c_idx = header.index('c')
+            t0 = float(matching_row[t0_idx])
+            x0_mag = float(matching_row[x0_mag_idx])
+            x1 = float(matching_row[x1_idx])
+            c = float(matching_row[c_idx])
+        except (ValueError, IndexError) as e:
+             print(f"Error parsing matching row in {salt_fits_path}: {e}")
+             return None
+
+        true_values = {'t0': t0, 'log_x0': -x0_mag / 2.5, 'x1': x1, 'c': c}
         return true_values
-        
+
     except Exception as e:
         print(f"\nError in get_true_values: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return None
 
 def plot_x0mag_dm_relationship(output_dir):
-    """
-    Create a plot showing the relationship between x0_mag and DM.
-    
-    Args:
-        output_dir: Directory to save the plot
-    """
+    """ Create a plot showing the relationship between x0_mag and DM. """
     try:
-        # Create a range of x0_mag values
         x0_mag_values = np.linspace(8, 10, 100)
-        
-        # Calculate corresponding DM values (DM = x0_mag + 21.01)
-        dm_values = x0_mag_values + 21.01
-        
-        # Create the plot
+        dm_values = x0_mag_values + 21.01 # Assuming fixed relation
         plt.figure(figsize=(10, 6))
         plt.plot(x0_mag_values, dm_values, 'b-', linewidth=2)
         plt.xlabel('x0_mag = -2.5 * log10(x0)', fontsize=12)
         plt.ylabel('Distance Modulus (DM)', fontsize=12)
         plt.title('Relationship between x0_mag and Distance Modulus', fontsize=14)
         plt.grid(True, alpha=0.3)
-        
-        # Add text explaining the relationship
         plt.text(0.05, 0.95, 'DM = x0_mag + 21.01', transform=plt.gca().transAxes,
                 fontsize=12, bbox=dict(facecolor='white', alpha=0.8))
-        
-        # Save the plot
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, 'x0mag_dm_relationship.png'), dpi=300, bbox_inches='tight')
         plt.close()
-        
         print(f"Saved x0_mag vs DM relationship plot to {os.path.join(output_dir, 'x0mag_dm_relationship.png')}")
-        
     except Exception as e:
         print(f"Warning: Failed to create x0_mag vs DM relationship plot - {str(e)}")
         plt.close()
 
 def plot_samples_x0mag_dm(standard_samples, anomaly_samples, true_values, output_dir):
-    """
-    Create a scatter plot of the samples showing x0_mag vs DM.
-    
-    Args:
-        standard_samples: Samples from standard nested sampling
-        anomaly_samples: Samples from anomaly nested sampling
-        true_values: Dictionary with true parameter values
-        output_dir: Directory to save the plot
-    """
+    """ Create a scatter plot of the samples showing x0_mag vs DM. """
     try:
-        if (standard_samples is None or 'log_x0' not in standard_samples.columns) and \
-           (anomaly_samples is None or 'log_x0' not in anomaly_samples.columns):
+        has_std_x0 = standard_samples is not None and 'log_x0' in standard_samples.columns
+        has_anom_x0 = anomaly_samples is not None and 'log_x0' in anomaly_samples.columns
+        if not has_std_x0 and not has_anom_x0:
             print("Warning: log_x0 not found in samples - skipping x0_mag vs DM scatter plot")
             return
-            
+
         plt.figure(figsize=(10, 8))
-        
-        # Calculate x0_mag and DM for standard samples
-        if standard_samples is not None and 'log_x0' in standard_samples.columns:
+        x0_mag_std, dm_std = (None, None)
+        x0_mag_anom, dm_anom = (None, None)
+
+        if has_std_x0:
             x0_mag_std = -2.5 * standard_samples['log_x0']
             dm_std = x0_mag_std + 21.01
             plt.scatter(x0_mag_std, dm_std, alpha=0.5, label='Standard', s=10)
-        
-        # Calculate x0_mag and DM for anomaly samples
-        if anomaly_samples is not None and 'log_x0' in anomaly_samples.columns:
+
+        if has_anom_x0:
             x0_mag_anom = -2.5 * anomaly_samples['log_x0']
             dm_anom = x0_mag_anom + 21.01
             plt.scatter(x0_mag_anom, dm_anom, alpha=0.5, label='Anomaly', s=10)
-        
-        # Add true value if available
+
         if true_values and 'log_x0' in true_values:
             true_x0_mag = -2.5 * true_values['log_x0']
             true_dm = true_x0_mag + 21.01
-            plt.scatter([true_x0_mag], [true_dm], color='red', marker='*', s=200, 
-                       label='True Value', zorder=10)
-        
-        # Add the DM = x0_mag + 21.01 line
-        x_range = plt.xlim()
-        x_vals = np.linspace(x_range[0], x_range[1], 100)
-        plt.plot(x_vals, x_vals + 21.01, 'k--', label='DM = x0_mag + 21.01')
-        
+            plt.scatter([true_x0_mag], [true_dm], color='red', marker='*', s=200, label='True Value', zorder=10)
+
+        # Determine plot limits based on available data
+        all_x0_mags = []
+        if x0_mag_std is not None: all_x0_mags.extend(x0_mag_std)
+        if x0_mag_anom is not None: all_x0_mags.extend(x0_mag_anom)
+        if all_x0_mags:
+             x_min, x_max = np.min(all_x0_mags), np.max(all_x0_mags)
+             x_pad = (x_max - x_min) * 0.05 # Add padding
+             x_vals = np.linspace(x_min - x_pad, x_max + x_pad, 100)
+             plt.plot(x_vals, x_vals + 21.01, 'k--', label='DM = x0_mag + 21.01')
+             plt.xlim(x_min - x_pad, x_max + x_pad) # Set xlim based on data
+             plt.ylim(x_min + 21.01 - x_pad, x_max + 21.01 + x_pad) # Set ylim based on data
+
         plt.xlabel('x0_mag = -2.5 * log10(x0)', fontsize=12)
         plt.ylabel('Distance Modulus (DM = x0_mag + 21.01)', fontsize=12)
         plt.title('Relationship between x0_mag and Distance Modulus in Samples', fontsize=14)
         plt.grid(True, alpha=0.3)
         plt.legend()
-        
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, 'samples_x0mag_dm.png'), dpi=300, bbox_inches='tight')
         plt.close()
-        
         print(f"Saved samples x0_mag vs DM plot to {os.path.join(output_dir, 'samples_x0mag_dm.png')}")
-        
+
     except Exception as e:
         print(f"Warning: Failed to create samples x0_mag vs DM plot - {str(e)}")
         plt.close()
 
+def get_model_curve(samples, param_names_for_model):
+    """Get model curve for median parameters."""
+    params = {}
+    # Use median (50th percentile) for robustness
+    percentile = 50
+
+    # Ensure samples is a DataFrame if it's anesthetic object
+    if hasattr(samples, 'dataframe'):
+        samples_df = samples.dataframe
+    else:
+        samples_df = samples # Assume it's already a DataFrame or similar
+
+    for param in param_names_for_model:
+        if param in samples_df.columns:
+             params[param] = float(np.percentile(samples_df[param], percentile))
+        else:
+             print(f"Warning: Parameter '{param}' not found in samples for get_model_curve.")
+             continue
+
+    # Convert log_x0 to x0 if present
+    if 'log_x0' in params:
+        params['x0'] = 10**params['log_x0']
+        del params['log_x0']
+
+    # Ensure required base parameters are present or defaulted
+    if fix_z:
+        params['z'] = fixed_z[0]
+    elif 'z' not in params:
+         raise ValueError("Redshift 'z' missing from parameters and not fixed.")
+
+    if 't0' not in params: raise ValueError("'t0' missing from parameters.")
+    if 'x0' not in params: raise ValueError("'x0' (derived from log_x0) missing from parameters.")
+    if 'x1' not in params: raise ValueError("'x1' missing from parameters.")
+    if 'c' not in params: raise ValueError("'c' missing from parameters.")
+
+    # Remove log_p if it accidentally got included
+    if 'log_p' in params: del params['log_p']
+    # Handle sigma
+    if 'sigma' not in params and not fit_sigma:
+        params['sigma'] = 1.0
+    elif 'sigma' not in params and fit_sigma:
+        print("Warning: fit_sigma is True but 'sigma' not found in median params. Using default 1.0.")
+        params['sigma'] = 1.0
+
+    return params
+
+# =============================================================================
+# Main execution block
+# =============================================================================
 if __name__ == "__main__":
     # Add an identifier for this run (e.g. date, version, etc)
-    identifier = "_tes"  # You can modify this or pass it as a command line argument
-    
-    print("\nRunning anomaly detection version...")
-    n_params = get_n_params(loglikelihood_anomaly)
-    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
-    anomaly_samples = run_nested_sampling(loglikelihood_anomaly, "chains_anomaly", sn_name, identifier)
+    identifier = "_update_test" # Changed identifier
 
-    print("Running standard version...")
-    n_params = get_n_params(loglikelihood_standard)
-    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
-    standard_samples = run_nested_sampling(loglikelihood_standard, "chains_standard", sn_name, identifier)
+    # --- Run Anomaly Model (if selected) ---
+    anomaly_samples = None
+    if fit_anomaly:
+        print("\nRunning anomaly detection version...")
+        anomaly_samples = run_nested_sampling(
+            ll_fn=compute_single_loglikelihood_anomaly, # Pass original function object
+            logprior_fn=logprior_anomaly,
+            param_names=anomaly_param_names,
+            prior_dists=anomaly_prior_dists,
+            output_prefix="chains_anomaly",
+            sn_name=sn_name,
+            identifier=identifier
+        )
 
+    # --- Run Standard Model ---
+    print("\nRunning standard version...")
+    standard_samples = run_nested_sampling(
+        ll_fn=compute_single_loglikelihood_standard, # Pass original function object
+        logprior_fn=logprior_standard,
+        param_names=standard_param_names,
+        prior_dists=standard_prior_dists,
+        output_prefix="chains_standard",
+        sn_name=sn_name,
+        identifier=identifier
+    )
+
+    # --- Plotting and Analysis ---
     print("\nGenerating plots...")
-    # Define output directory
     output_dir = f'results/chains_{sn_name}{identifier}'
-    
-    # Create the output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
-    # Define parameter names based on settings
-    if fix_z:
-        base_params = ['t0', 'log_x0', 'x1', 'c']
-    else:
-        base_params = ['z', 't0', 'log_x0', 'x1', 'c']
-
-    if fit_sigma:
-        base_params.append('sigma')
-        
-    # Get true values from salt_fits.dat with matching bandpasses
-    true_values = get_true_values(sn_name, selected_bandpasses=selected_bandpasses)
+    # Get true values if possible
+    true_values = get_true_values(sn_name, selected_bandpasses=unique_bands)
     print(f"True values from salt_fits.dat: {true_values}")
 
-    # Try to load weighted emax values and create initial plot
-    try:
-        weighted_emax = np.loadtxt(f'{output_dir}/chains_anomaly_weighted_emax.txt')
-        
-        plt.figure(figsize=(12, 6))
-        plt.plot(np.arange(len(weighted_emax)), weighted_emax, 'k-', linewidth=2)
-        plt.fill_between(np.arange(len(weighted_emax)), 0, weighted_emax, alpha=0.3)
-        plt.xlabel('Data Point Number')
-        plt.ylabel('Weighted Emax')
-        plt.title('Weighted Emax by Data Point')
-        plt.grid(True, alpha=0.3)
-        plt.savefig(f'{output_dir}/weighted_emax.png', dpi=300, bbox_inches='tight')
-    except FileNotFoundError:
-        print("Warning: Weighted emax file not found - skipping initial emax plot")
+    # Check if samples were loaded correctly
+    have_standard = standard_samples is not None
+    have_anomaly = anomaly_samples is not None
 
-    # Try to load standard chains
-    try:
-        standard_samples = read_chains(f'{output_dir}/chains_standard', columns=base_params)
-        have_standard = True
-    except FileNotFoundError:
-        print("Warning: Standard chains not found - some plots will be incomplete")
-        have_standard = False
-        standard_samples = None
+    # Parameter names for plotting (common base parameters)
+    plot_param_names = standard_param_names if have_standard else anomaly_param_names
+    # Remove parameters not common or not desired in comparison plot
+    params_to_remove_from_plot = ['log_p']
+    if not fit_sigma: params_to_remove_from_plot.append('sigma')
+    plot_param_names = [p for p in plot_param_names if p not in params_to_remove_from_plot]
 
-    # Try to load anomaly chains with log_p parameter
-    try:
-        anomaly_params = base_params + ['log_p']
-        anomaly_samples = read_chains(f'{output_dir}/chains_anomaly', columns=anomaly_params)
-        have_anomaly = True
-    except FileNotFoundError:
-        print("Warning: Anomaly chains not found - some plots will be incomplete")
-        have_anomaly = False
-        anomaly_samples = None
-
-    # Use the appropriate parameter names for plotting
-    param_names = base_params  # Only plot the common parameters between both chains
 
     # Only create corner plot if we have at least one set of chains
     if have_standard or have_anomaly:
-        # Create overlaid corner plot
         try:
-            # Convert log_x0 to x0_mag in the samples for plotting
-            plot_param_names = param_names.copy()
-            
-            # Replace log_x0 with x0_mag in the parameter names list
-            if 'log_x0' in plot_param_names:
-                plot_param_names[plot_param_names.index('log_x0')] = 'x0_mag'
-            
-            # Create a copy of the samples with x0_mag instead of log_x0
-            if have_standard:
-                standard_plot_samples = standard_samples.copy()
-                if 'log_x0' in standard_plot_samples.columns:
+            plot_param_names_for_corner = plot_param_names.copy()
+            plot_true_values_for_corner = true_values.copy() if true_values else {}
+            standard_plot_samples = None
+            anomaly_plot_samples_for_comp = None # Use a different var for the comparison plot samples
+
+            # Convert log_x0 to x0_mag for plotting
+            if 'log_x0' in plot_param_names_for_corner:
+                x0_mag_idx = plot_param_names_for_corner.index('log_x0')
+                plot_param_names_for_corner[x0_mag_idx] = 'x0_mag'
+                if plot_true_values_for_corner and 'log_x0' in plot_true_values_for_corner:
+                    plot_true_values_for_corner['x0_mag'] = -2.5 * plot_true_values_for_corner['log_x0']
+                    del plot_true_values_for_corner['log_x0']
+                if have_standard:
+                    standard_plot_samples = standard_samples.copy()
                     standard_plot_samples['x0_mag'] = -2.5 * standard_plot_samples['log_x0']
                     standard_plot_samples = standard_plot_samples.drop(columns=['log_x0'])
-            
-            if have_anomaly:
-                anomaly_plot_samples = anomaly_samples.copy()
-                if 'log_x0' in anomaly_plot_samples.columns:
-                    anomaly_plot_samples['x0_mag'] = -2.5 * anomaly_plot_samples['log_x0']
-                    anomaly_plot_samples = anomaly_plot_samples.drop(columns=['log_x0'])
-            
-            # Convert true values from log_x0 to x0_mag if needed
-            plot_true_values = true_values.copy() if true_values else {}
-            if 'log_x0' in plot_true_values:
-                plot_true_values['x0_mag'] = -2.5 * plot_true_values['log_x0']
-                del plot_true_values['log_x0']
-            
-            fig, axes = make_2d_axes(plot_param_names, figsize=(10, 10), facecolor='w')
-            
-            # Plot standard samples if available
-            if have_standard:
-                try:
-                    standard_plot_samples.plot_2d(axes, alpha=0.7, label="Standard")
-                except Exception as e:
-                    print(f"Warning: Failed to plot standard samples in corner plot - {str(e)}")
-            
-            # Plot anomaly samples if available
-            if have_anomaly:
-                try:
-                    anomaly_plot_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
-                except Exception as e:
-                    print(f"Warning: Failed to plot anomaly samples in corner plot - {str(e)}")
-            
-            # Add true values as reference lines if available
-            if plot_true_values:
-                for param in plot_param_names:
-                    if param in plot_true_values:
-                        # Add individual parameter lines
-                        axes.axlines({param: plot_true_values[param]}, c='green', linestyle='--', 
-                                    linewidth=2, alpha=1.0, zorder=10, label='True values')
-                
-                # Add joint parameter lines for each pair of parameters
-                for i, param1 in enumerate(plot_param_names):
-                    if param1 not in plot_true_values:
-                        continue
-                    for param2 in plot_param_names[i+1:]:
-                        if param2 not in plot_true_values:
-                            continue
-                        axes.axlines({param1: plot_true_values[param1], param2: plot_true_values[param2]}, 
-                                    c='green', linestyle='--', linewidth=2, alpha=1.0, zorder=10)
-            
-            # Add legend with unique labels
+                if have_anomaly:
+                    # Select only common columns for comparison plot
+                    anomaly_plot_samples_for_comp = anomaly_samples.copy()
+                    anomaly_plot_samples_for_comp['x0_mag'] = -2.5 * anomaly_plot_samples_for_comp['log_x0']
+                    # Drop columns not in plot_param_names_for_corner (like log_p, maybe sigma)
+                    cols_to_drop = [c for c in anomaly_plot_samples_for_comp.columns if c not in plot_param_names_for_corner and c != 'x0_mag']
+                    if 'log_x0' in cols_to_drop: cols_to_drop.remove('log_x0') # Keep log_x0 if needed for x0_mag calc
+                    anomaly_plot_samples_for_comp = anomaly_plot_samples_for_comp.drop(columns=cols_to_drop)
+
+            else: # If no log_x0, use original samples
+                 if have_standard: standard_plot_samples = standard_samples
+                 if have_anomaly: 
+                     anomaly_plot_samples_for_comp = anomaly_samples.copy()
+                     cols_to_drop = [c for c in anomaly_plot_samples_for_comp.columns if c not in plot_param_names_for_corner]
+                     anomaly_plot_samples_for_comp = anomaly_plot_samples_for_comp.drop(columns=cols_to_drop)
+
+
+            fig, axes = make_2d_axes(plot_param_names_for_corner, figsize=(10, 10), facecolor='w')
+
+            if have_standard: standard_plot_samples.plot_2d(axes, alpha=0.7, label="Standard")
+            if have_anomaly: anomaly_plot_samples_for_comp.plot_2d(axes, alpha=0.7, label="Anomaly") # Plot modified samples
+
+            if plot_true_values_for_corner:
+                 axes.axlines(plot_true_values_for_corner, c='green', linestyle='--', linewidth=2, alpha=1.0, zorder=10, label='True values')
+
             handles, labels = axes.iloc[-1, 0].get_legend_handles_labels()
             by_label = dict(zip(labels, handles))
-            axes.iloc[-1, 0].legend(by_label.values(), by_label.keys(), 
-                                   bbox_to_anchor=(len(axes)/2, len(axes)), 
-                                   loc='lower center', ncol=3)
-            
+            axes.iloc[-1, 0].legend(by_label.values(), by_label.keys(), bbox_to_anchor=(len(axes)/2, len(axes)), loc='lower center', ncol=3)
+
             plt.savefig(f'{output_dir}/corner_comparison.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.close(fig)
         except Exception as e:
             print(f"Warning: Failed to create corner comparison plot - {str(e)}")
+            if 'fig' in locals() and plt.fignum_exists(fig.number): plt.close(fig)
 
-    # Create anomaly corner plot only if we have anomaly chains
+    # Create anomaly corner plot only if anomaly run was successful
     if have_anomaly and 'log_p' in anomaly_samples.columns:
         try:
-            # Create parameter list with x0_mag instead of log_x0
-            log_p_params = base_params.copy()
-            if 'log_x0' in log_p_params:
-                log_p_params[log_p_params.index('log_x0')] = 'x0_mag'
-            log_p_params.append('log_p')
-            
-            # Use the previously created anomaly_plot_samples that has x0_mag
-            fig, axes = make_2d_axes(log_p_params, figsize=(12, 12), facecolor='w')
-            anomaly_plot_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
-            
-            # Add true values as reference lines if available
-            if plot_true_values:
-                for param in log_p_params:
-                    if param in plot_true_values:
-                        # Add individual parameter lines
-                        axes.axlines({param: plot_true_values[param]}, c='green', linestyle='--', 
-                                    linewidth=2, alpha=1.0, zorder=10, label='True values')
-                
-                # Add joint parameter lines for each pair of parameters
-                for i, param1 in enumerate(log_p_params):
-                    if param1 not in plot_true_values:
-                        continue
-                    for param2 in log_p_params[i+1:]:
-                        if param2 not in plot_true_values:
-                            continue
-                        axes.axlines({param1: plot_true_values[param1], param2: plot_true_values[param2]}, 
-                                    c='green', linestyle='--', linewidth=2, alpha=1.0, zorder=10)
-            
-            plt.suptitle('Anomaly Detection Corner Plot (including log_p)', fontsize=14)
-            
-            # Add legend with unique labels
-            handles, labels = axes.iloc[-1, 0].get_legend_handles_labels()
+            anom_plot_params = anomaly_param_names.copy()
+            anom_plot_true = true_values.copy() if true_values else {}
+            anom_plot_samples = anomaly_samples.copy() # Use original anomaly samples
+
+            if 'log_x0' in anom_plot_params:
+                anom_plot_params[anom_plot_params.index('log_x0')] = 'x0_mag'
+                if anom_plot_true and 'log_x0' in anom_plot_true:
+                    anom_plot_true['x0_mag'] = -2.5 * anom_plot_true['log_x0']
+                    del anom_plot_true['log_x0']
+                anom_plot_samples['x0_mag'] = -2.5 * anom_plot_samples['log_x0']
+                anom_plot_samples = anom_plot_samples.drop(columns=['log_x0'])
+
+            fig_anom, axes_anom = make_2d_axes(anom_plot_params, figsize=(12, 12), facecolor='w')
+            anom_plot_samples.plot_2d(axes_anom, alpha=0.7, label="Anomaly")
+
+            if anom_plot_true:
+                 axes_anom.axlines(anom_plot_true, c='green', linestyle='--', linewidth=2, alpha=1.0, zorder=10, label='True values')
+
+            plt.suptitle('Anomaly Detection Corner Plot', fontsize=14)
+            handles, labels = axes_anom.iloc[-1, 0].get_legend_handles_labels()
             by_label = dict(zip(labels, handles))
-            axes.iloc[-1, 0].legend(by_label.values(), by_label.keys(), 
-                                   bbox_to_anchor=(len(axes)/2, len(axes)), 
-                                   loc='lower center', ncol=2)
-            
+            axes_anom.iloc[-1, 0].legend(by_label.values(), by_label.keys(), bbox_to_anchor=(len(axes_anom)/2, len(axes_anom)), loc='lower center', ncol=2)
+
             plt.savefig(f'{output_dir}/corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.close(fig_anom)
         except Exception as e:
             print(f"Warning: Failed to create anomaly corner plot - {str(e)}")
+            if 'fig_anom' in locals() and plt.fignum_exists(fig_anom.number): plt.close(fig_anom)
 
-    def get_model_curve(samples, percentile=50):
-        """Get model curve for given percentile of parameters."""
-        params = {}
-        for param in param_names:
-            if param != 'log_p':  # Skip logp as it's not needed for the model
-                params[param] = float(np.percentile(samples[param], percentile))
-        if 'log_x0' in params:
-            # Convert log_x0 to x0 for the model calculation
-            params['x0'] = 10**params['log_x0']
-            # Also store x0_mag for plotting
-            params['x0_mag'] = -2.5 * params['log_x0']
-            del params['log_x0']  # Remove log_x0 as we now have x0
-        if fix_z:
-            params['z'] = fixed_z[0]
-        if not fit_sigma:
-            params['sigma'] = 1.0  # Add default sigma if not fitted
-        return params
-
+    # Create Light Curve Plot
     try:
-        # Create time grid for smooth model curves
         t_min = np.min(times) - 5
         t_max = np.max(times) + 5
         t_grid = np.linspace(t_min, t_max, 100)
+        n_bands_plot = len(unique_bands) # Use the reconstructed unique_bands
 
-        # Get unique band indices
-        unique_band_indices = np.unique(band_indices)
-        n_bands = len(unique_band_indices)
-        
-        # Use the actual band names from the data loading part
-        # These are stored in the unique_bands variable from custom_load_and_process_data
-        print(f"Using band names for plotting: {unique_bands}")
-        
-        # Set up the plot with two subplots
-        fig = plt.figure(figsize=(15, 12))
-        gs = plt.GridSpec(2, 1, height_ratios=[4, 1], hspace=0.1)
+        fig_lc = plt.figure(figsize=(15, 8)) # Adjusted size
+        ax_lc = fig_lc.add_subplot(111)
 
-        # Main light curve plot
-        ax1 = plt.subplot(gs[0])
+        default_colours = plt.cm.tab10.colors
+        default_markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', 'h', '*']
+        colours = [default_colours[i % len(default_colours)] for i in range(n_bands_plot)]
+        markers = [default_markers[i % len(default_markers)] for i in range(n_bands_plot)]
 
-        # Define colours for each band
-        default_colours = ['g', 'c', 'orange', 'r']
-        default_markers = ['o', 's', 'D', '^']
-        
-        # Ensure we have enough colours and markers for all bands
-        if n_bands > len(default_colours):
-            colours = plt.cm.tab10(np.linspace(0, 1, n_bands))
-            markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', 'h', '8'][:n_bands]
-        else:
-            colours = default_colours[:n_bands]
-            markers = default_markers[:n_bands]
+        # Plot data points
+        for i, band_name in enumerate(unique_bands):
+             mask = band_indices == i
+             if not np.any(mask): continue
+             ax_lc.errorbar(times[mask], fluxes[mask], yerr=fluxerrs[mask],
+                           fmt=markers[i], color=colours[i], label=f'{band_name} Data',
+                           markersize=8, alpha=0.6)
 
-        # Load weighted emax values first to identify anomalous points
-        try:
-            weighted_emax = np.loadtxt(f'{output_dir}/chains_anomaly_weighted_emax.txt')
-            plotting_threshold = 0.2
-            
-            # Count total anomalous points
-            total_anomalous_points = 0
-            
-            # Create time points that match the actual data points
-            all_times = np.sort(np.unique(times))
-            if len(all_times) != len(weighted_emax):
-                print(f"Warning: Number of unique time points ({len(all_times)}) "
-                      f"doesn't match number of weighted_emax values ({len(weighted_emax)})")
-            
-            # Create time points for the emax plot - using actual data time points
-            emax_times = all_times
-        except FileNotFoundError:
-            print("Warning: Weighted emax file not found")
-            weighted_emax = None
+        # Plot model curves
+        if have_standard:
+            try:
+                params_std = get_model_curve(standard_samples, standard_param_names)
+                model_fluxes_std_unscaled = optimized_salt3_multiband_flux(jnp.array(t_grid), bridges, params_std)
+                # Apply ZP scaling for the grid
+                zpbf_grid = zpbandfluxes # Assuming zpbandfluxes corresponds to bridges order
+                # Use mean zp for scaling the grid curve - this might not be ideal
+                mean_zp = np.mean(zps)
+                zpnorm_grid = jnp.where(zpbf_grid > 1e-30, 10**(0.4 * mean_zp) / zpbf_grid, 0.0)
+                model_fluxes_std_scaled = model_fluxes_std_unscaled * zpnorm_grid[None, :]
+                for i, band_name in enumerate(unique_bands):
+                    ax_lc.plot(t_grid, model_fluxes_std_scaled[:, i], '--', color=colours[i], label=f'{band_name} Standard Fit', linewidth=2, alpha=0.8)
+            except Exception as e:
+                 print(f"Warning: Failed to plot standard model curve - {str(e)}")
 
-        # Plot data points for each band
-        try:
-            # Dictionary to track points below threshold for each band
-            band_threshold_counts = {}
-            band_total_counts = {}
-            
-            for i, band_idx in enumerate(unique_band_indices):
-                mask = band_indices == band_idx
-                band_times = times[mask]
-                band_fluxes = fluxes[mask]
-                band_errors = fluxerrs[mask]
-                
-                # Get the actual band name from unique_bands
-                band_name = unique_bands[i]
-                print(f"Plotting band: {band_name}")
-                
-                # Initialize count for this band
-                band_threshold_counts[band_name] = 0
+        if have_anomaly:
+             try:
+                params_anom = get_model_curve(anomaly_samples, anomaly_param_names)
+                model_fluxes_anom_unscaled = optimized_salt3_multiband_flux(jnp.array(t_grid), bridges, params_anom)
+                zpbf_grid = zpbandfluxes
+                mean_zp = np.mean(zps)
+                zpnorm_grid = jnp.where(zpbf_grid > 1e-30, 10**(0.4 * mean_zp) / zpbf_grid, 0.0)
+                model_fluxes_anom_scaled = model_fluxes_anom_unscaled * zpnorm_grid[None, :]
+                for i, band_name in enumerate(unique_bands):
+                    ax_lc.plot(t_grid, model_fluxes_anom_scaled[:, i], '-', color=colours[i], label=f'{band_name} Anomaly Fit', linewidth=2, alpha=0.8)
+             except Exception as e:
+                 print(f"Warning: Failed to plot anomaly model curve - {str(e)}")
 
-                if weighted_emax is not None:
-                    # Map each data point to its index in the sorted unique times
-                    time_indices = np.searchsorted(all_times, band_times)
-                    # Ensure indices are within bounds
-                    time_indices = np.clip(time_indices, 0, len(weighted_emax) - 1)
-                    # Get the emax value for each point
-                    point_emax = weighted_emax[time_indices]
-                    
-                    # Determine which points are anomalous
-                    normal_mask = point_emax >= plotting_threshold
-                    anomaly_mask = point_emax < plotting_threshold
-                    
-                    # Update total count and band-specific count
-                    total_anomalous_points += np.sum(anomaly_mask)
-                    band_threshold_counts[band_name] = np.sum(anomaly_mask)
 
-                    # Plot normal points
-                    if np.any(normal_mask):
-                        ax1.errorbar(band_times[normal_mask], band_fluxes[normal_mask], 
-                                   yerr=band_errors[normal_mask],
-                                   fmt=markers[i], color=colours[i], 
-                                   label=f'{band_name} Data',
-                                   markersize=8, alpha=0.6)
-                    
-                    # Plot anomalous points with star markers
-                    if np.any(anomaly_mask):
-                        label = f'{band_name} Anomalous' if np.any(normal_mask) else f'{band_name} Data'
-                        ax1.errorbar(band_times[anomaly_mask], band_fluxes[anomaly_mask], 
-                                   yerr=band_errors[anomaly_mask],
-                                   fmt='*', color=colours[i], 
-                                   label=label,
-                                   markersize=15, alpha=0.8)
-                else:
-                    # Plot all points normally if no weighted_emax available
-                    ax1.errorbar(band_times, band_fluxes, yerr=band_errors,
-                               fmt=markers[i], color=colours[i], label=f'{band_name} Data',
-                               markersize=8, alpha=0.6)
-        except Exception as e:
-            print(f"Warning: Failed to plot some data points - {str(e)}")
+        ax_lc.set_xlabel('MJD', fontsize=12)
+        ax_lc.set_ylabel('Flux (Scaled by Mean ZP)', fontsize=12) # Indicate scaling method
+        title_lc = f'Light Curve Fit Comparison for {sn_name}'
+        if fix_z and fixed_z is not None: title_lc += f' (z = {fixed_z[0]:.4f})'
+        ax_lc.set_title(title_lc, fontsize=14)
 
-        # Calculate and plot model curves for both standard and anomaly if available
-        if have_standard or have_anomaly:
-            for name, samples, has_samples in [
-                ("Standard", standard_samples, have_standard), 
-                ("Anomaly", anomaly_samples, have_anomaly)
-            ]:
-                if has_samples:
-                    try:
-                        params = get_model_curve(samples)
-                        linestyle = '--' if name == "Standard" else '-'
-                        
-                        for i in range(n_bands):
-                            try:
-                                # Get the actual band name from unique_bands
-                                band_name = unique_bands[i]
-                                
-                                # Calculate model fluxes
-                                model_fluxes = optimized_salt3_multiband_flux(
-                                    jnp.array(t_grid),
-                                    bridges,
-                                    params,
-                                    zps=zps,
-                                    zpsys='ab'
-                                )
-                                
-                                # Extract fluxes for this band
-                                band_fluxes = model_fluxes[:, i]
-                                
-                                # Plot model curve
-                                ax1.plot(t_grid, band_fluxes, linestyle, color=colours[i], 
-                                        label=f'{band_name} {name}', linewidth=2, alpha=0.8)
-                            except Exception as e:
-                                print(f"Warning: Failed to plot {name} model curve for band {i} - {str(e)}")
-                                continue
-                    except Exception as e:
-                        print(f"Warning: Failed to plot {name} model curves - {str(e)}")
-                        continue
+        # Consolidate legend
+        handles_lc, labels_lc = ax_lc.get_legend_handles_labels()
+        by_label_lc = dict(zip(labels_lc, handles_lc))
+        ax_lc.legend(by_label_lc.values(), by_label_lc.keys(), ncol=2, fontsize=10)
 
-        # Add labels and title to main plot
-        ax1.set_xlabel('MJD', fontsize=12)
-        ax1.set_ylabel('Flux', fontsize=12)
-        title = 'Light Curve Fit Comparison'
-        if fix_z:
-            title += f' (z = {fixed_z[0]:.4f})'
-        ax1.set_title(title, fontsize=14)
-
-        # Add annotation for points below threshold per band in the top left of the main plot
-        if weighted_emax is not None:
-            threshold_text = "Points below threshold:\n"
-            for band_name, count in band_threshold_counts.items():
-                threshold_text += f"{band_name}: {count}\n"
-            threshold_text += f"Total: {total_anomalous_points}"
-            
-            # Position the text in the top left of the main plot
-            ax1.text(0.05, 0.95, threshold_text, transform=ax1.transAxes,
-                    verticalalignment='top', horizontalalignment='left',
-                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-
-        # Add legend to main plot
-        ax1.legend(ncol=2, fontsize=10)
-        ax1.grid(True, alpha=0.3)
-
-        # Try to load weighted emax values and create subplot
-        try:
-            weighted_emax = np.loadtxt(f'{output_dir}/chains_anomaly_weighted_emax.txt')
-            ax2 = plt.subplot(gs[1])
-            
-            # Use actual data time points for the emax plot
-            # Handle the case where weighted_emax has a different length than all_times
-            if len(all_times) != len(weighted_emax):
-                print(f"Resizing weighted_emax from {len(weighted_emax)} to {len(all_times)} points")
-                # Option 1: Truncate weighted_emax to match all_times
-                if len(weighted_emax) > len(all_times):
-                    weighted_emax = weighted_emax[:len(all_times)]
-                # Option 2: If weighted_emax is shorter, pad with zeros
-                else:
-                    weighted_emax = np.pad(weighted_emax, (0, len(all_times) - len(weighted_emax)), 'constant')
-            
-            ax2.plot(all_times, weighted_emax, 'k-', linewidth=2)
-            ax2.fill_between(all_times, 0, weighted_emax, alpha=0.3, color='gray')
-            ax2.set_xlabel('MJD', fontsize=12)
-            ax2.set_ylabel('Emax', fontsize=12)
-            ax2.grid(True, alpha=0.3)
-
-            # Add horizontal line at threshold
-            ax2.axhline(y=plotting_threshold, color='r', linestyle='--', alpha=0.5, 
-                       label=f'Plotting threshold ({plotting_threshold})')
-            
-            # Remove the annotation from the bottom subplot since we moved it to the top plot
-            ax2.legend()
-
-            # Ensure x-axis limits match between plots
-            xlim = ax1.get_xlim()
-            ax2.set_xlim(xlim)
-
-            # Remove x-axis labels from top plot
-            ax1.set_xlabel('')
-        except FileNotFoundError:
-            print("Warning: Weighted emax file not found - skipping emax subplot")
-            plt.tight_layout()
-        except Exception as e:
-            print(f"Warning: Failed to create emax subplot - {str(e)}")
-            plt.tight_layout()
-
-        # Adjust layout and save
+        ax_lc.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig(f'{output_dir}/light_curve_comparison.png', dpi=300, bbox_inches='tight')
-        plt.close()
+        plt.close(fig_lc)
 
     except Exception as e:
         print(f"Warning: Failed to create light curve comparison plot - {str(e)}")
-        plt.close('all')
+        if 'fig_lc' in locals() and plt.fignum_exists(fig_lc.number): plt.close(fig_lc)
 
-    # Save parameter statistics to a text file if chains are available
+    # Save parameter statistics
     if have_standard or have_anomaly:
-        stats_text = ["Parameter Statistics Comparison:", "-" * 50]
-        
-        # Add statistics for all parameters
-        for param in param_names:
-            if have_standard:
+        stats_text = [f"Parameter Statistics Comparison for {sn_name}:", "-" * 50]
+        all_params_for_stats = sorted(list(set(standard_param_names + anomaly_param_names)))
+
+        for param in all_params_for_stats:
+            stats_text.append(f"\n{param}:")
+            if have_standard and param in standard_samples.columns:
                 std_mean = standard_samples[param].mean()
                 std_std = standard_samples[param].std()
-                stats_text.append(f"\n{param}:")
                 stats_text.append(f"  Standard: {std_mean:.6f} ± {std_std:.6f}")
-            if have_anomaly:
+            if have_anomaly and param in anomaly_samples.columns:
                 anom_mean = anomaly_samples[param].mean()
                 anom_std = anomaly_samples[param].std()
                 stats_text.append(f"  Anomaly:  {anom_mean:.6f} ± {anom_std:.6f}")
-        
-        # Add x0_mag statistics
-        if 'log_x0' in param_names:
+
+        if 'log_x0' in all_params_for_stats:
             stats_text.append(f"\nx0_mag (calculated from log_x0):")
-            if have_standard:
+            x0_mag_std, x0_mag_anom = None, None # Initialize
+            if have_standard and 'log_x0' in standard_samples.columns:
                 x0_mag_std = -2.5 * standard_samples['log_x0']
                 stats_text.append(f"  Standard: {x0_mag_std.mean():.6f} ± {x0_mag_std.std():.6f}")
-            if have_anomaly:
+            if have_anomaly and 'log_x0' in anomaly_samples.columns:
                 x0_mag_anom = -2.5 * anomaly_samples['log_x0']
                 stats_text.append(f"  Anomaly:  {x0_mag_anom.mean():.6f} ± {x0_mag_anom.std():.6f}")
-            
-            # Add DM estimate (x0_mag + 21.01)
+
             stats_text.append(f"\nDistance Modulus (DM = x0_mag + 21.01):")
-            if have_standard:
+            if x0_mag_std is not None:
                 dm_std = x0_mag_std + 21.01
                 stats_text.append(f"  Standard: {dm_std.mean():.6f} ± {dm_std.std():.6f}")
-            if have_anomaly:
+            if x0_mag_anom is not None:
                 dm_anom = x0_mag_anom + 21.01
                 stats_text.append(f"  Anomaly:  {dm_anom.mean():.6f} ± {dm_anom.std():.6f}")
 
-        # Add log_p statistics for anomaly case if available
-        if have_anomaly and 'log_p' in anomaly_samples.columns:
-            stats_text.extend([
-                "\nlog_p (Anomaly only):",
-                f"  Mean: {anomaly_samples['log_p'].mean():.6f} ± {anomaly_samples['log_p'].std():.6f}",
-                f"  Max: {anomaly_samples['log_p'].max():.6f}",
-                f"  Min: {anomaly_samples['log_p'].min():.6f}"
-            ])
-
-        # Save statistics
         stats_text = '\n'.join(stats_text)
-        with open(f'{output_dir}/parameter_statistics.txt', 'w') as f:
-            f.write(stats_text)
+        with open(f'{output_dir}/parameter_statistics.txt', 'w') as f: f.write(stats_text)
+        print(f"\nParameter statistics saved to {output_dir}/parameter_statistics.txt")
 
-    # Create x0_mag vs DM relationship plot
+    # Create relationship plots
     plot_x0mag_dm_relationship(output_dir)
-    
-    # Create scatter plot of the samples showing x0_mag vs DM
     plot_samples_x0mag_dm(standard_samples, anomaly_samples, true_values, output_dir)
-    

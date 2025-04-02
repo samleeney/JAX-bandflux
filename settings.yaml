@@ -6,11 +6,21 @@ sn_name: '19vnk'  # Example supernova name
 
 # Bandpass selection
 # You can include any combination of standard and custom bandpasses
-selected_bandpasses: ['g', 'ztfg', 'ztfr', 'c', 'o', 'J_1D3', 'J_2D']  # Only include bandpasses with data points
+# J_1D3 and J_2D removed as they will be loaded via SVO below
+selected_bandpasses: ['g', 'ztfg', 'ztfr', 'c', 'o']  # Only include bandpasses with data points
 
 # Custom bandpass files
 # Set to null if not using custom bandpasses
 custom_bandpass_files: null
+
+# SVO Filter Definitions
+# Define filters to load from the SVO Filter Profile Service.
+# Requires filter files to be downloaded first using:
+# python examples/download_svo_filter.py --filter <filter_id>
+svo_filters:
+  - name: 'J' # Name to register the base filter under
+    filter_id: 'UKIRT/WFCAM.J' # SVO Identifier
+    variants: ['J_1D3', 'J_2D'] # List of alternative names to register using the same filter data
 
 # Examples of custom bandpass configurations:
 # 1. As a list of file paths:
@@ -31,7 +41,7 @@ custom_bandpass_files: null
 # Nested sampling settings
 nested_sampling:
   max_iterations: 500
-  n_delete: 75
+  n_delete: 75  # Changed from 75 to match working example
   n_live: 150
   num_mcmc_steps_multiplier: 5
   fit_sigma: false
