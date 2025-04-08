@@ -19,6 +19,8 @@ from typing import NamedTuple, Dict, Any, List, Tuple
 import time
 import jax.lax as lax
 from jax import jit, vmap
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = ".2"
+
 
 # Define default settings for nested sampling and prior bounds
 DEFAULT_NS_SETTINGS = {
