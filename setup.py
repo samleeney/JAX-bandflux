@@ -37,6 +37,7 @@ setup(
         'matplotlib',
         'tqdm',
         'anesthetic',
+        'requests'
     ],
     extras_require={
         'dev': [
