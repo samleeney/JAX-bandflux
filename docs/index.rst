@@ -81,14 +81,10 @@ The following diagram shows the relationships between key components:
 
    installation
    quickstart
-   core_concepts
-   guides/index
-   tutorials/index
-   api/index
-   examples
-   readthedocs_deployment_guide
-   readthedocs_visual_guide
-   readthedocs_troubleshooting
+   data_loading
+   bandpass_loading
+   model_fluxes
+   sampling
 
 Installation
 -----------
@@ -112,14 +108,10 @@ Quick Links
 
 * :doc:`installation` - Installation instructions
 * :doc:`quickstart` - Get started quickly with basic examples
-* :doc:`core_concepts` - Learn about the core concepts of JAX-bandflux
-* :doc:`guides/index` - In-depth guides on specific topics
-* :doc:`tutorials/index` - Step-by-step tutorials for common tasks
-* :doc:`api/index` - API reference documentation
-* :doc:`examples` - Example scripts and notebooks
-* :doc:`readthedocs_deployment_guide` - Comprehensive guide for deploying to ReadTheDocs
-* :doc:`readthedocs_visual_guide` - Visual guide to the ReadTheDocs interface
-* :doc:`readthedocs_troubleshooting` - Solutions for common ReadTheDocs issues
+* :doc:`data_loading` - Learn how to load and process supernova data
+* :doc:`bandpass_loading` - Working with astronomical filters and bandpasses
+* :doc:`model_fluxes` - Computing model fluxes using the SALT3 model
+* :doc:`sampling` - Techniques for parameter estimation and sampling
 
 Getting Help
 -----------
@@ -127,6 +119,7 @@ Getting Help
 If you encounter any issues or have questions about JAX-bandflux, please:
 
 * Check the :doc:`installation` and :doc:`quickstart` guides
+* Review the documentation sections for specific functionality
 * Look for similar issues in the `GitHub repository <https://github.com/samleeney/JAX-bandflux/issues>`_
 * Open a new issue if your problem hasn't been addressed
 

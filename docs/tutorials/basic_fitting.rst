@@ -37,6 +37,8 @@ This function performs several steps:
 5. Precomputes bridge data for each band
 6. Optionally loads redshift data if ``fix_z=True``
 
+For more details on data loading, including how to generate synthetic data, see :doc:`../data_loading`.
+
 Defining the Objective Function
 -----------------------------
 
