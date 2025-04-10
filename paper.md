@@ -1,5 +1,5 @@
 ---
-title: 'JAX-based differentiable supernova SALT modelling for cosmological analysis'
+title: 'JAX-based differentiable supernovae SALT modelling for cosmological analysis'
 tags:
   - Python
   - astronomy
