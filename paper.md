@@ -10,11 +10,13 @@ authors:
   - name: Samuel Alan Kossoff Leeney
     orcid: 0000-0003-4366-1119
     equal-contrib: true
-    affiliation: "1"
+    affiliation: "1, 2"
 affiliations:
- - name: Cavendish Astrophysics, University of Cambridge, UK
+ - name: Astrophysics Group, Cavendish Laboratory, J. J. Thomson Avenue, Cambridge CB3 0HE, UK
    index: 1
-date: "07 February 2025"
+ - name: Kavli Institute for Cosmology, Madingley Road, Cambridge CB3 0HA, UK
+   index: 2
+date: "10 April 2025"
 bibliography: paper.bib
 ---
 # 1-2 line summary for editor

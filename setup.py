@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="jax-bandflux",
-    version="0.1.91",
+    version="0.2.0",
     author="Samuel Alan Kossoff Leeney",
     author_email="sakl2@cam.ac.uk",
     description="A JAX-based package for calculating supernovae Bandfluxes",
@@ -26,7 +26,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Topic :: Scientific/Engineering :: Astronomy",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         'numpy>=1.24.0',
         'jax>=0.4.20',
