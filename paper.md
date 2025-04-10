@@ -1,5 +1,5 @@
 ---
-title: 'JAX-based Differentiable Supernova Light Curve Modelling for Cosmological Analysis'
+title: 'JAX-based differentiable supernova SALT modelling for cosmological analysis'
 tags:
   - Python
   - astronomy
