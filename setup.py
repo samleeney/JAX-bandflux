@@ -45,6 +45,10 @@ setup(
             'pytest-cov>=2.0',
             'black>=22.0',
             'isort>=5.0',
+            'sphinx>=4.0.0',
+            'sphinx-rtd-theme>=1.0.0',
+            'sphinxcontrib-mermaid>=0.7.0',
+            'sphinx-autodoc-typehints>=1.12.0',
         ],
     }
 )
