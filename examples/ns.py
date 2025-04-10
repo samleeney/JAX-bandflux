@@ -1,10 +1,10 @@
-'''
+"""
 # Nested Sampling with JAX-bandflux
 
 This script demonstrates how to run the nested sampling procedure for supernovae SALT model fitting using the JAX-bandflux package. We will install the package, load the data, set up and run the nested sampling algorithm, and finally produce a corner plot of the posterior samples.
 
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux). The academic paper associated with this work can be found [here](https://github.com/samleeney/JAX-bandflux/blob/71ca8d1b3b273147e1e9bf60a9ef11a806363b80/paper.bib).
-'''
+"""
 
 
 import distrax
@@ -97,7 +97,18 @@ else:
 
 @jax.jit
 def logprior(params):
-    """Calculate log prior probability."""
+    """Calculate log prior probability.
+    
+    Parameters
+    ----------
+    params : array
+        Parameter values to evaluate
+        
+    Returns
+    -------
+    float
+        Log prior probability
+    """
     if fix_z:
         if fit_sigma:
             logp = (prior_dists['t0'].log_prob(params[0]) +
@@ -128,7 +139,18 @@ def logprior(params):
 
 @jax.jit
 def compute_single_loglikelihood(params):
-    """Compute Gaussian log likelihood for a single set of parameters."""
+    """Compute Gaussian log likelihood for a single set of parameters.
+    
+    Parameters
+    ----------
+    params : array
+        Parameter values to evaluate
+        
+    Returns
+    -------
+    float
+        Log likelihood value
+    """
     # Ensure params is properly handled for both single and batched inputs
     params = jnp.atleast_1d(params)
     if params.ndim > 1:
@@ -163,7 +185,20 @@ def compute_single_loglikelihood(params):
     return log_likelihood
 
 def sample_from_priors(rng_key, n_samples):
-    """Sample from all prior distributions at once."""
+    """Sample from all prior distributions at once.
+    
+    Parameters
+    ----------
+    rng_key : jax.random.PRNGKey
+        Random key for sampling
+    n_samples : int
+        Number of samples to generate
+        
+    Returns
+    -------
+    array
+        Array of samples with shape (n_samples, n_params)
+    """
     if fix_z:
         if fit_sigma:
             keys = jax.random.split(rng_key, 5)
@@ -235,6 +270,21 @@ state = algo.init(initial_particles, compute_single_loglikelihood)
 # Define one_step function with JIT
 @jax.jit
 def one_step(carry, xs):
+    """Define one step of the nested sampling algorithm.
+    
+    Parameters
+    ----------
+    carry : tuple
+        (state, k) where state is the current algorithm state and k is the random key
+    xs : any
+        Unused placeholder for scan
+        
+    Returns
+    -------
+    tuple
+        ((state, k), dead_point) where state is the updated state, k is the updated
+        random key, and dead_point is the discarded point
+    """
     state, k = carry
     k, subk = jax.random.split(k, 2)
     state, dead_point = algo.step(subk, state)

@@ -1,3 +1,4 @@
+"""Data loading and processing utilities for JAX supernova models."""
 import jax.numpy as jnp
 import numpy as np
 import os
@@ -9,15 +10,19 @@ import importlib.resources
 PACKAGE_DIR = os.path.dirname(__file__)
 
 def find_object_filepath(base_dir, object_name):
-    """
-    Find the data file for a given object in the base directory.
+    """Find the data file for a given object in the base directory.
     
-    Args:
-        base_dir (str): Base directory to search in
-        object_name (str): Name of the object (e.g., '19agl')
+    Parameters
+    ----------
+    base_dir : str
+        Base directory to search in
+    object_name : str
+        Name of the object (e.g., '19agl')
         
-    Returns:
-        str: Full path to the data file
+    Returns
+    -------
+    str
+        Full path to the data file
     """
     # First try direct path in object directory
     direct_path = os.path.join(base_dir, object_name, 'all.phot')
@@ -38,27 +43,34 @@ def find_object_filepath(base_dir, object_name):
     raise FileNotFoundError(f"No data file found for object {object_name}")
 
 def load_hsf_data(object_name, base_dir='data'):
-    """
-    Load HSF data for a given object.
+    """Load HSF data for a given object.
     
-    Args:
-        object_name (str): Name of the object (e.g., '19agl')
-        base_dir (str): Base directory containing the data files. Defaults to 'data'.
-                       Expected structure is either:
-                       - [base_dir]/Ia/[object_name]/all.phot
-                       - Or any .dat/.phot file containing the object name
+    Parameters
+    ----------
+    object_name : str
+        Name of the object (e.g., '19agl')
+    base_dir : str
+        Base directory containing the data files. Defaults to 'data'.
+        Expected structure is either:
+        - [base_dir]/Ia/[object_name]/all.phot
+        - Or any .dat/.phot file containing the object name
         
-    Returns:
-        astropy.table.Table: Table containing the processed data with columns:
-            - time: observation times (from mjd)
-            - band: filter/band names
-            - flux: flux measurements
-            - fluxerr: flux measurement errors
-            - zp: zero points (defaults to 27.5 if not present)
+    Returns
+    -------
+    astropy.table.Table
+        Table containing the processed data with columns:
+        - time: observation times (from mjd)
+        - band: filter/band names
+        - flux: flux measurements
+        - fluxerr: flux measurement errors
+        - zp: zero points (defaults to 27.5 if not present)
             
-    Raises:
-        FileNotFoundError: If no data file is found for the given object
-        ValueError: If required columns are missing from the data file
+    Raises
+    ------
+    FileNotFoundError
+        If no data file is found for the given object
+    ValueError
+        If required columns are missing from the data file
     """
     # Try to find data in package data directory first
     package_data_dir = os.path.join(PACKAGE_DIR, 'data')
@@ -98,22 +110,29 @@ def load_hsf_data(object_name, base_dir='data'):
     return data
 
 def load_redshift(object_name, redshift_file='data/redshifts.dat'):
-    """
-    Load redshift for a given object from redshifts.dat.
+    """Load redshift for a given object from redshifts.dat.
     
-    Args:
-        object_name (str): Name of the object (e.g., '19agl')
-        redshift_file (str): Path to redshifts.dat file
+    Parameters
+    ----------
+    object_name : str
+        Name of the object (e.g., '19agl')
+    redshift_file : str
+        Path to redshifts.dat file
         
-    Returns:
-        tuple: (redshift, redshift_err, flag) where:
-            - redshift is the heliocentric redshift
-            - redshift_err is the symmetric error (max of plus/minus)
-            - flag is the reliability flag ('s'=strong, 'w'=weak, 'n'=no features)
+    Returns
+    -------
+    tuple
+        (redshift, redshift_err, flag) where:
+        - redshift is the heliocentric redshift
+        - redshift_err is the symmetric error (max of plus/minus)
+        - flag is the reliability flag ('s'=strong, 'w'=weak, 'n'=no features)
             
-    Raises:
-        FileNotFoundError: If redshift file not found
-        ValueError: If object not found in redshift file
+    Raises
+    ------
+    FileNotFoundError
+        If redshift file not found
+    ValueError
+        If object not found in redshift file
     """
     # Try package data directory first
     package_redshift_file = os.path.join(PACKAGE_DIR, 'data', 'redshifts.dat')
@@ -159,23 +178,28 @@ def load_redshift(object_name, redshift_file='data/redshifts.dat'):
     return z, z_err, flag
 
 def load_and_process_data(sn_name, data_dir='data', fix_z=False):
-    """
-    Load and process supernova data, including bandpass registration and data array setup.
+    """Load and process supernova data, including bandpass registration and data array setup.
     
-    Args:
-        sn_name (str): Name of the supernova to load (e.g., '19agl')
-        data_dir (str): Directory containing the data files. Defaults to 'data'.
-        fix_z (bool): Whether to fix redshift to value from redshifts.dat
+    Parameters
+    ----------
+    sn_name : str
+        Name of the supernova to load (e.g., '19agl')
+    data_dir : str
+        Directory containing the data files. Defaults to 'data'.
+    fix_z : bool
+        Whether to fix redshift to value from redshifts.dat
         
-    Returns:
-        tuple: Contains processed data arrays and bridges:
-            - times (jnp.array): Observation times
-            - fluxes (jnp.array): Flux measurements
-            - fluxerrs (jnp.array): Flux measurement errors
-            - zps (jnp.array): Zero points
-            - band_indices (jnp.array): Band indices
-            - bridges (tuple): Precomputed bridge data for each band
-            - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
+    Returns
+    -------
+    tuple
+        Contains processed data arrays and bridges:
+        - times (jnp.array): Observation times
+        - fluxes (jnp.array): Flux measurements
+        - fluxerrs (jnp.array): Flux measurement errors
+        - zps (jnp.array): Zero points
+        - band_indices (jnp.array): Band indices
+        - bridges (tuple): Precomputed bridge data for each band
+        - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
     """
     # Load data and register bandpasses
     data = load_hsf_data(sn_name, base_dir=data_dir)
@@ -212,14 +236,17 @@ def load_and_process_data(sn_name, data_dir='data', fix_z=False):
     return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z 
 
 def get_all_supernovae_with_redshifts(redshift_file='data/redshifts.dat'):
-    """
-    Get all supernovae that have measured redshifts in redshifts.dat.
+    """Get all supernovae that have measured redshifts in redshifts.dat.
     
-    Args:
-        redshift_file (str): Path to redshifts.dat file
+    Parameters
+    ----------
+    redshift_file : str
+        Path to redshifts.dat file
         
-    Returns:
-        list: List of tuples (sn_name, z, z_err, flag) for all supernovae with redshifts
+    Returns
+    -------
+    list
+        List of tuples (sn_name, z, z_err, flag) for all supernovae with redshifts
     """
     # Try package data directory first
     package_redshift_file = os.path.join(PACKAGE_DIR, 'data', 'redshifts.dat')

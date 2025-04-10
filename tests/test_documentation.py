@@ -17,7 +17,12 @@ sys.path.insert(0, project_root)
 jax.config.update("jax_enable_x64", True)
 
 def test_quickstart():
-    """Test code blocks from quickstart.rst"""
+    """Test code blocks from quickstart.rst.
+    
+    This test verifies that the code examples in the quickstart documentation
+    run correctly by executing the key steps: loading data, calculating model
+    fluxes, and computing chi-squared.
+    """
     # Load data for SN 19dwz
     times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz')
     
@@ -43,7 +48,12 @@ def test_quickstart():
     assert chi2 > 0, "Chi-squared should be positive"
 
 def test_data_loading():
-    """Test code blocks from data_loading.rst"""
+    """Test code blocks from data_loading.rst.
+    
+    This test verifies that the data loading examples in the documentation
+    work correctly, including both synthetic data generation and loading
+    real supernova data.
+    """
     # Test synthetic data generation
     times = jnp.linspace(58650, 58700, 20)
     band_names = ['sdss::g', 'sdss::r', 'sdss::i']
@@ -67,7 +77,12 @@ def test_data_loading():
     # fixed_z might be None in some cases, so we'll just check that the data loading completed
 
 def test_bandpass_loading():
-    """Test code blocks from bandpass_loading.rst"""
+    """Test code blocks from bandpass_loading.rst.
+    
+    This test verifies that the bandpass loading examples in the documentation
+    work correctly, including creating, registering, and retrieving custom
+    bandpass objects.
+    """
     # Test creating a custom bandpass
     wavelengths = np.linspace(4000, 5000, 100)
     transmission = np.exp(-((wavelengths - 4500) / 200)**2)
@@ -90,7 +105,12 @@ def test_bandpass_loading():
     assert np.array_equal(retrieved_bandpass.trans, transmission), "Transmission arrays don't match"
 
 def test_model_fluxes():
-    """Test code blocks from model_fluxes.rst"""
+    """Test code blocks from model_fluxes.rst.
+    
+    This test verifies that the model flux calculation examples in the
+    documentation work correctly, including loading data, calculating
+    model fluxes, and computing chi-squared.
+    """
     # Load data
     times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz')
     
@@ -115,7 +135,12 @@ def test_model_fluxes():
     assert chi2 > 0, "Chi-squared should be positive"
 
 def test_sampling():
-    """Test code blocks from sampling.rst"""
+    """Test code blocks from sampling.rst.
+    
+    This test verifies that the sampling examples in the documentation
+    work correctly, including setting up an objective function and
+    running a simple optimization.
+    """
     # Load data
     times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz')
     

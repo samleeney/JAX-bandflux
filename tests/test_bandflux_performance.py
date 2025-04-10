@@ -8,7 +8,12 @@ from jax_supernovae.salt3 import salt3_bandflux
 from jax_supernovae.bandpasses import Bandpass
 
 def test_bandflux_performance():
-    """Compare performance between sncosmo and jax bandflux implementations."""
+    """Compare performance between sncosmo and jax bandflux implementations.
+    
+    This test creates equivalent bandpass objects in both sncosmo and jax_supernovae,
+    then measures and compares the execution time of flux calculations using both
+    implementations. It also verifies that the results match within tolerance.
+    """
     # Set model parameters
     params = {
         'z': 0.1,

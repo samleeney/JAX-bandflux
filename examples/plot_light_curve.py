@@ -1,3 +1,12 @@
+"""
+Plot light curves from SALT3 model fits.
+
+This script loads MCMC chain results from a previous nested sampling run,
+calculates the best-fit parameters, and plots the resulting light curves
+along with the observed data points. It demonstrates how to use the
+optimized_salt3_multiband_flux function to generate model light curves
+and visualize the results.
+"""
 import jax
 import jax.numpy as jnp
 import numpy as np

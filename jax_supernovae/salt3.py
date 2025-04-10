@@ -27,8 +27,22 @@ MODEL_DIR = os.path.join(PACKAGE_DIR, 'data/models/salt3-nir/salt3nir-p22')
 def read_griddata_file(filename):
     """Read 2-d grid data from a text file.
 
-    Each line has values `x0 x1 y` (phase, wavelength, flux). Space separated.
-    Returns phase, wavelength arrays and a 2D grid of values.
+    Parameters
+    ----------
+    filename : str
+        Path to the file containing grid data
+
+    Returns
+    -------
+    tuple
+        (phase, wavelength, values) where:
+        - phase is an array of unique phase values
+        - wavelength is an array of unique wavelength values
+        - values is a 2D grid of flux values
+    
+    Notes
+    -----
+    Each line in the file has values `x0 x1 y` (phase, wavelength, flux), space separated.
     """
     # Read data from file
     data = np.loadtxt(filename)
@@ -84,6 +98,18 @@ with open(cl_file, 'r') as f:
 def kernval(x):
     """Compute kernel value for bicubic interpolation.
     
+    Parameters
+    ----------
+    x : float or array
+        Input value(s) for kernel function
+    
+    Returns
+    -------
+    float or array
+        Kernel value(s)
+    
+    Notes
+    -----
     This matches SNCosmo's implementation exactly:
     W(x) = (a+2)*x**3-(a+3)*x**2+1 for x<=1
     W(x) = a( x**3-5*x**2+8*x-4) for 1<x<2
@@ -105,7 +131,20 @@ def kernval(x):
 
 @jax.jit
 def find_index(values, x):
-    """Find index i such that values[i] <= x < values[i+1]."""
+    """Find index i such that values[i] <= x < values[i+1].
+    
+    Parameters
+    ----------
+    values : array
+        Sorted array of values
+    x : float
+        Value to find in the array
+    
+    Returns
+    -------
+    int
+        Index i such that values[i] <= x < values[i+1]
+    """
     i = jnp.searchsorted(values, x) - 1
     i = jnp.clip(i, 0, len(values) - 2)  # Ensure we stay within bounds
     return i.astype(jnp.int32)
@@ -114,12 +153,17 @@ def find_index(values, x):
 def compute_interpolation_weights(x, values):
     """Compute interpolation weights and indices.
     
-    Args:
-        x: The point to interpolate at
-        values: The grid values to interpolate between
+    Parameters
+    ----------
+    x : float
+        The point to interpolate at
+    values : array
+        The grid values to interpolate between
         
-    Returns:
-        tuple: (indices, normalized coordinates, near_boundary)
+    Returns
+    -------
+    tuple
+        (indices, normalized coordinates, in_bounds, near_boundary)
     """
     # Find indices
     i = find_index(values, x)
@@ -137,13 +181,19 @@ def compute_interpolation_weights(x, values):
 def interpolate_2d(phase, wave, data):
     """Perform 2D interpolation on gridded data.
     
-    Args:
-        phase: Phase value to interpolate at
-        wave: Wavelength value to interpolate at
-        data: 2D grid of values to interpolate from
+    Parameters
+    ----------
+    phase : float
+        Phase value to interpolate at
+    wave : float
+        Wavelength value to interpolate at
+    data : array
+        2D grid of values to interpolate from
         
-    Returns:
-        float: Interpolated value
+    Returns
+    -------
+    float
+        Interpolated value
     """
     # Compute weights for both dimensions
     ix, dx, x_in_bounds, x_near_boundary = compute_interpolation_weights(phase, phase_grid)
@@ -198,12 +248,38 @@ def interpolate_2d(phase, wave, data):
 
 @jax.jit
 def salt3_m0_single(phase, wave):
-    """Get the M0 component at a single phase and wavelength."""
+    """Get the M0 component at a single phase and wavelength.
+    
+    Parameters
+    ----------
+    phase : float
+        Rest-frame phase in days
+    wave : float
+        Rest-frame wavelength in Angstroms
+        
+    Returns
+    -------
+    float
+        M0 component value
+    """
     return interpolate_2d(phase, wave, m0_data)
 
 @jax.jit
 def salt3_m1_single(phase, wave):
-    """Get the M1 component at a single phase and wavelength."""
+    """Get the M1 component at a single phase and wavelength.
+    
+    Parameters
+    ----------
+    phase : float
+        Rest-frame phase in days
+    wave : float
+        Rest-frame wavelength in Angstroms
+        
+    Returns
+    -------
+    float
+        M1 component value
+    """
     return interpolate_2d(phase, wave, m1_data)
 
 @jax.jit
@@ -454,13 +530,20 @@ def salt3_multiband_flux(phase, bandpasses, params, zps=None, zpsys=None):
     return result 
 
 def precompute_bandflux_bridge(bandpass):
-    """
-    Precompute static components for a given bandpass.
+    """Precompute static components for a given bandpass.
     
-    Returns a dictionary containing:
-        - 'wave': the integration wavelength grid,
-        - 'dwave': spacing between grid points,
-        - 'trans': the transmission values computed on the grid.
+    Parameters
+    ----------
+    bandpass : Bandpass
+        Bandpass object to precompute components for
+    
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'wave': the integration wavelength grid
+        - 'dwave': spacing between grid points
+        - 'trans': the transmission values computed on the grid
     """
     wave = bandpass.integration_wave
     dwave = bandpass.integration_spacing
@@ -469,27 +552,29 @@ def precompute_bandflux_bridge(bandpass):
 
 @partial(jax.jit, static_argnames=['zpsys'])
 def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=None):
-    """
-    Calculate bandflux for a single bandpass using precomputed static data.
+    """Calculate bandflux for a single bandpass using precomputed static data.
     
-    Parameters:
-        phase : array or scalar
-            Observer-frame phase(s) at which to compute the flux.
-        wave : array
-            Wavelength grid for integration.
-        dwave : float
-            Spacing between wavelength grid points.
-        trans : array
-            Transmission values on the wavelength grid.
-        params : dict
-            Dictionary containing model parameters: 'z', 't0', 'x0', 'x1', 'c'.
-        zp : float or None
-            Zero point for flux scaling. If provided, zpsys must also be given.
-        zpsys : str or None
-            Magnitude system (e.g. 'ab').
+    Parameters
+    ----------
+    phase : array or scalar
+        Observer-frame phase(s) at which to compute the flux
+    wave : array
+        Wavelength grid for integration
+    dwave : float
+        Spacing between wavelength grid points
+    trans : array
+        Transmission values on the wavelength grid
+    params : dict
+        Dictionary containing model parameters: 'z', 't0', 'x0', 'x1', 'c'
+    zp : float or None, optional
+        Zero point for flux scaling. If provided, zpsys must also be given
+    zpsys : str or None, optional
+        Magnitude system (e.g. 'ab')
     
-    Returns:
-        Flux in photons/s/cm^2. If phase is scalar then returns scalar.
+    Returns
+    -------
+    float or array
+        Flux in photons/s/cm^2. If phase is scalar then returns scalar
     """
     if zp is not None and zpsys is None:
         raise ValueError('zpsys must be given if zp is not None')
@@ -538,23 +623,25 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=N
 
 @partial(jax.jit, static_argnames=['zpsys'])
 def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None):
-    """
-    Calculate fluxes for multiple bandpasses.
+    """Calculate fluxes for multiple bandpasses.
     
-    Parameters:
-        phase : array
-            Observer-frame phases.
-        bridges : list of dict
-            Precomputed bridge data for each bandpass.
-        params : dict
-            Model parameters.
-        zps : list or array or None
-            Zero points for each bandpass.
-        zpsys : str or None
-            Magnitude system.
+    Parameters
+    ----------
+    phase : array
+        Observer-frame phases
+    bridges : list of dict
+        Precomputed bridge data for each bandpass
+    params : dict
+        Model parameters
+    zps : list or array or None, optional
+        Zero points for each bandpass
+    zpsys : str or None, optional
+        Magnitude system
     
-    Returns:
-        Array of flux values for each phase and band.
+    Returns
+    -------
+    array
+        Array of flux values for each phase and band
     """
     phase = jnp.atleast_1d(phase)
     n_phase = len(phase)

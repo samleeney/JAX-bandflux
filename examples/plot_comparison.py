@@ -1,3 +1,12 @@
+"""
+Compare standard and anomaly detection model fits.
+
+This script loads MCMC chain results from both standard and anomaly detection
+nested sampling runs, creates comparison corner plots, and generates light curve
+plots that highlight potential anomalous data points. It also calculates and
+displays weighted Emax values that indicate the degree of anomaly for each
+data point.
+"""
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -116,7 +125,20 @@ if have_anomaly and 'log_p' in anomaly_samples.columns:
 
 # Now plot light curves with weighted emax subplot
 def get_model_curve(samples, percentile=50):
-    """Get model curve for given percentile of parameters."""
+    """Get model curve for given percentile of parameters.
+    
+    Parameters
+    ----------
+    samples : anesthetic.samples.NestedSamples
+        Posterior samples from nested sampling
+    percentile : int, optional
+        Percentile to use for parameter values, default is 50 (median)
+        
+    Returns
+    -------
+    dict
+        Dictionary of parameter values to use for model calculation
+    """
     params = {}
     for param in param_names:
         if param != 'log_p':  # Skip logp as it's not needed for the model

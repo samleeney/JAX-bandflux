@@ -22,7 +22,7 @@ JAX-bandflux is a Python package for computing SALT model surfaces and bandflux 
 
 # Summary
 
-This paper presents a JAX [@jax2018github] implementation of supernova modelling functionality that is central to supernova light curve analysis. It implements key components of the established SNCosmo [@barbary2016sncosmo] in a differentiable framework, offering efficient parallelisation and gradient-based optimisation capabilities through GPU acceleration. The package facilitates differentiable computation of multiband flux from supernova light curves, supporting the extraction of SALT~[@kenworthy2021salt3; @pierel2022salt3] parameters necessary for cosmological analysis.
+This paper presents a JAX [@jax2018github] implementation of critical supernova modelling functinality, which is ultimately used to answer cosmological questions such as how quickly the universe is expanding. The codebase implements key components of the established library SNCosmo [@barbary2016sncosmo] in a differentiable framework, offering efficient parallelisation and gradient-based optimisation capabilities through GPU acceleration. The package facilitates differentiable computation of the `multiband flux' computation from supernova light curve measurments, supporting the extraction of SALT~[@kenworthy2021salt3; @pierel2022salt3] parameters necessary for cosmological analysis.
 
 # Statement of need
 

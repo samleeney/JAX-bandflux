@@ -1,3 +1,15 @@
+"""
+Anomaly detection for supernova light curves using nested sampling.
+
+This script implements a Bayesian anomaly detection framework for supernova
+light curve analysis. It runs two nested sampling procedures:
+1. A standard version that fits SALT3 model parameters to the data
+2. An anomaly detection version that includes an additional parameter (log_p)
+   to identify potential outliers in the data
+
+The script generates comparison plots, parameter statistics, and weighted
+anomaly indicators (emax values) that highlight potential problematic data points.
+"""
 import distrax
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
@@ -77,17 +89,20 @@ fit_sigma = NS_SETTINGS['fit_sigma']
 jax.config.update("jax_enable_x64", True)
 
 def create_wfcam_j_bandpass():
-    """
-    Create a bandpass object for the WFCAM J filter.
+    """Create a bandpass object for the WFCAM J filter.
     
     This function attempts to load the WFCAM J filter profile from the SVO Filter Profile Service.
     The filter profile must be downloaded first using the download_svo_filter.py script.
     
-    Returns:
-        Bandpass: A Bandpass object for the WFCAM J filter.
+    Returns
+    -------
+    Bandpass
+        A Bandpass object for the WFCAM J filter
         
-    Raises:
-        FileNotFoundError: If the WFCAM J filter profile file is not found.
+    Raises
+    ------
+    FileNotFoundError
+        If the WFCAM J filter profile file is not found
     """
     from jax_supernovae.bandpasses import Bandpass
     import os
@@ -131,18 +146,25 @@ def create_wfcam_j_bandpass():
     )
 
 def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None, custom_bandpass_files=None):
-    """
-    Load and process data for a supernova.
+    """Load and process data for a supernova.
     
-    Args:
-        sn_name (str): Name of the supernova
-        data_dir (str): Directory containing the data
-        fix_z (bool): Whether to fix the redshift
-        selected_bandpasses (list): List of bandpass names to include (e.g., ['g', 'r', 'i'])
-        custom_bandpass_files (dict): Dictionary mapping bandpass names to file paths
+    Parameters
+    ----------
+    sn_name : str
+        Name of the supernova
+    data_dir : str, optional
+        Directory containing the data
+    fix_z : bool, optional
+        Whether to fix the redshift
+    selected_bandpasses : list, optional
+        List of bandpass names to include (e.g., ['g', 'r', 'i'])
+    custom_bandpass_files : dict, optional
+        Dictionary mapping bandpass names to file paths
         
-    Returns:
-        tuple: (times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z)
+    Returns
+    -------
+    tuple
+        (times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z)
     """
     global BAND_NAMES  # Declare a global variable to store band names for plotting
     
@@ -500,7 +522,18 @@ else:
 # =============================================================================
 @jax.jit
 def logprior_standard(params):
-    """Calculate log prior probability for standard nested sampling."""
+    """Calculate log prior probability for standard nested sampling.
+    
+    Parameters
+    ----------
+    params : array
+        Parameter values to evaluate
+        
+    Returns
+    -------
+    array
+        Log prior probability values
+    """
     params = jnp.atleast_2d(params)
     if fix_z:
         if fit_sigma:
@@ -536,7 +569,18 @@ def logprior_standard(params):
 
 @jax.jit
 def logprior_anomaly(params):
-    """Calculate log prior probability for anomaly detection nested sampling."""
+    """Calculate log prior probability for anomaly detection nested sampling.
+    
+    Parameters
+    ----------
+    params : array
+        Parameter values to evaluate, including log_p parameter
+        
+    Returns
+    -------
+    array
+        Log prior probability values
+    """
     params = jnp.atleast_2d(params)
     if fix_z:
         if fit_sigma:
@@ -576,7 +620,18 @@ def logprior_anomaly(params):
 
 @jax.jit
 def compute_single_loglikelihood_standard(params):
-    """Compute Gaussian log likelihood for a single set of parameters (standard)."""
+    """Compute Gaussian log likelihood for a single set of parameters (standard).
+    
+    Parameters
+    ----------
+    params : array
+        Parameter values to evaluate
+        
+    Returns
+    -------
+    float
+        Log likelihood value
+    """
     if fix_z:
         if fit_sigma:
             t0, log_x0, x1, c, sigma = params
@@ -617,7 +672,20 @@ def loglikelihood_standard(params):
 # =============================================================================
 @jax.jit
 def compute_single_loglikelihood_anomaly(params):
-    """Compute Gaussian log likelihood for a single set of parameters with anomaly detection."""
+    """Compute Gaussian log likelihood for a single set of parameters with anomaly detection.
+    
+    Parameters
+    ----------
+    params : array
+        Parameter values to evaluate, including log_p parameter
+        
+    Returns
+    -------
+    tuple
+        (log_likelihood, emax) where:
+        - log_likelihood is the total log likelihood value
+        - emax is a boolean array indicating which data points are considered normal
+    """
     if fix_z:
         if fit_sigma:
             t0, log_x0, x1, c, sigma, log_p = params
@@ -661,6 +729,22 @@ def loglikelihood_anomaly(params):
 # It chooses between the standard and anomaly priors based on the likelihood function.
 # =============================================================================
 def sample_from_priors(rng_key, n_samples, ll_fn=loglikelihood_standard):
+    """Sample from prior distributions based on the likelihood function.
+    
+    Parameters
+    ----------
+    rng_key : jax.random.PRNGKey
+        Random key for sampling
+    n_samples : int
+        Number of samples to generate
+    ll_fn : callable, optional
+        Likelihood function to determine which priors to use
+        
+    Returns
+    -------
+    array
+        Array of samples with shape (n_samples, n_params)
+    """
     if ll_fn == loglikelihood_anomaly:
         if fix_z:
             if fit_sigma:
@@ -758,12 +842,23 @@ num_mcmc_steps = n_params_total * NS_SETTINGS['num_mcmc_steps_multiplier']
 def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterations=NS_SETTINGS['max_iterations']):
     """Run nested sampling with output directories/files including supernova name.
     
-    Args:
-        ll_fn: Likelihood function to use
-        output_prefix: Base prefix for output directory ('chains_standard' or 'chains_anomaly')
-        sn_name: Name of the supernova (e.g. '20aai')
-        identifier: Additional string to append to output directory and filenames
-        num_iterations: Maximum number of iterations
+    Parameters
+    ----------
+    ll_fn : callable
+        Likelihood function to use (loglikelihood_standard or loglikelihood_anomaly)
+    output_prefix : str
+        Base prefix for output directory ('chains_standard' or 'chains_anomaly')
+    sn_name : str
+        Name of the supernova (e.g. '20aai')
+    identifier : str, optional
+        Additional string to append to output directory and filenames
+    num_iterations : int, optional
+        Maximum number of iterations
+        
+    Returns
+    -------
+    None
+        Results are saved to disk in the specified output directory
     """
     # Create the main output directory
     output_dir = os.path.join("results", f"chains_{sn_name}{identifier}")
@@ -902,7 +997,18 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
         print(f"Saved weighted emax values to {emax_output_path}")
 
 def get_n_params(ll_fn):
-    """Get the number of parameters being fit."""
+    """Get the number of parameters being fit.
+    
+    Parameters
+    ----------
+    ll_fn : callable
+        Likelihood function to use (loglikelihood_standard or loglikelihood_anomaly)
+        
+    Returns
+    -------
+    int
+        Number of parameters in the model
+    """
     if ll_fn == loglikelihood_standard:
         if fix_z:
             return 5 if fit_sigma else 4
@@ -915,16 +1021,22 @@ def get_n_params(ll_fn):
             return 7 if fit_sigma else 6
 
 def get_true_values(sn_name, data_dir='hsf_DR1/', selected_bandpasses=None):
-    """
-    Read the true values from the salt_fits.dat file for a given supernova.
+    """Read the true values from the salt_fits.dat file for a given supernova.
+    
     Only returns values for exactly matching bandpass combinations.
     
-    Args:
-        sn_name: Name of the supernova (e.g., '21yrf')
-        data_dir: Base directory containing the data
-        selected_bandpasses: List of bandpass names being used in the analysis
+    Parameters
+    ----------
+    sn_name : str
+        Name of the supernova (e.g., '21yrf')
+    data_dir : str, optional
+        Base directory containing the data
+    selected_bandpasses : list, optional
+        List of bandpass names being used in the analysis
         
-    Returns:
+    Returns
+    -------
+    dict or None
         Dictionary with true parameter values or None if no matching bandpass combination found
     """
     if selected_bandpasses is None:
@@ -994,11 +1106,17 @@ def get_true_values(sn_name, data_dir='hsf_DR1/', selected_bandpasses=None):
         return None
 
 def plot_x0mag_dm_relationship(output_dir):
-    """
-    Create a plot showing the relationship between x0_mag and DM.
+    """Create a plot showing the relationship between x0_mag and DM.
     
-    Args:
-        output_dir: Directory to save the plot
+    Parameters
+    ----------
+    output_dir : str
+        Directory to save the plot
+        
+    Returns
+    -------
+    None
+        Plot is saved to disk in the specified output directory
     """
     try:
         # Create a range of x0_mag values
@@ -1031,14 +1149,23 @@ def plot_x0mag_dm_relationship(output_dir):
         plt.close()
 
 def plot_samples_x0mag_dm(standard_samples, anomaly_samples, true_values, output_dir):
-    """
-    Create a scatter plot of the samples showing x0_mag vs DM.
+    """Create a scatter plot of the samples showing x0_mag vs DM.
     
-    Args:
-        standard_samples: Samples from standard nested sampling
-        anomaly_samples: Samples from anomaly nested sampling
-        true_values: Dictionary with true parameter values
-        output_dir: Directory to save the plot
+    Parameters
+    ----------
+    standard_samples : anesthetic.samples.NestedSamples or None
+        Samples from standard nested sampling
+    anomaly_samples : anesthetic.samples.NestedSamples or None
+        Samples from anomaly nested sampling
+    true_values : dict or None
+        Dictionary with true parameter values
+    output_dir : str
+        Directory to save the plot
+        
+    Returns
+    -------
+    None
+        Plot is saved to disk in the specified output directory
     """
     try:
         if (standard_samples is None or 'log_x0' not in standard_samples.columns) and \
@@ -1281,7 +1408,20 @@ if __name__ == "__main__":
             print(f"Warning: Failed to create anomaly corner plot - {str(e)}")
 
     def get_model_curve(samples, percentile=50):
-        """Get model curve for given percentile of parameters."""
+        """Get model curve for given percentile of parameters.
+        
+        Parameters
+        ----------
+        samples : anesthetic.samples.NestedSamples
+            Posterior samples from nested sampling
+        percentile : int, optional
+            Percentile to use for parameter values, default is 50 (median)
+            
+        Returns
+        -------
+        dict
+            Dictionary of parameter values to use for model calculation
+        """
         params = {}
         for param in param_names:
             if param != 'log_p':  # Skip logp as it's not needed for the model

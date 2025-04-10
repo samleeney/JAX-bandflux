@@ -1,3 +1,4 @@
+"""Utility functions for JAX supernova models."""
 import numpy as np
 import os
 import jax.numpy as jnp
@@ -6,7 +7,22 @@ from jax import vmap
 
 @partial(vmap, in_axes=(0, None, None))
 def interp(x, xp, fp):
-    """Linear interpolation for JAX arrays."""
+    """Linear interpolation for JAX arrays.
+    
+    Parameters
+    ----------
+    x : array_like
+        The x-coordinates at which to evaluate the interpolated values
+    xp : array_like
+        The x-coordinates of the data points
+    fp : array_like
+        The y-coordinates of the data points
+        
+    Returns
+    -------
+    array_like
+        The interpolated values
+    """
     x = jnp.asarray(x)  # Don't reshape, preserve input shape
     xp = jnp.asarray(xp)
     fp = jnp.asarray(fp)
@@ -26,21 +42,20 @@ def interp(x, xp, fp):
     return y0 + slope * (x - x0)
 
 def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
-    """
-    Save nested sampling results in dead-birth format without headers.
+    """Save nested sampling results in dead-birth format without headers.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     dead_info : NSInfo
-        An object containing particles, logL, and logL_birth.
+        An object containing particles, logL, and logL_birth
     param_names : list, optional
-        A list of parameter names.
+        A list of parameter names
     root_dir : str, optional
         Directory to save chains in. Defaults to "chains".
-        Will be created if it doesn't exist.
+        Will be created if it doesn't exist
 
-    Notes:
-    ------
+    Notes
+    -----
     The file contains `ndims + 2` columns in space-separated format:
     param1 param2 ... paramN logL logL_birth
 

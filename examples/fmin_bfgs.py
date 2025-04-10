@@ -1,3 +1,11 @@
+"""
+SALT3 model fitting using L-BFGS-B optimization.
+
+This script demonstrates how to fit the SALT3 supernova model to light curve data
+using the L-BFGS-B optimization algorithm from scipy. It provides an alternative
+to nested sampling for quick parameter estimation and can be used with either
+fixed or free redshift.
+"""
 import jax
 import jax.numpy as jnp
 from scipy.optimize import fmin_l_bfgs_b
@@ -25,7 +33,20 @@ def fit_salt3(fix_z=True, sn_name="19dwz"):
     )
 
     def objective(parameters):
-        """Calculate chi-squared for given parameters."""
+        """Calculate chi-squared for given parameters.
+        
+        Parameters
+        ----------
+        parameters : list or array
+            Model parameters to evaluate:
+            - If fix_z=True: [t0, x0, x1, c]
+            - If fix_z=False: [z, t0, x0, x1, c]
+            
+        Returns
+        -------
+        float
+            Chi-squared value for the given parameters
+        """
         try:
             if fix_z:
                 param_dict = {

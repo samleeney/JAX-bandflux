@@ -17,7 +17,18 @@ from jax_supernovae.salt3 import (
 from jax_supernovae.bandpasses import Bandpass, MODEL_BANDFLUX_SPACING
 
 def test_salt3_consistency():
-    """Test consistency between JAX implementation and sncosmo for SALT3-NIR model."""
+    """Test consistency between JAX implementation and sncosmo for SALT3-NIR model.
+    
+    This test verifies that the JAX implementation of the SALT3-NIR model produces
+    results consistent with the sncosmo implementation. It tests three aspects:
+    
+    1. Model components (M0, M1, and color law) match between implementations
+    2. Integration grids used for bandpass integration match
+    3. Final bandflux calculations match for various phases and zero point settings
+    
+    The test prints detailed comparisons and uses numpy's testing functions to
+    verify numerical consistency within specified tolerances.
+    """
     # Set model parameters
     params = {
         'z': 0.1,
