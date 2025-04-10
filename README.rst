@@ -35,5 +35,17 @@ This repository implements the JAX version of the SNCosmo bandflux function. Alt
 What is the .airules file?
 --------------------------
 
-The `.airules` file provides context to help LLMs understand and work with this codebase. This is particularly important for new code that will not have been included in model training datasets. The file contains detailed information about data structures, core functions, critical implementation rules, and testing requirements. If you are using `cursor`, rename this file to `.cursorrules` and it will be automatically interpreted as context.
+.airules
+========
 
+The `.airules` file provides essential context to help language models understand 
+and work with this codebase—particularly for new code that may not be included 
+in model training datasets. It contains detailed information on:
+
+- Data structures  
+- Core functions  
+- Implementation constraints  
+- Testing requirements  
+
+If you are using `cursor`, rename this file to `.cursorrules` to enable 
+automatic context integration.

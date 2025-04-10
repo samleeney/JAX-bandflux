@@ -6,7 +6,7 @@ setup(
     author="Samuel Alan Kossoff Leeney",
     author_email="sakl2@cam.ac.uk",
     description="A JAX-based package for calculating supernovae Bandfluxes",
-    long_description=open("README.md").read(),
+    long_description=open("README.rst").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/samleeney/JAX-bandflux",
     packages=find_packages(),
