@@ -19,8 +19,6 @@ affiliations:
 date: "10 April 2025"
 bibliography: paper.bib
 ---
-<> (JAX-bandflux provides the first GPU-optimised, differentiable framework for computing supernovae fluxes using SALT parameters. This Python package enables efficient cosmological analyses crucial for determining fundamental properties of the universe, such as its' expansion rate.)
-
 # Summary
 
 This paper presents a JAX [@jax2018github] implementation of critical supernova modelling functionality for cosmological analysis. The codebase implements key components of the established library SNCosmo [@barbary2016sncosmo] in a differentiable framework, offering efficient parallelisation and gradient-based optimisation capabilities through GPU acceleration. The package facilitates differentiable computation of supernova light curve measurements, supporting the inference of SALT [@kenworthy2021salt3; @pierel2022salt3] parameters necessary for cosmological analysis.
