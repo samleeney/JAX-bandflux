@@ -30,6 +30,6 @@ To verify that JAX-bandflux is installed correctly:
 
 .. code-block:: bash
 
-   python -c "import jax_supernovae; print(jax_supernovae.__version__)"
+   python -c "import jax_supernovae; print('JAX-bandflux successfully installed')"
 
-This command should display the installed version of JAX-bandflux.
+This command should display a success message if JAX-bandflux is installed correctly.

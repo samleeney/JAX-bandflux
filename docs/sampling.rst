@@ -11,7 +11,7 @@ The first step in parameter fitting is to define an objective function that quan
 .. code-block:: python
 
     import jax.numpy as jnp
-    from jax_supernovae.salt3 import salt3_bandflux
+    from jax_supernovae.salt3 import optimized_salt3_multiband_flux
 
     def objective(parameters):
         """
@@ -27,13 +27,15 @@ The first step in parameter fitting is to define an objective function that quan
         params = {
             'z': fixed_z[0],  # Fixed redshift
             't0': parameters[0],
-            'x1': parameters[1],
-            'x0': parameters[2],
+            'x0': parameters[1],
+            'x1': parameters[2],
             'c': parameters[3]
         }
         
         # Calculate model fluxes
-        model_fluxes = salt3_bandflux(times, bridges, params, zp=zps)
+        model_fluxes = optimized_salt3_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
+        # Index the model fluxes with band_indices to match observations
+        model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
         
         # Calculate chi-squared
         chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
@@ -53,16 +55,16 @@ Once the objective function is defined, we can use optimization methods from Sci
     # Initial parameter values
     initial_params = np.array([
         58650.0,  # t0
-        0.0,      # x1
         1e-5,     # x0
+        0.0,      # x1
         0.0       # c
     ])
 
     # Parameter bounds
     bounds = [
         (58600.0, 58700.0),  # t0
-        (-3.0, 3.0),         # x1
         (1e-6, 1e-4),        # x0
+        (-3.0, 3.0),         # x1
         (-0.3, 0.3)          # c
     ]
 
@@ -82,8 +84,8 @@ Once the objective function is defined, we can use optimization methods from Sci
     best_params = {
         'z': fixed_z[0],
         't0': result.x[0],
-        'x1': result.x[1],
-        'x0': result.x[2],
+        'x0': result.x[1],
+        'x1': result.x[2],
         'c': result.x[3]
     }
 
@@ -105,7 +107,7 @@ Here is a complete example that demonstrates the entire process of loading data,
     import numpy as np
     from scipy.optimize import minimize
     from jax_supernovae.data import load_and_process_data
-    from jax_supernovae.salt3 import salt3_bandflux
+    from jax_supernovae.salt3 import optimized_salt3_multiband_flux
 
     # Enable float64 precision
     jax.config.update("jax_enable_x64", True)
@@ -123,13 +125,15 @@ Here is a complete example that demonstrates the entire process of loading data,
         params = {
             'z': fixed_z[0],  # Fixed redshift
             't0': parameters[0],
-            'x1': parameters[1],
-            'x0': parameters[2],
+            'x0': parameters[1],
+            'x1': parameters[2],
             'c': parameters[3]
         }
         
         # Calculate model fluxes
-        model_fluxes = salt3_bandflux(times, bridges, params, zp=zps)
+        model_fluxes = optimized_salt3_multiband_flux(times, bridges, params, zps=zps, zpsys='ab')
+        # Index the model fluxes with band_indices to match observations
+        model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
         
         # Calculate chi-squared
         chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
@@ -139,16 +143,16 @@ Here is a complete example that demonstrates the entire process of loading data,
     # Initial parameter values
     initial_params = np.array([
         58650.0,  # t0
-        0.0,      # x1
         1e-5,     # x0
+        0.0,      # x1
         0.0       # c
     ])
 
     # Parameter bounds
     bounds = [
         (58600.0, 58700.0),  # t0
-        (-3.0, 3.0),         # x1
         (1e-6, 1e-4),        # x0
+        (-3.0, 3.0),         # x1
         (-0.3, 0.3)          # c
     ]
 
@@ -168,8 +172,8 @@ Here is a complete example that demonstrates the entire process of loading data,
     best_params = {
         'z': fixed_z[0],
         't0': result.x[0],
-        'x1': result.x[1],
-        'x0': result.x[2],
+        'x0': result.x[1],
+        'x1': result.x[2],
         'c': result.x[3]
     }
 

@@ -86,23 +86,6 @@ The following diagram shows the relationships between key components:
    model_fluxes
    sampling
 
-Installation
------------
-
-You can install JAX-bandflux using pip:
-
-.. code-block:: bash
-
-   pip install jax-bandflux
-
-For development installation:
-
-.. code-block:: bash
-
-   git clone https://github.com/samleeney/JAX-bandflux.git
-   cd JAX-bandflux
-   pip install -e .[dev]
-
 Quick Links
 ----------
 
