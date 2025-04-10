@@ -1,0 +1,305 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SALT3 Module" href="salt3.html" />
+    <link rel="prev" title="Nested Sampling Tutorial" href="../tutorials/nested_sampling.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-relationships">Module Relationships</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-the-api">Using the API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="salt3.html">SALT3 Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="bandpasses.html">Bandpasses Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data.html">Data Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="utils.html">Utils Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="constants.html">Constants Module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h1>
+<p>This section provides detailed API documentation for JAX-bandflux. The API is organized into several modules, each focusing on a specific aspect of supernova light curve modeling.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>JAX-bandflux’s API is designed to be modular, efficient, and easy to use. The main modules are:</p>
+<ul class="simple">
+<li><p><strong>salt3</strong>: Implementation of the SALT3 model for supernova light curves</p></li>
+<li><p><strong>bandpasses</strong>: Management of bandpass filters for different instruments</p></li>
+<li><p><strong>data</strong>: Loading and processing supernova light curve data</p></li>
+<li><p><strong>utils</strong>: Utility functions for various tasks</p></li>
+<li><p><strong>constants</strong>: Physical constants used throughout the codebase</p></li>
+</ul>
+</section>
+<section id="module-relationships">
+<h2>Module Relationships<a class="headerlink" href="#module-relationships" title="Link to this heading"></a></h2>
+<p>The modules are designed to work together seamlessly:</p>
+<ul class="simple">
+<li><p>The <strong>salt3</strong> module uses the <strong>bandpasses</strong> module to calculate model fluxes through different filters</p></li>
+<li><p>The <strong>data</strong> module loads data and registers the necessary <strong>bandpasses</strong></p></li>
+<li><p>The <strong>utils</strong> module provides helper functions used by all other modules</p></li>
+<li><p>The <strong>constants</strong> module defines physical constants used by the <strong>salt3</strong> and <strong>bandpasses</strong> modules</p></li>
+</ul>
+</section>
+<section id="using-the-api">
+<h2>Using the API<a class="headerlink" href="#using-the-api" title="Link to this heading"></a></h2>
+<p>Here’s a typical workflow using the JAX-bandflux API:</p>
+<ol class="arabic simple">
+<li><p>Load data using functions from the <strong>data</strong> module</p></li>
+<li><p>Register bandpasses using the <strong>bandpasses</strong> module</p></li>
+<li><p>Calculate model fluxes using the <strong>salt3</strong> module</p></li>
+<li><p>Optimize parameters or perform Bayesian inference</p></li>
+</ol>
+<p>For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_and_process_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.salt3</span><span class="w"> </span><span class="kn">import</span> <span class="n">optimized_salt3_multiband_flux</span>
+
+<span class="c1"># Load data (bandpasses are registered automatically)</span>
+<span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">zps</span><span class="p">,</span> <span class="n">band_indices</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">fixed_z</span> <span class="o">=</span> <span class="n">load_and_process_data</span><span class="p">(</span>
+    <span class="n">sn_name</span><span class="o">=</span><span class="s1">&#39;19dwz&#39;</span><span class="p">,</span> <span class="n">data_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">fix_z</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Define parameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">fixed_z</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="mf">58650.0</span><span class="p">,</span>
+    <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
+    <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="mf">0.0</span>
+<span class="p">}</span>
+
+<span class="c1"># Calculate model fluxes</span>
+<span class="n">model_fluxes</span> <span class="o">=</span> <span class="n">optimized_salt3_multiband_flux</span><span class="p">(</span>
+    <span class="n">times</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zps</span><span class="o">=</span><span class="n">zps</span><span class="p">,</span> <span class="n">zpsys</span><span class="o">=</span><span class="s1">&#39;ab&#39;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="salt3.html">SALT3 Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.read_griddata_file"><code class="docutils literal notranslate"><span class="pre">read_griddata_file()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.kernval"><code class="docutils literal notranslate"><span class="pre">kernval()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.find_index"><code class="docutils literal notranslate"><span class="pre">find_index()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.compute_interpolation_weights"><code class="docutils literal notranslate"><span class="pre">compute_interpolation_weights()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.interpolate_2d"><code class="docutils literal notranslate"><span class="pre">interpolate_2d()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_m0_single"><code class="docutils literal notranslate"><span class="pre">salt3_m0_single()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_m1_single"><code class="docutils literal notranslate"><span class="pre">salt3_m1_single()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_m0"><code class="docutils literal notranslate"><span class="pre">salt3_m0()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_m1"><code class="docutils literal notranslate"><span class="pre">salt3_m1()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_colorlaw"><code class="docutils literal notranslate"><span class="pre">salt3_colorlaw()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_bandflux"><code class="docutils literal notranslate"><span class="pre">salt3_bandflux()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.salt3_multiband_flux"><code class="docutils literal notranslate"><span class="pre">salt3_multiband_flux()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.precompute_bandflux_bridge"><code class="docutils literal notranslate"><span class="pre">precompute_bandflux_bridge()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.optimized_salt3_bandflux"><code class="docutils literal notranslate"><span class="pre">optimized_salt3_bandflux()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#jax_supernovae.salt3.optimized_salt3_multiband_flux"><code class="docutils literal notranslate"><span class="pre">optimized_salt3_multiband_flux()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#model-components">Model Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#key-functions">Key Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#parameters">Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#performance-optimization">Performance Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bandpasses.html">Bandpasses Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.Bandpass"><code class="docutils literal notranslate"><span class="pre">Bandpass</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.get_bandpass_filepath"><code class="docutils literal notranslate"><span class="pre">get_bandpass_filepath()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.load_bandpass"><code class="docutils literal notranslate"><span class="pre">load_bandpass()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.load_bandpass_from_file"><code class="docutils literal notranslate"><span class="pre">load_bandpass_from_file()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.create_bandpass_from_svo"><code class="docutils literal notranslate"><span class="pre">create_bandpass_from_svo()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.register_bandpass"><code class="docutils literal notranslate"><span class="pre">register_bandpass()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.get_bandpass"><code class="docutils literal notranslate"><span class="pre">get_bandpass()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.load_custom_bandpasses"><code class="docutils literal notranslate"><span class="pre">load_custom_bandpasses()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#jax_supernovae.bandpasses.register_all_bandpasses"><code class="docutils literal notranslate"><span class="pre">register_all_bandpasses()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#bandpass-class">Bandpass Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#bandpass-registry">Bandpass Registry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#key-classes-and-functions">Key Classes and Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#loading-bandpasses-from-files">Loading Bandpasses from Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#svo-filter-profile-service-integration">SVO Filter Profile Service Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#supported-bandpasses">Supported Bandpasses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandpasses.html#creating-custom-bandpasses">Creating Custom Bandpasses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">Data Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data.html#jax_supernovae.data.find_object_filepath"><code class="docutils literal notranslate"><span class="pre">find_object_filepath()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#jax_supernovae.data.load_hsf_data"><code class="docutils literal notranslate"><span class="pre">load_hsf_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#jax_supernovae.data.load_redshift"><code class="docutils literal notranslate"><span class="pre">load_redshift()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#jax_supernovae.data.load_and_process_data"><code class="docutils literal notranslate"><span class="pre">load_and_process_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#jax_supernovae.data.get_all_supernovae_with_redshifts"><code class="docutils literal notranslate"><span class="pre">get_all_supernovae_with_redshifts()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#key-functions">Key Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#data-format">Data Format</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utils Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="utils.html#jax_supernovae.utils.interp"><code class="docutils literal notranslate"><span class="pre">interp()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html#jax_supernovae.utils.save_chains_dead_birth"><code class="docutils literal notranslate"><span class="pre">save_chains_dead_birth()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html#key-functions">Key Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Constants Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="constants.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html#key-constants">Key Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../tutorials/nested_sampling.html" class="btn btn-neutral float-left" title="Nested Sampling Tutorial" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="salt3.html" class="btn btn-neutral float-right" title="SALT3 Module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

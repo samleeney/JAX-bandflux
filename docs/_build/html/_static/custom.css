@@ -1,0 +1,107 @@
+/* Custom CSS for JAX-bandflux documentation */
+
+/* Improve readability */
+body {
+    font-family: "Lato", "proxima-nova", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* Improve code blocks */
+pre {
+    padding: 12px;
+    line-height: 1.5;
+    overflow: auto;
+    border-radius: 3px;
+}
+
+code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 90%;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* Improve tables */
+table.docutils {
+    border-collapse: collapse;
+    border: 1px solid #e1e4e5;
+}
+
+table.docutils th {
+    background-color: #f3f6f6;
+    border: 1px solid #e1e4e5;
+    padding: 8px;
+}
+
+table.docutils td {
+    border: 1px solid #e1e4e5;
+    padding: 8px;
+}
+
+/* Improve admonitions */
+.admonition {
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 3px;
+}
+
+.admonition-title {
+    margin: -12px -12px 12px -12px;
+    padding: 6px 12px;
+    border-radius: 3px 3px 0 0;
+    font-weight: bold;
+}
+
+/* Improve note admonition */
+.admonition.note {
+    background-color: #f3f6f6;
+    border-left: 6px solid #3091d1;
+}
+
+.admonition.note .admonition-title {
+    background-color: #3091d1;
+    color: white;
+}
+
+/* Improve warning admonition */
+.admonition.warning {
+    background-color: #ffedcc;
+    border-left: 6px solid #f0b37e;
+}
+
+.admonition.warning .admonition-title {
+    background-color: #f0b37e;
+    color: white;
+}
+
+/* Improve math rendering */
+.math {
+    font-size: 100%;
+    text-align: center;
+    margin: 1em 0;
+}
+
+/* Improve API documentation */
+dl.class, dl.function, dl.method, dl.attribute {
+    margin-bottom: 2em;
+    padding-bottom: 1em;
+    border-bottom: 1px solid #e1e4e5;
+}
+
+dl.class dt, dl.function dt, dl.method dt, dl.attribute dt {
+    font-weight: bold;
+    background-color: #f3f6f6;
+    padding: 8px;
+    border-radius: 3px;
+}
+
+/* Improve navigation */
+.wy-menu-vertical li.current > a {
+    background-color: #f3f6f6;
+    color: #404040;
+}
+
+.wy-menu-vertical li.current > a:hover {
+    background-color: #e5ebeb;
+}

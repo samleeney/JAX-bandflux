@@ -1,0 +1,58 @@
+Data Module
+===========
+
+.. automodule:: jax_supernovae.data
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Overview
+--------
+
+The ``data`` module provides functionality for loading and processing supernova light curve data. It includes functions for loading data from various formats, converting data to JAX arrays, and handling redshift data.
+
+Key Functions
+------------
+
+.. autosummary::
+   :nosignatures:
+
+   jax_supernovae.data.load_and_process_data
+   jax_supernovae.data.load_hsf_data
+   jax_supernovae.data.load_redshift
+
+Example Usage
+------------
+
+.. code-block:: python
+
+   from jax_supernovae.data import load_and_process_data, load_hsf_data, load_redshift
+   
+   # Load and process data with automatic bandpass registration
+   times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(
+       sn_name='19dwz',  # Name of the supernova
+       data_dir='data',  # Optional, the default is 'data'
+       fix_z=True        # Whether to load and fix redshift from redshifts.dat
+   )
+   
+   # Load raw data for a specific supernova
+   data = load_hsf_data('19dwz', base_dir='data')
+   
+   # Load redshift data
+   z, z_err = load_redshift('19dwz', base_dir='data')
+
+Data Format
+-----------
+
+JAX-bandflux is optimized for loading data in the HSF DR1 format, which includes:
+
+- ``time``: Observation times (MJD)
+- ``band``: Filter or band names
+- ``flux``: Flux measurements
+- ``fluxerr``: Errors associated with flux measurements
+- ``zp``: Zero points (defaults to 27.5 when not provided)
+
+The data can be stored in various file formats, including:
+
+- ``.phot`` files: Text files with columns for time, band, flux, fluxerr, and zp
+- ``.dat`` files: Text files with columns for redshift and redshift error

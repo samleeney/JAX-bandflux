@@ -1,0 +1,485 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JAX Optimization &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tutorials" href="../tutorials/index.html" />
+    <link rel="prev" title="Data Handling" href="data_handling.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="bandpass_management.html">Bandpass Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="salt3_model.html">SALT3 Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handling.html">Data Handling</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">JAX Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction-to-jax">Introduction to JAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#automatic-differentiation">Automatic Differentiation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#just-in-time-jit-compilation">Just-in-Time (JIT) Compilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vectorization">Vectorization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gpu-tpu-acceleration">GPU/TPU Acceleration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#optimization-algorithms">Optimization Algorithms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#performance-optimization">Performance Optimization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
+      <li class="breadcrumb-item active">JAX Optimization</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/jax_optimization.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="jax-optimization">
+<h1>JAX Optimization<a class="headerlink" href="#jax-optimization" title="Link to this heading"></a></h1>
+<p>This guide provides in-depth information about JAX optimization techniques in JAX-bandflux.</p>
+<section id="introduction-to-jax">
+<h2>Introduction to JAX<a class="headerlink" href="#introduction-to-jax" title="Link to this heading"></a></h2>
+<p>JAX is a high-performance numerical computing library that combines NumPy’s familiar API with the power of automatic differentiation and GPU/TPU acceleration. JAX-bandflux leverages JAX to implement differentiable supernova light curve modeling, enabling efficient gradient-based optimization and large-scale computations.</p>
+<p>Key features of JAX used in JAX-bandflux include:</p>
+<ol class="arabic simple">
+<li><p><strong>Automatic Differentiation</strong>: JAX can automatically compute derivatives of functions, which is useful for gradient-based optimization.</p></li>
+<li><p><strong>Just-in-Time (JIT) Compilation</strong>: JAX can compile functions for faster execution.</p></li>
+<li><p><strong>Vectorization</strong>: JAX can vectorize functions for parallel computation.</p></li>
+<li><p><strong>GPU/TPU Acceleration</strong>: JAX can run computations on GPUs and TPUs for faster execution.</p></li>
+</ol>
+</section>
+<section id="automatic-differentiation">
+<h2>Automatic Differentiation<a class="headerlink" href="#automatic-differentiation" title="Link to this heading"></a></h2>
+<p>JAX provides automatic differentiation through the <code class="docutils literal notranslate"><span class="pre">jax.grad</span></code> function. This allows you to compute derivatives of functions with respect to their inputs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.salt3</span><span class="w"> </span><span class="kn">import</span> <span class="n">salt3_bandflux</span>
+
+<span class="c1"># Define a function that computes the bandflux</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_bandflux</span><span class="p">(</span><span class="n">params_array</span><span class="p">):</span>
+    <span class="c1"># Convert the array to a dictionary</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Compute the bandflux</span>
+    <span class="k">return</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Compute the gradient</span>
+<span class="n">params_array</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">gradient</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">compute_bandflux</span><span class="p">)(</span><span class="n">params_array</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Gradient:&quot;</span><span class="p">,</span> <span class="n">gradient</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This gradient can be used in optimization algorithms like L-BFGS-B to find the best-fit parameters.</p>
+<p>You can also compute higher-order derivatives using <code class="docutils literal notranslate"><span class="pre">jax.hessian</span></code> or <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code> and <code class="docutils literal notranslate"><span class="pre">jax.jacrev</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compute the Hessian</span>
+<span class="n">hessian</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">compute_bandflux</span><span class="p">)(</span><span class="n">params_array</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Hessian shape:&quot;</span><span class="p">,</span> <span class="n">hessian</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="just-in-time-jit-compilation">
+<h2>Just-in-Time (JIT) Compilation<a class="headerlink" href="#just-in-time-jit-compilation" title="Link to this heading"></a></h2>
+<p>JAX provides just-in-time (JIT) compilation through the <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code> function. This can significantly improve performance for repeated evaluations of the same function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="c1"># Define a function that computes the chi-squared</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_chi2</span><span class="p">(</span><span class="n">params_array</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">zps</span><span class="p">):</span>
+    <span class="c1"># Convert the array to a dictionary</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Compute model fluxes</span>
+    <span class="n">model_fluxes</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="n">zps</span><span class="p">)</span>
+
+    <span class="c1"># Compute chi-squared</span>
+    <span class="n">chi2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">fluxes</span> <span class="o">-</span> <span class="n">model_fluxes</span><span class="p">)</span> <span class="o">/</span> <span class="n">fluxerrs</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">chi2</span>
+
+<span class="c1"># JIT-compile the function</span>
+<span class="n">jit_compute_chi2</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">compute_chi2</span><span class="p">)</span>
+
+<span class="c1"># Use the JIT-compiled function</span>
+<span class="n">params_array</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">chi2</span> <span class="o">=</span> <span class="n">jit_compute_chi2</span><span class="p">(</span><span class="n">params_array</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">zps</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Chi-squared:&quot;</span><span class="p">,</span> <span class="n">chi2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>JIT compilation works best for functions that don’t change their computation graph between calls. For example, if you have a function that uses different control flow based on its inputs, JIT compilation may not be as effective.</p>
+</section>
+<section id="vectorization">
+<h2>Vectorization<a class="headerlink" href="#vectorization" title="Link to this heading"></a></h2>
+<p>JAX provides vectorization through the <code class="docutils literal notranslate"><span class="pre">jax.vmap</span></code> function. This allows you to apply a function to multiple inputs in parallel:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="c1"># Define a function that computes the bandflux for a single time</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_bandflux_single</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Vectorize the function over times</span>
+<span class="n">compute_bandflux_vectorized</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">compute_bandflux_single</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+<span class="c1"># Compute bandfluxes for multiple times</span>
+<span class="n">times</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">fluxes</span> <span class="o">=</span> <span class="n">compute_bandflux_vectorized</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fluxes shape:&quot;</span><span class="p">,</span> <span class="n">fluxes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also vectorize over multiple inputs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define a function that computes the bandflux for a single time and bridge</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_bandflux_single</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Vectorize the function over times and bridges</span>
+<span class="n">compute_bandflux_vectorized</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">compute_bandflux_single</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+<span class="c1"># Compute bandfluxes for multiple times and bridges</span>
+<span class="n">times</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">bridges</span> <span class="o">=</span> <span class="p">[</span><span class="n">bridge</span><span class="p">]</span> <span class="o">*</span> <span class="mi">100</span>  <span class="c1"># Just an example, you would use actual bridges</span>
+<span class="n">fluxes</span> <span class="o">=</span> <span class="n">compute_bandflux_vectorized</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fluxes shape:&quot;</span><span class="p">,</span> <span class="n">fluxes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Vectorization can significantly improve performance for large-scale computations.</p>
+</section>
+<section id="gpu-tpu-acceleration">
+<h2>GPU/TPU Acceleration<a class="headerlink" href="#gpu-tpu-acceleration" title="Link to this heading"></a></h2>
+<p>JAX can run computations on GPUs and TPUs for faster execution. To use GPU acceleration, you need to install the GPU version of JAX. Please refer to the <a class="reference external" href="https://github.com/google/jax#installation">JAX installation guide</a> for detailed instructions.</p>
+<p>Once you have installed the GPU version of JAX, you can use JAX-bandflux as usual, and JAX will automatically use the GPU for computations.</p>
+<p>You can check if JAX is using the GPU:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Devices:&quot;</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>If you see a GPU device in the list, JAX is using the GPU.</p>
+</section>
+<section id="optimization-algorithms">
+<h2>Optimization Algorithms<a class="headerlink" href="#optimization-algorithms" title="Link to this heading"></a></h2>
+<p>JAX-bandflux supports various optimization algorithms for fitting SALT parameters to supernova light curve data:</p>
+<ol class="arabic simple">
+<li><p><strong>L-BFGS-B</strong>: A gradient-based optimization algorithm that approximates the Hessian matrix.</p></li>
+<li><p><strong>Nested Sampling</strong>: A Bayesian inference algorithm that explores the parameter space and computes the Bayesian evidence.</p></li>
+</ol>
+<p>L-BFGS-B is implemented using SciPy’s <code class="docutils literal notranslate"><span class="pre">minimize</span></code> function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Define the objective function</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">objective</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+    <span class="c1"># Create a dictionary containing parameters</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">fixed_z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">0</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">2</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">3</span><span class="p">],</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">3</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">4</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Compute model fluxes for all observations</span>
+    <span class="n">model_fluxes</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="n">zps</span><span class="p">)</span>
+
+    <span class="c1"># Calculate the chi-squared statistic</span>
+    <span class="n">chi2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">fluxes</span> <span class="o">-</span> <span class="n">model_fluxes</span><span class="p">)</span> <span class="o">/</span> <span class="n">fluxerrs</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">chi2</span><span class="p">)</span>
+
+<span class="c1"># Initial parameter values</span>
+<span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">initial_params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>  <span class="c1"># t0, x0, x1, c</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">initial_params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>  <span class="c1"># z, t0, x0, x1, c</span>
+
+<span class="c1"># Parameter bounds</span>
+<span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mf">1e-10</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>  <span class="c1"># t0, x0, x1, c</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mf">1e-10</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>  <span class="c1"># z, t0, x0, x1, c</span>
+
+<span class="c1"># Optimize the parameters</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+    <span class="n">objective</span><span class="p">,</span>
+    <span class="n">initial_params</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s1">&#39;L-BFGS-B&#39;</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+    <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;disp&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># Print the results</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Optimization successful:&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Number of function evaluations:&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">nfev</span><span class="p">)</span>
+
+<span class="c1"># Extract the best-fit parameters</span>
+<span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">best_t0</span><span class="p">,</span> <span class="n">best_x0</span><span class="p">,</span> <span class="n">best_x1</span><span class="p">,</span> <span class="n">best_c</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
+    <span class="n">best_z</span> <span class="o">=</span> <span class="n">fixed_z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">best_z</span><span class="p">,</span> <span class="n">best_t0</span><span class="p">,</span> <span class="n">best_x0</span><span class="p">,</span> <span class="n">best_x1</span><span class="p">,</span> <span class="n">best_c</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Best-fit parameters:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;z = </span><span class="si">{</span><span class="n">best_z</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;t0 = </span><span class="si">{</span><span class="n">best_t0</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;x0 = </span><span class="si">{</span><span class="n">best_x0</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;x1 = </span><span class="si">{</span><span class="n">best_x1</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;c = </span><span class="si">{</span><span class="n">best_c</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Nested sampling is implemented using the <code class="docutils literal notranslate"><span class="pre">nestle</span></code> package:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">nestle</span>
+
+<span class="c1"># Define the log-likelihood function</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_likelihood</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+    <span class="c1"># Create a dictionary containing parameters</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">fixed_z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">0</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">2</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">3</span><span class="p">],</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">[</span><span class="mi">3</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">4</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Compute model fluxes for all observations</span>
+    <span class="n">model_fluxes</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="n">zps</span><span class="p">)</span>
+
+    <span class="c1"># Calculate the log-likelihood (assuming Gaussian errors)</span>
+    <span class="n">chi2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">fluxes</span> <span class="o">-</span> <span class="n">model_fluxes</span><span class="p">)</span> <span class="o">/</span> <span class="n">fluxerrs</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">log_like</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">chi2</span>
+
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">log_like</span><span class="p">)</span>
+
+<span class="c1"># Define the prior transform function</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">prior_transform</span><span class="p">(</span><span class="n">unit_cube</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform from the unit cube to the parameter space.&quot;&quot;&quot;</span>
+    <span class="c1"># Define the parameter ranges</span>
+    <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># t0, x0, x1, c</span>
+        <span class="n">ranges</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>       <span class="c1"># t0</span>
+            <span class="p">(</span><span class="mf">1e-10</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">),</span>   <span class="c1"># x0</span>
+            <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>         <span class="c1"># x1</span>
+            <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>          <span class="c1"># c</span>
+        <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># z, t0, x0, x1, c</span>
+        <span class="n">ranges</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">),</span>     <span class="c1"># z</span>
+            <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>       <span class="c1"># t0</span>
+            <span class="p">(</span><span class="mf">1e-10</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">),</span>   <span class="c1"># x0</span>
+            <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>         <span class="c1"># x1</span>
+            <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>          <span class="c1"># c</span>
+        <span class="p">]</span>
+
+    <span class="c1"># Transform from unit cube to parameter space</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">unit_cube</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ranges</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># x0 (log-uniform)</span>
+            <span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span> <span class="o">+</span> <span class="n">unit_cube</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">lower</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># uniform</span>
+            <span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">lower</span> <span class="o">+</span> <span class="n">unit_cube</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">upper</span> <span class="o">-</span> <span class="n">lower</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">params</span>
+
+<span class="c1"># Number of parameters</span>
+<span class="n">n_params</span> <span class="o">=</span> <span class="mi">4</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">5</span>
+
+<span class="c1"># Run nested sampling</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">nestle</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+    <span class="n">log_likelihood</span><span class="p">,</span>
+    <span class="n">prior_transform</span><span class="p">,</span>
+    <span class="n">n_params</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s1">&#39;multi&#39;</span><span class="p">,</span>
+    <span class="n">npoints</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">info</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iteration </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;it&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, log(Z) = </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;logz&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Print the results</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Nested sampling completed!&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Log evidence: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">logz</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ± </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">logzerr</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Extract posterior samples</span>
+<span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">logwt</span> <span class="o">-</span> <span class="n">result</span><span class="o">.</span><span class="n">logz</span><span class="p">)</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">samples</span>
+
+<span class="c1"># Compute weighted mean and standard deviation</span>
+<span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">samples</span> <span class="o">*</span> <span class="n">weights</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">samples</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+
+<span class="c1"># Print the parameter estimates</span>
+<span class="n">param_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;t0&#39;</span><span class="p">,</span> <span class="s1">&#39;x0&#39;</span><span class="p">,</span> <span class="s1">&#39;x1&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="n">fixed_z</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="s1">&#39;t0&#39;</span><span class="p">,</span> <span class="s1">&#39;x0&#39;</span><span class="p">,</span> <span class="s1">&#39;x1&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Parameter estimates:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">param_names</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">mean</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> ± </span><span class="si">{</span><span class="n">std</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="performance-optimization">
+<h2>Performance Optimization<a class="headerlink" href="#performance-optimization" title="Link to this heading"></a></h2>
+<p>Here are some tips for optimizing the performance of JAX-bandflux:</p>
+<ol class="arabic simple">
+<li><p><strong>Use JIT Compilation</strong>: JIT-compile functions that are called repeatedly.</p></li>
+<li><p><strong>Use Vectorization</strong>: Vectorize functions that are applied to multiple inputs.</p></li>
+<li><p><strong>Use GPU Acceleration</strong>: Use the GPU version of JAX for faster execution.</p></li>
+<li><p><strong>Precompute Bridge Data</strong>: Precompute bridge data for each bandpass to avoid recomputing it for each flux calculation.</p></li>
+<li><p><strong>Use Efficient Data Structures</strong>: Use JAX arrays instead of NumPy arrays for efficient computation.</p></li>
+<li><p><strong>Minimize Host-Device Transfers</strong>: Minimize transfers between the CPU and GPU by keeping data on the GPU as much as possible.</p></li>
+<li><p><strong>Use Appropriate Batch Sizes</strong>: Use appropriate batch sizes for vectorized computations to balance memory usage and performance.</p></li>
+</ol>
+<p>By following these tips, you can significantly improve the performance of JAX-bandflux for large-scale computations.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data_handling.html" class="btn btn-neutral float-left" title="Data Handling" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../tutorials/index.html" class="btn btn-neutral float-right" title="Tutorials" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

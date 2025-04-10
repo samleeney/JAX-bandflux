@@ -1,0 +1,774 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>jax_supernovae.salt3 &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">jax_supernovae.salt3</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for jax_supernovae.salt3</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;SALT3-NIR model implementation in JAX.&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.lax</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sncosmo</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.bandpasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">HC_ERG_AA</span><span class="p">,</span> <span class="n">MODEL_BANDFLUX_SPACING</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">vmap</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib.resources</span>
+
+<span class="c1"># Enable float64 precision</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Constants</span>
+<span class="n">H_ERG_S</span> <span class="o">=</span> <span class="mf">6.62607015e-27</span>  <span class="c1"># Planck constant in erg*s</span>
+
+<span class="c1"># Get package directory</span>
+<span class="n">PACKAGE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span>
+
+<span class="c1"># Model directory - hardcoded path</span>
+<span class="n">MODEL_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;data/models/salt3-nir/salt3nir-p22&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="read_griddata_file">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.read_griddata_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_griddata_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read 2-d grid data from a text file.</span>
+
+<span class="sd">    Each line has values `x0 x1 y` (phase, wavelength, flux). Space separated.</span>
+<span class="sd">    Returns phase, wavelength arrays and a 2D grid of values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Read data from file</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    
+    <span class="c1"># Get unique phase and wavelength values, ensuring they&#39;re sorted</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]))</span>
+    <span class="n">wave</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]))</span>
+    
+    <span class="c1"># Create empty grid</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">phase</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">wave</span><span class="p">)))</span>
+    
+    <span class="c1"># Map each data point to its position in the grid</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="n">pi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">wi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">values</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">wi</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+    
+    <span class="k">return</span> <span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">values</span></div>
+
+
+<span class="c1"># Read M0 and M1 data</span>
+<span class="n">m0_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s1">&#39;salt3_template_0.dat&#39;</span><span class="p">)</span>
+<span class="n">m1_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s1">&#39;salt3_template_1.dat&#39;</span><span class="p">)</span>
+<span class="n">cl_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="s1">&#39;salt3_color_correction.dat&#39;</span><span class="p">)</span>
+
+<span class="c1"># Read data and apply scaling (match SNCosmo exactly)</span>
+<span class="n">SCALE_FACTOR</span> <span class="o">=</span> <span class="mf">1e-12</span>
+<span class="n">phase_grid</span><span class="p">,</span> <span class="n">wave_grid</span><span class="p">,</span> <span class="n">m0_data</span> <span class="o">=</span> <span class="n">read_griddata_file</span><span class="p">(</span><span class="n">m0_file</span><span class="p">)</span>
+<span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">m1_data</span> <span class="o">=</span> <span class="n">read_griddata_file</span><span class="p">(</span><span class="n">m1_file</span><span class="p">)</span>
+
+<span class="c1"># Apply scale factor to data (match SNCosmo exactly)</span>
+<span class="n">m0_data</span> <span class="o">=</span> <span class="n">m0_data</span> <span class="o">*</span> <span class="n">SCALE_FACTOR</span>
+<span class="n">m1_data</span> <span class="o">=</span> <span class="n">m1_data</span> <span class="o">*</span> <span class="n">SCALE_FACTOR</span>
+
+<span class="c1"># Convert to JAX arrays</span>
+<span class="n">phase_grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">phase_grid</span><span class="p">)</span>
+<span class="n">wave_grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">wave_grid</span><span class="p">)</span>
+<span class="n">m0_data</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">m0_data</span><span class="p">)</span>  <span class="c1"># Scale factor already applied</span>
+<span class="n">m1_data</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">m1_data</span><span class="p">)</span>  <span class="c1"># Scale factor already applied</span>
+
+<span class="c1"># Read color law coefficients</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cl_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">words</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">ncoeffs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">colorlaw_coeffs</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">words</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">ncoeffs</span><span class="p">]])</span>
+    <span class="n">colorlaw_range</span> <span class="o">=</span> <span class="p">[</span><span class="mf">3000.</span><span class="p">,</span> <span class="mf">7000.</span><span class="p">]</span>  <span class="c1"># Default range</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">ncoeffs</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">words</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Salt2ExtinctionLaw.min_lambda&#39;</span><span class="p">:</span>
+            <span class="n">colorlaw_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">words</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Salt2ExtinctionLaw.max_lambda&#39;</span><span class="p">:</span>
+            <span class="n">colorlaw_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+
+<div class="viewcode-block" id="kernval">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.kernval">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">kernval</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute kernel value for bicubic interpolation.</span>
+<span class="sd">    </span>
+<span class="sd">    This matches SNCosmo&#39;s implementation exactly:</span>
+<span class="sd">    W(x) = (a+2)*x**3-(a+3)*x**2+1 for x&lt;=1</span>
+<span class="sd">    W(x) = a( x**3-5*x**2+8*x-4) for 1&lt;x&lt;2</span>
+<span class="sd">    W(x) = 0 for x&gt;2</span>
+<span class="sd">    where a=-0.5</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span>  <span class="c1"># This matches SNCosmo&#39;s value</span>
+    
+    <span class="c1"># Calculate the result for each case</span>
+    <span class="n">case1</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">3</span> <span class="o">-</span> <span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># x &lt;= 1</span>
+    <span class="n">case2</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">3</span> <span class="o">-</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">x</span> <span class="o">-</span> <span class="mi">4</span><span class="p">)</span>    <span class="c1"># 1 &lt; x &lt; 2</span>
+    
+    <span class="c1"># Use where to select the appropriate result</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">case1</span><span class="p">,</span>
+                      <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">case2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="find_index">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.find_index">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_index</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find index i such that values[i] &lt;= x &lt; values[i+1].&quot;&quot;&quot;</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># Ensure we stay within bounds</span>
+    <span class="k">return</span> <span class="n">i</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_interpolation_weights">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.compute_interpolation_weights">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_interpolation_weights</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute interpolation weights and indices.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        x: The point to interpolate at</span>
+<span class="sd">        values: The grid values to interpolate between</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: (indices, normalized coordinates, near_boundary)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Find indices</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">find_index</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="c1"># Check bounds and boundaries</span>
+    <span class="n">in_bounds</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;=</span> <span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">near_boundary</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate normalized coordinates</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    
+    <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">in_bounds</span><span class="p">,</span> <span class="n">near_boundary</span></div>
+
+
+<div class="viewcode-block" id="interpolate_2d">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.interpolate_2d">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">interpolate_2d</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform 2D interpolation on gridded data.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        phase: Phase value to interpolate at</span>
+<span class="sd">        wave: Wavelength value to interpolate at</span>
+<span class="sd">        data: 2D grid of values to interpolate from</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        float: Interpolated value</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Compute weights for both dimensions</span>
+    <span class="n">ix</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">x_in_bounds</span><span class="p">,</span> <span class="n">x_near_boundary</span> <span class="o">=</span> <span class="n">compute_interpolation_weights</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">phase_grid</span><span class="p">)</span>
+    <span class="n">iy</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">y_in_bounds</span><span class="p">,</span> <span class="n">y_near_boundary</span> <span class="o">=</span> <span class="n">compute_interpolation_weights</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">wave_grid</span><span class="p">)</span>
+    
+    <span class="c1"># Check if we need to use linear interpolation</span>
+    <span class="n">near_boundary</span> <span class="o">=</span> <span class="n">x_near_boundary</span> <span class="o">|</span> <span class="n">y_near_boundary</span>
+    
+    <span class="c1"># Get corner values for linear interpolation</span>
+    <span class="n">z00</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">ix</span><span class="p">,</span> <span class="n">iy</span><span class="p">]</span>
+    <span class="n">z01</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">ix</span><span class="p">,</span> <span class="n">iy</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">z10</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">ix</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">iy</span><span class="p">]</span>
+    <span class="n">z11</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">ix</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">iy</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    
+    <span class="c1"># Linear interpolation</span>
+    <span class="n">linear_result</span> <span class="o">=</span> <span class="p">(</span><span class="n">z00</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span> <span class="o">+</span>
+                    <span class="n">z10</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span> <span class="o">+</span>
+                    <span class="n">z01</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span> <span class="o">*</span> <span class="n">dy</span> <span class="o">+</span>
+                    <span class="n">z11</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span>
+    
+    <span class="c1"># For bicubic interpolation, pad the array with edge values</span>
+    <span class="n">padded</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;edge&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Get 4x4 grid for bicubic interpolation</span>
+    <span class="n">ix_pad</span> <span class="o">=</span> <span class="n">ix</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># Adjust for padding</span>
+    <span class="n">iy_pad</span> <span class="o">=</span> <span class="n">iy</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">lax</span><span class="o">.</span><span class="n">dynamic_slice</span><span class="p">(</span><span class="n">padded</span><span class="p">,</span> <span class="p">(</span><span class="n">ix_pad</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">iy_pad</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+    
+    <span class="c1"># Calculate bicubic weights</span>
+    <span class="n">wx</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dx</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dx</span><span class="p">),</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dx</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dx</span> <span class="o">-</span> <span class="mf">2.0</span><span class="p">)</span>
+    <span class="p">])</span>
+    
+    <span class="n">wy</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dy</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dy</span><span class="p">),</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dy</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">kernval</span><span class="p">(</span><span class="n">dy</span> <span class="o">-</span> <span class="mf">2.0</span><span class="p">)</span>
+    <span class="p">])</span>
+    
+    <span class="c1"># Calculate bicubic interpolation</span>
+    <span class="n">cubic_result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">wx</span><span class="p">,</span> <span class="n">wy</span><span class="p">)</span> <span class="o">*</span> <span class="n">grid</span><span class="p">)</span>
+    
+    <span class="c1"># Use linear interpolation near boundaries, bicubic otherwise</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">near_boundary</span><span class="p">,</span> <span class="n">linear_result</span><span class="p">,</span> <span class="n">cubic_result</span><span class="p">)</span>
+    
+    <span class="c1"># Return 0 if out of bounds, interpolated value otherwise</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x_in_bounds</span> <span class="o">&amp;</span> <span class="n">y_in_bounds</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="salt3_m0_single">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_m0_single">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_m0_single</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the M0 component at a single phase and wavelength.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">interpolate_2d</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">m0_data</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="salt3_m1_single">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_m1_single">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_m1_single</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the M1 component at a single phase and wavelength.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">interpolate_2d</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">m1_data</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="salt3_m0">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_m0">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_m0</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the M0 component at the given phase and wavelength.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        phase (float or array): Rest-frame phase in days</span>
+<span class="sd">        wave (float or array): Rest-frame wavelength in Angstroms</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float or array: M0 component value(s)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">wave</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle scalar inputs</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">salt3_m0_single</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle 2D inputs with broadcasting</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="c1"># First vmap over phases (axis 0)</span>
+        <span class="n">phase_mapped</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m0_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">wave</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]))(</span><span class="n">phase</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">phase_mapped</span>
+
+    <span class="c1"># Handle array inputs of same size</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">wave</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m0_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle broadcasting case (phase array with single wavelength)</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">salt3_m0_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">wave</span><span class="p">))(</span><span class="n">phase</span><span class="p">)</span>
+
+    <span class="c1"># Handle broadcasting case (single phase with wavelength array)</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m0_single</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle broadcasting case (phase array with wave array of different size)</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># First map over phases, then over wavelengths</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m0_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">wave</span><span class="p">))(</span><span class="n">phase</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported input shapes for salt3_m0&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="salt3_m1">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_m1">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_m1</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the M1 component at the given phase and wavelength.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        phase (float or array): Rest-frame phase in days</span>
+<span class="sd">        wave (float or array): Rest-frame wavelength in Angstroms</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float or array: M1 component value(s)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">wave</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle scalar inputs</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">salt3_m1_single</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle 2D inputs with broadcasting</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="c1"># First vmap over phases (axis 0)</span>
+        <span class="n">phase_mapped</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m1_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">wave</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]))(</span><span class="n">phase</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">phase_mapped</span>
+
+    <span class="c1"># Handle array inputs of same size</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">wave</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m1_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle broadcasting case (phase array with single wavelength)</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">salt3_m1_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">wave</span><span class="p">))(</span><span class="n">phase</span><span class="p">)</span>
+
+    <span class="c1"># Handle broadcasting case (single phase with wavelength array)</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m1_single</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">wave</span><span class="p">)</span>
+
+    <span class="c1"># Handle broadcasting case (phase array with wave array of different size)</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">wave</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># First map over phases, then over wavelengths</span>
+        <span class="k">return</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">salt3_m1_single</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">))(</span><span class="n">wave</span><span class="p">))(</span><span class="n">phase</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported input shapes for salt3_m1&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="salt3_colorlaw">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_colorlaw">[docs]</a>
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_colorlaw</span><span class="p">(</span><span class="n">wave</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate SALT3 color law at given wavelength.&quot;&quot;&quot;</span>
+    <span class="n">wave</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+    
+    <span class="c1"># Define constants (exactly as in SNCosmo)</span>
+    <span class="n">B_WAVE</span> <span class="o">=</span> <span class="mf">4302.57</span>
+    <span class="n">V_WAVE</span> <span class="o">=</span> <span class="mf">5428.55</span>
+    <span class="n">v_minus_b</span> <span class="o">=</span> <span class="n">V_WAVE</span> <span class="o">-</span> <span class="n">B_WAVE</span>
+    
+    <span class="c1"># Calculate normalized wavelength</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="p">(</span><span class="n">wave</span> <span class="o">-</span> <span class="n">B_WAVE</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_minus_b</span>
+    <span class="n">l_lo</span> <span class="o">=</span> <span class="p">(</span><span class="n">colorlaw_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">B_WAVE</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_minus_b</span>
+    <span class="n">l_hi</span> <span class="o">=</span> <span class="p">(</span><span class="n">colorlaw_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">B_WAVE</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_minus_b</span>
+    
+    <span class="c1"># Calculate polynomial coefficients</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">colorlaw_coeffs</span><span class="p">)</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="n">alpha</span><span class="p">]),</span> <span class="n">colorlaw_coeffs</span><span class="p">])</span>
+    <span class="n">coeffs_rev</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate derivative coefficients</span>
+    <span class="n">prime_coeffs</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">))</span> <span class="o">*</span> <span class="n">coeffs</span>
+    <span class="n">prime_coeffs</span> <span class="o">=</span> <span class="n">prime_coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># Remove first element (0)</span>
+    <span class="n">prime_coeffs_rev</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">prime_coeffs</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate polynomial values at boundaries</span>
+    <span class="n">p_lo</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">coeffs_rev</span><span class="p">,</span> <span class="n">l_lo</span><span class="p">)</span>
+    <span class="n">pprime_lo</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">prime_coeffs_rev</span><span class="p">,</span> <span class="n">l_lo</span><span class="p">)</span>
+    <span class="n">p_hi</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">coeffs_rev</span><span class="p">,</span> <span class="n">l_hi</span><span class="p">)</span>
+    <span class="n">pprime_hi</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">prime_coeffs_rev</span><span class="p">,</span> <span class="n">l_hi</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate extinction for each region</span>
+    <span class="n">extinction</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">l</span> <span class="o">&lt;</span> <span class="n">l_lo</span><span class="p">,</span>
+        <span class="n">p_lo</span> <span class="o">+</span> <span class="n">pprime_lo</span> <span class="o">*</span> <span class="p">(</span><span class="n">l</span> <span class="o">-</span> <span class="n">l_lo</span><span class="p">),</span>  <span class="c1"># Blue side</span>
+        <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">l</span> <span class="o">&gt;</span> <span class="n">l_hi</span><span class="p">,</span>
+            <span class="n">p_hi</span> <span class="o">+</span> <span class="n">pprime_hi</span> <span class="o">*</span> <span class="p">(</span><span class="n">l</span> <span class="o">-</span> <span class="n">l_hi</span><span class="p">),</span>  <span class="c1"># Red side</span>
+            <span class="n">jnp</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">coeffs_rev</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>  <span class="c1"># In between</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    
+    <span class="c1"># Return negative extinction to match SNCosmo&#39;s convention</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">extinction</span></div>
+
+
+<div class="viewcode-block" id="salt3_bandflux">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_bandflux">[docs]</a>
+<span class="nd">@partial</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">,</span> <span class="n">static_argnames</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="s1">&#39;zpsys&#39;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_bandflux</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zpsys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate bandflux for SALT3 model.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        Rest-frame phase in days relative to maximum brightness.</span>
+<span class="sd">    bandpass : Bandpass object</span>
+<span class="sd">        Bandpass to calculate flux through.</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Model parameters including z, t0, x0, x1, c.</span>
+<span class="sd">    zp : float or None, optional</span>
+<span class="sd">        Zero point for flux. If None, no scaling is applied.</span>
+<span class="sd">    zpsys : str, optional</span>
+<span class="sd">        Magnitude system for zero point. Must be provided if zp is not None.</span>
+<span class="sd">        Default is None.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float or array_like</span>
+<span class="sd">        Flux in photons/s/cm^2. Return value is float if phase is scalar,</span>
+<span class="sd">        array if phase is array. If zp and zpsys are given, flux is scaled</span>
+<span class="sd">        to the requested zeropoint.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check that if zp is provided, zpsys must also be provided</span>
+    <span class="k">if</span> <span class="n">zp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">zpsys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;zpsys must be given if zp is not None&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Convert inputs to arrays and check if input was scalar</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">is_scalar</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="c1"># Get parameters</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;z&#39;</span><span class="p">]</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;t0&#39;</span><span class="p">]</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;x0&#39;</span><span class="p">]</span>
+    <span class="n">x1</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;x1&#39;</span><span class="p">]</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">]</span>
+    
+    <span class="c1"># Convert to rest-frame phase</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span>  <span class="c1"># Scale factor</span>
+    <span class="n">restphase</span> <span class="o">=</span> <span class="p">(</span><span class="n">phase</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span>
+    
+    <span class="c1"># Use pre-computed integration grid from bandpass</span>
+    <span class="n">wave</span> <span class="o">=</span> <span class="n">bandpass</span><span class="o">.</span><span class="n">integration_wave</span>
+    <span class="n">dwave</span> <span class="o">=</span> <span class="n">bandpass</span><span class="o">.</span><span class="n">integration_spacing</span>
+    <span class="n">restwave</span> <span class="o">=</span> <span class="n">wave</span> <span class="o">*</span> <span class="n">a</span>
+    <span class="n">trans</span> <span class="o">=</span> <span class="n">bandpass</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+    
+    <span class="c1"># Pre-compute color law for all wavelengths</span>
+    <span class="n">cl</span> <span class="o">=</span> <span class="n">salt3_colorlaw</span><span class="p">(</span><span class="n">restwave</span><span class="p">)</span>
+    
+    <span class="c1"># Compute M0 and M1 components for all phases and wavelengths at once</span>
+    <span class="n">m0</span> <span class="o">=</span> <span class="n">salt3_m0</span><span class="p">(</span><span class="n">restphase</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">restwave</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+    <span class="n">m1</span> <span class="o">=</span> <span class="n">salt3_m1</span><span class="p">(</span><span class="n">restphase</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">restwave</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+    
+    <span class="c1"># Calculate rest-frame flux for all phases and wavelengths at once</span>
+    <span class="n">rest_flux</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">*</span> <span class="p">(</span><span class="n">m0</span> <span class="o">+</span> <span class="n">x1</span> <span class="o">*</span> <span class="n">m1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mf">0.4</span> <span class="o">*</span> <span class="n">cl</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span>
+    
+    <span class="c1"># Integrate flux through bandpass using trapezoidal rule</span>
+    <span class="c1"># Multiply by wave and transmission before integration</span>
+    <span class="n">integrand</span> <span class="o">=</span> <span class="n">wave</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">trans</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">rest_flux</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">trapezoid</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">HC_ERG_AA</span>
+    
+    <span class="c1"># Apply zero point if provided</span>
+    <span class="k">if</span> <span class="n">zp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Get the magsystem&#39;s zpbandflux for this bandpass</span>
+        <span class="k">if</span> <span class="n">zpsys</span> <span class="o">==</span> <span class="s1">&#39;ab&#39;</span><span class="p">:</span>
+            <span class="c1"># For AB system, calculate zpbandflux</span>
+            <span class="c1"># AB spectrum is 3631 x 10^{-23} erg/s/cm^2/Hz</span>
+            <span class="c1"># Convert to F_lambda: 3631e-23 * c / wave^2 erg/s/cm^2/AA</span>
+            <span class="c1"># Then integrate: sum(f * trans * wave) * dwave / (hc)</span>
+            <span class="n">zpbandflux</span> <span class="o">=</span> <span class="mf">3631e-23</span> <span class="o">*</span> <span class="n">dwave</span> <span class="o">/</span> <span class="n">H_ERG_S</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">trans</span> <span class="o">/</span> <span class="n">wave</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported magnitude system: </span><span class="si">{</span><span class="n">zpsys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Scale the flux according to the zeropoint (exactly like sncosmo)</span>
+        <span class="n">zpnorm</span> <span class="o">=</span> <span class="mf">10.</span><span class="o">**</span><span class="p">(</span><span class="mf">0.4</span> <span class="o">*</span> <span class="n">zp</span><span class="p">)</span> <span class="o">/</span> <span class="n">zpbandflux</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">zpnorm</span>
+    
+    <span class="c1"># Return scalar if input was scalar</span>
+    <span class="k">if</span> <span class="n">is_scalar</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="salt3_multiband_flux">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.salt3_multiband_flux">[docs]</a>
+<span class="nd">@partial</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">,</span> <span class="n">static_argnames</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;bandpasses&#39;</span><span class="p">,</span> <span class="s1">&#39;zpsys&#39;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">salt3_multiband_flux</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">bandpasses</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zpsys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate flux for multiple bandpasses at once.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        phase (array-like): Phase(s) in observer frame.</span>
+<span class="sd">        bandpasses (list): List of Bandpass objects.</span>
+<span class="sd">        params (dict): Model parameters including z, t0, x0, x1, c.</span>
+<span class="sd">        zps (array-like, optional): Zero points for each bandpass.</span>
+<span class="sd">        zpsys (str, optional): Magnitude system (e.g. &#39;ab&#39;).</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        array-like: Flux values for each phase and bandpass combination.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert inputs to arrays</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">n_phase</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">n_bands</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bandpasses</span><span class="p">)</span>
+    
+    <span class="c1"># Initialize output array</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_phase</span><span class="p">,</span> <span class="n">n_bands</span><span class="p">))</span>
+    
+    <span class="c1"># Calculate flux for each bandpass</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bands</span><span class="p">):</span>
+        <span class="n">zp</span> <span class="o">=</span> <span class="n">zps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">zps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">band_flux</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">bandpasses</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="n">zp</span><span class="p">,</span> <span class="n">zpsys</span><span class="o">=</span><span class="n">zpsys</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">at</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">band_flux</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">result</span> </div>
+
+
+<div class="viewcode-block" id="precompute_bandflux_bridge">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.precompute_bandflux_bridge">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">precompute_bandflux_bridge</span><span class="p">(</span><span class="n">bandpass</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Precompute static components for a given bandpass.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns a dictionary containing:</span>
+<span class="sd">        - &#39;wave&#39;: the integration wavelength grid,</span>
+<span class="sd">        - &#39;dwave&#39;: spacing between grid points,</span>
+<span class="sd">        - &#39;trans&#39;: the transmission values computed on the grid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">wave</span> <span class="o">=</span> <span class="n">bandpass</span><span class="o">.</span><span class="n">integration_wave</span>
+    <span class="n">dwave</span> <span class="o">=</span> <span class="n">bandpass</span><span class="o">.</span><span class="n">integration_spacing</span>
+    <span class="n">trans</span> <span class="o">=</span> <span class="n">bandpass</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;wave&#39;</span><span class="p">:</span> <span class="n">wave</span><span class="p">,</span> <span class="s1">&#39;dwave&#39;</span><span class="p">:</span> <span class="n">dwave</span><span class="p">,</span> <span class="s1">&#39;trans&#39;</span><span class="p">:</span> <span class="n">trans</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="optimized_salt3_bandflux">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.optimized_salt3_bandflux">[docs]</a>
+<span class="nd">@partial</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">,</span> <span class="n">static_argnames</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;zpsys&#39;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">optimized_salt3_bandflux</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">dwave</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zpsys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate bandflux for a single bandpass using precomputed static data.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        phase : array or scalar</span>
+<span class="sd">            Observer-frame phase(s) at which to compute the flux.</span>
+<span class="sd">        wave : array</span>
+<span class="sd">            Wavelength grid for integration.</span>
+<span class="sd">        dwave : float</span>
+<span class="sd">            Spacing between wavelength grid points.</span>
+<span class="sd">        trans : array</span>
+<span class="sd">            Transmission values on the wavelength grid.</span>
+<span class="sd">        params : dict</span>
+<span class="sd">            Dictionary containing model parameters: &#39;z&#39;, &#39;t0&#39;, &#39;x0&#39;, &#39;x1&#39;, &#39;c&#39;.</span>
+<span class="sd">        zp : float or None</span>
+<span class="sd">            Zero point for flux scaling. If provided, zpsys must also be given.</span>
+<span class="sd">        zpsys : str or None</span>
+<span class="sd">            Magnitude system (e.g. &#39;ab&#39;).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Flux in photons/s/cm^2. If phase is scalar then returns scalar.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">zp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">zpsys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;zpsys must be given if zp is not None&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Convert inputs to arrays and check if input was scalar</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">is_scalar</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+
+    <span class="n">z</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;z&#39;</span><span class="p">]</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;t0&#39;</span><span class="p">]</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;x0&#39;</span><span class="p">]</span>
+    <span class="n">x1</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;x1&#39;</span><span class="p">]</span>
+    <span class="n">c</span>  <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Calculate scaling factor and transform phase to rest-frame.</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">restphase</span> <span class="o">=</span> <span class="p">(</span><span class="n">phase</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span>
+
+    <span class="c1"># Scale the integration grid to rest-frame wavelengths.</span>
+    <span class="n">restwave</span> <span class="o">=</span> <span class="n">wave</span> <span class="o">*</span> <span class="n">a</span>
+    <span class="c1"># Compute colour law on the restwave grid.</span>
+    <span class="n">cl</span> <span class="o">=</span> <span class="n">salt3_colorlaw</span><span class="p">(</span><span class="n">restwave</span><span class="p">)</span>
+
+    <span class="c1"># Compute m0 and m1 components over the 2D grid.</span>
+    <span class="n">m0</span> <span class="o">=</span> <span class="n">salt3_m0</span><span class="p">(</span><span class="n">restphase</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">restwave</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+    <span class="n">m1</span> <span class="o">=</span> <span class="n">salt3_m1</span><span class="p">(</span><span class="n">restphase</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">restwave</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+
+    <span class="c1"># Compute rest-frame flux including the colour law effect.</span>
+    <span class="n">rest_flux</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">*</span> <span class="p">(</span><span class="n">m0</span> <span class="o">+</span> <span class="n">x1</span> <span class="o">*</span> <span class="n">m1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mf">0.4</span> <span class="o">*</span> <span class="n">cl</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span>
+    <span class="n">integrand</span> <span class="o">=</span> <span class="n">wave</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">trans</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">rest_flux</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">trapezoid</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">HC_ERG_AA</span>
+
+    <span class="c1"># Apply zero point correction if required.</span>
+    <span class="k">if</span> <span class="n">zp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">zpsys</span> <span class="o">==</span> <span class="s1">&#39;ab&#39;</span><span class="p">:</span>
+            <span class="n">zpbandflux</span> <span class="o">=</span> <span class="mf">3631e-23</span> <span class="o">*</span> <span class="n">dwave</span> <span class="o">/</span> <span class="n">H_ERG_S</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">trans</span> <span class="o">/</span> <span class="n">wave</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported magnitude system: </span><span class="si">{</span><span class="n">zpsys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">zpnorm</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="mf">0.4</span> <span class="o">*</span> <span class="n">zp</span><span class="p">)</span> <span class="o">/</span> <span class="n">zpbandflux</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">zpnorm</span>
+
+    <span class="c1"># Return scalar if input was scalar</span>
+    <span class="k">if</span> <span class="n">is_scalar</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="optimized_salt3_multiband_flux">
+<a class="viewcode-back" href="../../api/salt3.html#jax_supernovae.salt3.optimized_salt3_multiband_flux">[docs]</a>
+<span class="nd">@partial</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">,</span> <span class="n">static_argnames</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;zpsys&#39;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">optimized_salt3_multiband_flux</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zpsys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate fluxes for multiple bandpasses.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        phase : array</span>
+<span class="sd">            Observer-frame phases.</span>
+<span class="sd">        bridges : list of dict</span>
+<span class="sd">            Precomputed bridge data for each bandpass.</span>
+<span class="sd">        params : dict</span>
+<span class="sd">            Model parameters.</span>
+<span class="sd">        zps : list or array or None</span>
+<span class="sd">            Zero points for each bandpass.</span>
+<span class="sd">        zpsys : str or None</span>
+<span class="sd">            Magnitude system.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Array of flux values for each phase and band.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">n_phase</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+    <span class="n">n_bands</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bridges</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_phase</span><span class="p">,</span> <span class="n">n_bands</span><span class="p">))</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bands</span><span class="p">):</span>
+        <span class="n">bp_bridge</span> <span class="o">=</span> <span class="n">bridges</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">curr_zp</span> <span class="o">=</span> <span class="n">zps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">zps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">band_flux</span> <span class="o">=</span> <span class="n">optimized_salt3_bandflux</span><span class="p">(</span>
+            <span class="n">phase</span><span class="p">,</span> 
+            <span class="n">bp_bridge</span><span class="p">[</span><span class="s1">&#39;wave&#39;</span><span class="p">],</span> 
+            <span class="n">bp_bridge</span><span class="p">[</span><span class="s1">&#39;dwave&#39;</span><span class="p">],</span> 
+            <span class="n">bp_bridge</span><span class="p">[</span><span class="s1">&#39;trans&#39;</span><span class="p">],</span> 
+            <span class="n">params</span><span class="p">,</span> 
+            <span class="n">zp</span><span class="o">=</span><span class="n">curr_zp</span><span class="p">,</span> 
+            <span class="n">zpsys</span><span class="o">=</span><span class="n">zpsys</span>
+        <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">at</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">band_flux</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">result</span> </div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

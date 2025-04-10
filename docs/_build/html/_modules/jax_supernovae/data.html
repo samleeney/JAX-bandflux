@@ -1,0 +1,430 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>jax_supernovae.data &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">jax_supernovae.data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for jax_supernovae.data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.table</span><span class="w"> </span><span class="kn">import</span> <span class="n">Table</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.bandpasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_all_bandpasses</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib.resources</span>
+
+<span class="c1"># Get package directory</span>
+<span class="n">PACKAGE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span>
+
+<div class="viewcode-block" id="find_object_filepath">
+<a class="viewcode-back" href="../../api/data.html#jax_supernovae.data.find_object_filepath">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_object_filepath</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">object_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find the data file for a given object in the base directory.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        base_dir (str): Base directory to search in</span>
+<span class="sd">        object_name (str): Name of the object (e.g., &#39;19agl&#39;)</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Full path to the data file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># First try direct path in object directory</span>
+    <span class="n">direct_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">object_name</span><span class="p">,</span> <span class="s1">&#39;all.phot&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">direct_path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">direct_path</span>
+        
+    <span class="c1"># Then try path with Ia subdirectory</span>
+    <span class="n">ia_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span> <span class="s1">&#39;Ia&#39;</span><span class="p">,</span> <span class="n">object_name</span><span class="p">,</span> <span class="s1">&#39;all.phot&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">ia_path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ia_path</span>
+        
+    <span class="c1"># If neither exists, do a recursive search</span>
+    <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">base_dir</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">object_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">file</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">and</span> 
+                <span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.dat&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">file</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.phot&#39;</span><span class="p">))):</span>
+                <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No data file found for object </span><span class="si">{</span><span class="n">object_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_hsf_data">
+<a class="viewcode-back" href="../../api/data.html#jax_supernovae.data.load_hsf_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_hsf_data</span><span class="p">(</span><span class="n">object_name</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load HSF data for a given object.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        object_name (str): Name of the object (e.g., &#39;19agl&#39;)</span>
+<span class="sd">        base_dir (str): Base directory containing the data files. Defaults to &#39;data&#39;.</span>
+<span class="sd">                       Expected structure is either:</span>
+<span class="sd">                       - [base_dir]/Ia/[object_name]/all.phot</span>
+<span class="sd">                       - Or any .dat/.phot file containing the object name</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        astropy.table.Table: Table containing the processed data with columns:</span>
+<span class="sd">            - time: observation times (from mjd)</span>
+<span class="sd">            - band: filter/band names</span>
+<span class="sd">            - flux: flux measurements</span>
+<span class="sd">            - fluxerr: flux measurement errors</span>
+<span class="sd">            - zp: zero points (defaults to 27.5 if not present)</span>
+<span class="sd">            </span>
+<span class="sd">    Raises:</span>
+<span class="sd">        FileNotFoundError: If no data file is found for the given object</span>
+<span class="sd">        ValueError: If required columns are missing from the data file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Try to find data in package data directory first</span>
+    <span class="n">package_data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">data_file</span> <span class="o">=</span> <span class="n">find_object_filepath</span><span class="p">(</span><span class="n">package_data_dir</span><span class="p">,</span> <span class="n">object_name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="c1"># If not found in package, try the user-provided directory</span>
+        <span class="n">data_file</span> <span class="o">=</span> <span class="n">find_object_filepath</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">object_name</span><span class="p">)</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading data from </span><span class="si">{</span><span class="n">data_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Read the data file</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">Table</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;ascii&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Rename columns to match expected names</span>
+    <span class="k">if</span> <span class="s1">&#39;mjd&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">colnames</span> <span class="ow">and</span> <span class="s1">&#39;time&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">colnames</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;mjd&#39;</span><span class="p">]</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">remove_column</span><span class="p">(</span><span class="s1">&#39;mjd&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;bandpass&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">colnames</span> <span class="ow">and</span> <span class="s1">&#39;band&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">colnames</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;band&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;bandpass&#39;</span><span class="p">]</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">remove_column</span><span class="p">(</span><span class="s1">&#39;bandpass&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Ensure required columns exist</span>
+    <span class="n">required_columns</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;band&#39;</span><span class="p">,</span> <span class="s1">&#39;flux&#39;</span><span class="p">,</span> <span class="s1">&#39;fluxerr&#39;</span><span class="p">}</span>
+    <span class="n">missing_columns</span> <span class="o">=</span> <span class="n">required_columns</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">colnames</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">missing_columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing required columns: </span><span class="si">{</span><span class="n">missing_columns</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Add zp column if not present (default to 27.5 as per common convention)</span>
+    <span class="k">if</span> <span class="s1">&#39;zp&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">colnames</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;zp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="mf">27.5</span><span class="p">)</span>
+    
+    <span class="c1"># Sort by time</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="load_redshift">
+<a class="viewcode-back" href="../../api/data.html#jax_supernovae.data.load_redshift">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_redshift</span><span class="p">(</span><span class="n">object_name</span><span class="p">,</span> <span class="n">redshift_file</span><span class="o">=</span><span class="s1">&#39;data/redshifts.dat&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load redshift for a given object from redshifts.dat.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        object_name (str): Name of the object (e.g., &#39;19agl&#39;)</span>
+<span class="sd">        redshift_file (str): Path to redshifts.dat file</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: (redshift, redshift_err, flag) where:</span>
+<span class="sd">            - redshift is the heliocentric redshift</span>
+<span class="sd">            - redshift_err is the symmetric error (max of plus/minus)</span>
+<span class="sd">            - flag is the reliability flag (&#39;s&#39;=strong, &#39;w&#39;=weak, &#39;n&#39;=no features)</span>
+<span class="sd">            </span>
+<span class="sd">    Raises:</span>
+<span class="sd">        FileNotFoundError: If redshift file not found</span>
+<span class="sd">        ValueError: If object not found in redshift file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Try package data directory first</span>
+    <span class="n">package_redshift_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;redshifts.dat&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">package_redshift_file</span><span class="p">):</span>
+        <span class="n">redshift_file</span> <span class="o">=</span> <span class="n">package_redshift_file</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">redshift_file</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Redshift file not found: </span><span class="si">{</span><span class="n">redshift_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="c1"># Skip comment lines and read data</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">redshift_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    
+    <span class="n">data_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">)]</span>
+    
+    <span class="c1"># Find all measurements for this object</span>
+    <span class="n">measurements</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data_lines</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">object_name</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+                <span class="n">plus</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+                <span class="n">minus</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+                <span class="n">flag</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="k">else</span> <span class="s1">&#39;n&#39;</span>
+                <span class="n">measurements</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">z</span><span class="p">,</span> <span class="n">plus</span><span class="p">,</span> <span class="n">minus</span><span class="p">,</span> <span class="n">flag</span><span class="p">))</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+                <span class="k">continue</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">measurements</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No redshift measurements found for object </span><span class="si">{</span><span class="n">object_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Prefer measurements with &#39;s&#39; flag, then &#39;w&#39;, then &#39;n&#39;</span>
+    <span class="n">flag_priority</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+    <span class="n">measurements</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">flag_priority</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">3</span><span class="p">))</span>
+    
+    <span class="n">z</span><span class="p">,</span> <span class="n">plus</span><span class="p">,</span> <span class="n">minus</span><span class="p">,</span> <span class="n">flag</span> <span class="o">=</span> <span class="n">measurements</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">z_err</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">plus</span><span class="p">,</span> <span class="n">minus</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">z</span><span class="p">,</span> <span class="n">z_err</span><span class="p">,</span> <span class="n">flag</span></div>
+
+
+<div class="viewcode-block" id="load_and_process_data">
+<a class="viewcode-back" href="../../api/data.html#jax_supernovae.data.load_and_process_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_and_process_data</span><span class="p">(</span><span class="n">sn_name</span><span class="p">,</span> <span class="n">data_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">fix_z</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load and process supernova data, including bandpass registration and data array setup.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        sn_name (str): Name of the supernova to load (e.g., &#39;19agl&#39;)</span>
+<span class="sd">        data_dir (str): Directory containing the data files. Defaults to &#39;data&#39;.</span>
+<span class="sd">        fix_z (bool): Whether to fix redshift to value from redshifts.dat</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: Contains processed data arrays and bridges:</span>
+<span class="sd">            - times (jnp.array): Observation times</span>
+<span class="sd">            - fluxes (jnp.array): Flux measurements</span>
+<span class="sd">            - fluxerrs (jnp.array): Flux measurement errors</span>
+<span class="sd">            - zps (jnp.array): Zero points</span>
+<span class="sd">            - band_indices (jnp.array): Band indices</span>
+<span class="sd">            - bridges (tuple): Precomputed bridge data for each band</span>
+<span class="sd">            - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Load data and register bandpasses</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">load_hsf_data</span><span class="p">(</span><span class="n">sn_name</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">data_dir</span><span class="p">)</span>
+    <span class="n">bandpass_dict</span><span class="p">,</span> <span class="n">bridges_dict</span> <span class="o">=</span> <span class="n">register_all_bandpasses</span><span class="p">()</span>
+
+    <span class="c1"># Get unique bands and their bridges</span>
+    <span class="n">unique_bands</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">bridges</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;band&#39;</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">bridges_dict</span><span class="p">:</span>
+            <span class="n">unique_bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+            <span class="n">bridges</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bridges_dict</span><span class="p">[</span><span class="n">band</span><span class="p">])</span>
+    <span class="c1"># Convert bridges to tuple for JIT compatibility</span>
+    <span class="n">bridges</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">bridges</span><span class="p">)</span>
+
+    <span class="c1"># Set up data arrays</span>
+    <span class="n">valid_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">band</span> <span class="ow">in</span> <span class="n">bandpass_dict</span> <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;band&#39;</span><span class="p">]])</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">])</span>
+    <span class="n">fluxes</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;flux&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">])</span>
+    <span class="n">fluxerrs</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;fluxerr&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">])</span>
+    <span class="n">zps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;zp&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">])</span>
+    <span class="n">band_indices</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">unique_bands</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">band</span><span class="p">)</span> <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;band&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">]])</span>
+    
+    <span class="c1"># Load redshift if requested</span>
+    <span class="n">fixed_z</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">fix_z</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">z</span><span class="p">,</span> <span class="n">z_err</span><span class="p">,</span> <span class="n">flag</span> <span class="o">=</span> <span class="n">load_redshift</span><span class="p">(</span><span class="n">sn_name</span><span class="p">)</span>
+            <span class="n">fixed_z</span> <span class="o">=</span> <span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">z_err</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Could not load redshift: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">fixed_z</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">return</span> <span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">zps</span><span class="p">,</span> <span class="n">band_indices</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">fixed_z</span> </div>
+
+
+<div class="viewcode-block" id="get_all_supernovae_with_redshifts">
+<a class="viewcode-back" href="../../api/data.html#jax_supernovae.data.get_all_supernovae_with_redshifts">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_all_supernovae_with_redshifts</span><span class="p">(</span><span class="n">redshift_file</span><span class="o">=</span><span class="s1">&#39;data/redshifts.dat&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get all supernovae that have measured redshifts in redshifts.dat.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        redshift_file (str): Path to redshifts.dat file</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: List of tuples (sn_name, z, z_err, flag) for all supernovae with redshifts</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Try package data directory first</span>
+    <span class="n">package_redshift_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;redshifts.dat&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">package_redshift_file</span><span class="p">):</span>
+        <span class="n">redshift_file</span> <span class="o">=</span> <span class="n">package_redshift_file</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">redshift_file</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Redshift file not found: </span><span class="si">{</span><span class="n">redshift_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="c1"># Skip comment lines and read data</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">redshift_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    
+    <span class="n">data_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">)]</span>
+    
+    <span class="c1"># Dictionary to store best measurements for each object</span>
+    <span class="n">best_measurements</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="c1"># Flag priority (prefer strong features)</span>
+    <span class="n">flag_priority</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+    
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data_lines</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sn_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">plus</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+            <span class="n">minus</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+            <span class="n">flag</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="k">else</span> <span class="s1">&#39;n&#39;</span>
+            
+            <span class="c1"># If we haven&#39;t seen this object before, or if this measurement has higher priority</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">sn_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">best_measurements</span> <span class="ow">or</span> 
+                <span class="n">flag_priority</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">flag_priority</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">best_measurements</span><span class="p">[</span><span class="n">sn_name</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span> <span class="mi">3</span><span class="p">)):</span>
+                <span class="n">best_measurements</span><span class="p">[</span><span class="n">sn_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">sn_name</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">plus</span><span class="p">,</span> <span class="n">minus</span><span class="p">),</span> <span class="n">flag</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+            <span class="k">continue</span>
+    
+    <span class="c1"># Convert dictionary to sorted list</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">best_measurements</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

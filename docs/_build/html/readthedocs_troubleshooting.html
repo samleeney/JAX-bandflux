@@ -1,0 +1,603 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReadTheDocs Troubleshooting Guide &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3741d27b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="ReadTheDocs Visual Guide" href="readthedocs_visual_guide.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ReadTheDocs Troubleshooting Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#build-failures">Build Failures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#missing-dependencies">Missing Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#import-errors">Import Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sphinx-extension-issues">Sphinx Extension Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#memory-errors">Memory Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#documentation-rendering-issues">Documentation Rendering Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#broken-links">Broken Links</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#missing-or-incorrect-content">Missing or Incorrect Content</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#theme-and-styling-issues">Theme and Styling Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mermaid-diagram-issues">Mermaid Diagram Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#webhook-and-integration-problems">Webhook and Integration Problems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#webhook-not-triggering-builds">Webhook Not Triggering Builds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#authentication-issues">Authentication Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#version-control-issues">Version Control Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#missing-versions">Missing Versions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#default-version-issues">Default Version Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-domain-problems">Custom Domain Problems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ssl-certificate-issues">SSL Certificate Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#domain-not-resolving">Domain Not Resolving</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#pdf-epub-generation-issues">PDF/ePub Generation Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pdf-build-failures">PDF Build Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#missing-images-in-pdf">Missing Images in PDF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#epub-formatting-issues">ePub Formatting Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#general-troubleshooting-tips">General Troubleshooting Tips</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">ReadTheDocs Troubleshooting Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/readthedocs_troubleshooting.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="readthedocs-troubleshooting-guide">
+<h1>ReadTheDocs Troubleshooting Guide<a class="headerlink" href="#readthedocs-troubleshooting-guide" title="Link to this heading"></a></h1>
+<p>This guide addresses common issues you might encounter when deploying JAX-bandflux documentation to ReadTheDocs and provides solutions to resolve them.</p>
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#build-failures">Build Failures</a></p></li>
+<li><p><a class="reference internal" href="#documentation-rendering-issues">Documentation Rendering Issues</a></p></li>
+<li><p><a class="reference internal" href="#webhook-and-integration-problems">Webhook and Integration Problems</a></p></li>
+<li><p><a class="reference internal" href="#version-control-issues">Version Control Issues</a></p></li>
+<li><p><a class="reference internal" href="#custom-domain-problems">Custom Domain Problems</a></p></li>
+<li><p><a class="reference internal" href="#pdf-epub-generation-issues">PDF/ePub Generation Issues</a></p></li>
+</ol>
+</section>
+<section id="build-failures">
+<h2>Build Failures<a class="headerlink" href="#build-failures" title="Link to this heading"></a></h2>
+<section id="missing-dependencies">
+<h3>Missing Dependencies<a class="headerlink" href="#missing-dependencies" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Build fails with errors about missing Python packages.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Check your <code class="docutils literal notranslate"><span class="pre">.readthedocs.yml</span></code> file to ensure it correctly specifies how to install dependencies:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">python</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">install</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip</span>
+<span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="w">      </span><span class="nt">extra_requirements</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dev</span>
+</pre></div>
+</div>
+</li>
+<li><p>Verify that all documentation dependencies are included in your <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> file under the ‘dev’ extras:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">extras_require</span><span class="o">=</span><span class="p">{</span>
+    <span class="s1">&#39;dev&#39;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s1">&#39;sphinx&gt;=4.0.0&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;sphinx-rtd-theme&gt;=1.0.0&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;sphinxcontrib-mermaid&gt;=0.7.0&#39;</span><span class="p">,</span>
+        <span class="c1"># other dependencies</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>If using a requirements file, ensure it includes all necessary packages.</p></li>
+</ol>
+</section>
+<section id="import-errors">
+<h3>Import Errors<a class="headerlink" href="#import-errors" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Build fails with errors when importing your package modules.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Make sure your package is installed during the documentation build:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">python</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">install</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip</span>
+<span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+</pre></div>
+</div>
+</li>
+<li><p>Check if your package has C extensions or compiled components that might not build on ReadTheDocs:</p>
+<ul>
+<li><p>You may need to mock these modules in your <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">autodoc_mock_imports</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;module_with_c_extensions&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</li>
+<li><p>Verify that your package works with the Python version specified in your <code class="docutils literal notranslate"><span class="pre">.readthedocs.yml</span></code>.</p></li>
+</ol>
+</section>
+<section id="sphinx-extension-issues">
+<h3>Sphinx Extension Issues<a class="headerlink" href="#sphinx-extension-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Build fails with errors related to Sphinx extensions.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Ensure all required Sphinx extensions are installed:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In setup.py</span>
+<span class="n">extras_require</span><span class="o">=</span><span class="p">{</span>
+    <span class="s1">&#39;dev&#39;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s1">&#39;sphinx&gt;=4.0.0&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;sphinx-rtd-theme&gt;=1.0.0&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;sphinxcontrib-mermaid&gt;=0.7.0&#39;</span><span class="p">,</span>
+        <span class="c1"># other extensions</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>Check for compatibility issues between extension versions:</p>
+<ul class="simple">
+<li><p>Some extensions may not work with the latest Sphinx version</p></li>
+<li><p>You might need to pin specific versions</p></li>
+</ul>
+</li>
+<li><p>Verify that extensions are correctly configured in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>.</p></li>
+</ol>
+</section>
+<section id="memory-errors">
+<h3>Memory Errors<a class="headerlink" href="#memory-errors" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Build fails with memory errors for large documentation projects.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Optimize your documentation build:</p>
+<ul class="simple">
+<li><p>Reduce the number of files processed at once</p></li>
+<li><p>Use selective imports in autodoc</p></li>
+</ul>
+</li>
+<li><p>Contact ReadTheDocs support for projects with genuinely high memory requirements.</p></li>
+</ol>
+</section>
+</section>
+<section id="documentation-rendering-issues">
+<h2>Documentation Rendering Issues<a class="headerlink" href="#documentation-rendering-issues" title="Link to this heading"></a></h2>
+<section id="broken-links">
+<h3>Broken Links<a class="headerlink" href="#broken-links" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Documentation contains broken internal or external links.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Use the linkcheck builder to find broken links:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs
+make<span class="w"> </span>linkcheck
+</pre></div>
+</div>
+</li>
+<li><p>Fix any broken internal links:</p>
+<ul class="simple">
+<li><p>Check for typos in references</p></li>
+<li><p>Ensure referenced files exist</p></li>
+</ul>
+</li>
+<li><p>For external links:</p>
+<ul class="simple">
+<li><p>Update or remove outdated links</p></li>
+<li><p>Consider using link checkers in your CI pipeline</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="missing-or-incorrect-content">
+<h3>Missing or Incorrect Content<a class="headerlink" href="#missing-or-incorrect-content" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Some documentation content is missing or incorrectly rendered.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Build documentation locally to identify issues:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs
+make<span class="w"> </span>html
+</pre></div>
+</div>
+</li>
+<li><p>Check for RST syntax errors:</p>
+<ul class="simple">
+<li><p>Incorrect indentation</p></li>
+<li><p>Missing blank lines between sections</p></li>
+<li><p>Malformed directives</p></li>
+</ul>
+</li>
+<li><p>Verify that all source files are included in your table of contents.</p></li>
+</ol>
+</section>
+<section id="theme-and-styling-issues">
+<h3>Theme and Styling Issues<a class="headerlink" href="#theme-and-styling-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Documentation doesn’t look as expected or has styling problems.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Check your theme configuration in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">html_theme</span> <span class="o">=</span> <span class="s1">&#39;sphinx_rtd_theme&#39;</span>
+<span class="n">html_theme_options</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># theme options</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>Verify that custom CSS is properly included:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">html_static_path</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;_static&#39;</span><span class="p">]</span>
+<span class="n">html_css_files</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;custom.css&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</li>
+<li><p>Test with different browsers to identify browser-specific issues.</p></li>
+</ol>
+</section>
+<section id="mermaid-diagram-issues">
+<h3>Mermaid Diagram Issues<a class="headerlink" href="#mermaid-diagram-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Mermaid diagrams don’t render correctly.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Ensure the <code class="docutils literal notranslate"><span class="pre">sphinxcontrib.mermaid</span></code> extension is installed and configured:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">extensions</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># other extensions</span>
+    <span class="s1">&#39;sphinxcontrib.mermaid&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</li>
+<li><p>Check your Mermaid syntax for errors</p></li>
+<li><p>Verify that the JavaScript is loading correctly in the built documentation</p></li>
+</ol>
+</section>
+</section>
+<section id="webhook-and-integration-problems">
+<h2>Webhook and Integration Problems<a class="headerlink" href="#webhook-and-integration-problems" title="Link to this heading"></a></h2>
+<section id="webhook-not-triggering-builds">
+<h3>Webhook Not Triggering Builds<a class="headerlink" href="#webhook-not-triggering-builds" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Pushing to GitHub doesn’t trigger a new documentation build.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Check webhook status in GitHub:</p>
+<ul class="simple">
+<li><p>Go to your repository settings &gt; Webhooks</p></li>
+<li><p>Look for the ReadTheDocs webhook</p></li>
+<li><p>Check recent deliveries for errors</p></li>
+</ul>
+</li>
+<li><p>Verify webhook configuration in ReadTheDocs:</p>
+<ul class="simple">
+<li><p>Go to Admin &gt; Integrations</p></li>
+<li><p>Check that the GitHub integration is active</p></li>
+</ul>
+</li>
+<li><p>Manually sync the webhook:</p>
+<ul class="simple">
+<li><p>In ReadTheDocs, go to Admin &gt; Integrations</p></li>
+<li><p>Click “Sync GitHub Webhook”</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="authentication-issues">
+<h3>Authentication Issues<a class="headerlink" href="#authentication-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: ReadTheDocs can’t access your GitHub repository.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Check your GitHub integration:</p>
+<ul class="simple">
+<li><p>Go to ReadTheDocs Admin &gt; Integrations</p></li>
+<li><p>Verify that the GitHub integration is connected</p></li>
+</ul>
+</li>
+<li><p>For private repositories:</p>
+<ul class="simple">
+<li><p>Ensure ReadTheDocs has proper access to your repository</p></li>
+<li><p>You may need to reconnect your GitHub account with appropriate permissions</p></li>
+</ul>
+</li>
+</ol>
+</section>
+</section>
+<section id="version-control-issues">
+<h2>Version Control Issues<a class="headerlink" href="#version-control-issues" title="Link to this heading"></a></h2>
+<section id="missing-versions">
+<h3>Missing Versions<a class="headerlink" href="#missing-versions" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Some versions of your documentation aren’t available.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Check your active versions:</p>
+<ul class="simple">
+<li><p>Go to Admin &gt; Versions</p></li>
+<li><p>Activate the versions you want to build</p></li>
+</ul>
+</li>
+<li><p>Verify that tags and branches exist in your repository</p></li>
+<li><p>Ensure your version names comply with ReadTheDocs naming conventions</p></li>
+</ol>
+</section>
+<section id="default-version-issues">
+<h3>Default Version Issues<a class="headerlink" href="#default-version-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: The wrong version is shown as the default.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Set your default version:</p>
+<ul class="simple">
+<li><p>Go to Admin &gt; Advanced Settings</p></li>
+<li><p>Select your preferred default version</p></li>
+</ul>
+</li>
+<li><p>Make sure the selected version is active and builds successfully</p></li>
+</ol>
+</section>
+</section>
+<section id="custom-domain-problems">
+<h2>Custom Domain Problems<a class="headerlink" href="#custom-domain-problems" title="Link to this heading"></a></h2>
+<section id="ssl-certificate-issues">
+<h3>SSL Certificate Issues<a class="headerlink" href="#ssl-certificate-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: SSL certificate errors with custom domain.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Verify DNS configuration:</p>
+<ul class="simple">
+<li><p>CNAME record should point to <code class="docutils literal notranslate"><span class="pre">readthedocs.io</span></code></p></li>
+</ul>
+</li>
+<li><p>Enable HTTPS in ReadTheDocs:</p>
+<ul class="simple">
+<li><p>Go to Admin &gt; Domains</p></li>
+<li><p>Enable HTTPS for your domain</p></li>
+</ul>
+</li>
+<li><p>Wait for SSL certificate provisioning (can take up to 24 hours)</p></li>
+</ol>
+</section>
+<section id="domain-not-resolving">
+<h3>Domain Not Resolving<a class="headerlink" href="#domain-not-resolving" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Custom domain doesn’t resolve to your documentation.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Check DNS configuration:</p>
+<ul class="simple">
+<li><p>Verify CNAME record is correctly set up</p></li>
+<li><p>Use DNS lookup tools to confirm propagation</p></li>
+</ul>
+</li>
+<li><p>Verify domain configuration in ReadTheDocs:</p>
+<ul class="simple">
+<li><p>Go to Admin &gt; Domains</p></li>
+<li><p>Ensure domain is correctly configured</p></li>
+</ul>
+</li>
+<li><p>Wait for DNS propagation (can take up to 48 hours)</p></li>
+</ol>
+</section>
+</section>
+<section id="pdf-epub-generation-issues">
+<h2>PDF/ePub Generation Issues<a class="headerlink" href="#pdf-epub-generation-issues" title="Link to this heading"></a></h2>
+<section id="pdf-build-failures">
+<h3>PDF Build Failures<a class="headerlink" href="#pdf-build-failures" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: HTML documentation builds successfully, but PDF generation fails.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Check for LaTeX errors in the build log</p></li>
+<li><p>Simplify complex layouts:</p>
+<ul class="simple">
+<li><p>Large tables</p></li>
+<li><p>Complex diagrams</p></li>
+<li><p>Custom directives</p></li>
+</ul>
+</li>
+<li><p>Install additional LaTeX packages if needed:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># In .readthedocs.yml</span>
+<span class="nt">build</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">os</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-22.04</span>
+<span class="w">  </span><span class="nt">tools</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">python</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;3.10&quot;</span>
+<span class="w">  </span><span class="nt">apt_packages</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">texlive-latex-extra</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">texlive-fonts-recommended</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="missing-images-in-pdf">
+<h3>Missing Images in PDF<a class="headerlink" href="#missing-images-in-pdf" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Images appear in HTML but are missing in PDF.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic">
+<li><p>Ensure images are in a format supported by LaTeX (PNG, JPEG, PDF)</p></li>
+<li><p>Check image paths:</p>
+<ul class="simple">
+<li><p>Use relative paths</p></li>
+<li><p>Avoid spaces in filenames</p></li>
+</ul>
+</li>
+<li><p>Add specific configurations for LaTeX output in <code class="docutils literal notranslate"><span class="pre">conf.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">latex_elements</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># latex options</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="epub-formatting-issues">
+<h3>ePub Formatting Issues<a class="headerlink" href="#epub-formatting-issues" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: ePub format has formatting or structure issues.</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Simplify complex layouts for better ePub compatibility</p></li>
+<li><p>Check for ePub-specific warnings in the build log</p></li>
+<li><p>Test the generated ePub with different readers</p></li>
+</ol>
+</section>
+</section>
+<section id="general-troubleshooting-tips">
+<h2>General Troubleshooting Tips<a class="headerlink" href="#general-troubleshooting-tips" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p><strong>Check Build Logs</strong>: Always review the full build log for specific error messages.</p></li>
+<li><p><strong>Local Testing</strong>: Build documentation locally before pushing to identify issues early:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs
+make<span class="w"> </span>html
+make<span class="w"> </span>latexpdf<span class="w">  </span><span class="c1"># For PDF issues</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Incremental Fixes</strong>: When troubleshooting complex issues, make small changes and test each change individually.</p></li>
+<li><p><strong>ReadTheDocs Support</strong>: For persistent issues, check the <a class="reference external" href="https://docs.readthedocs.io/">ReadTheDocs documentation</a> or contact their support team.</p></li>
+<li><p><strong>Community Resources</strong>: Search for similar issues in the ReadTheDocs or Sphinx communities:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/readthedocs/readthedocs.org/issues">ReadTheDocs GitHub Issues</a></p></li>
+<li><p><a class="reference external" href="https://groups.google.com/forum/#!forum/sphinx-users">Sphinx Users Mailing List</a></p></li>
+</ul>
+</li>
+</ol>
+<p>By following this troubleshooting guide, you should be able to resolve most common issues encountered when deploying JAX-bandflux documentation to ReadTheDocs.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="readthedocs_visual_guide.html" class="btn btn-neutral float-left" title="ReadTheDocs Visual Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,365 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JAX-bandflux Documentation &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3741d27b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">JAX-bandflux Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="jax-bandflux-documentation">
+<h1>JAX-bandflux Documentation<a class="headerlink" href="#jax-bandflux-documentation" title="Link to this heading"></a></h1>
+<section id="jax-bandflux-differentiable-supernova-light-curve-modeling">
+<h2>JAX-bandflux: Differentiable Supernova Light Curve Modeling<a class="headerlink" href="#jax-bandflux-differentiable-supernova-light-curve-modeling" title="Link to this heading"></a></h2>
+<a class="reference external image-reference" href="https://badge.fury.io/py/jax-bandflux"><img alt="PyPI version" src="https://badge.fury.io/py/jax-bandflux.svg" />
+</a>
+<p>JAX-bandflux is a Python package that implements supernova light curve modeling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality, enabling efficient gradient-based optimization and GPU acceleration for supernova cosmology research.</p>
+</section>
+<section id="why-jax-bandflux">
+<h2>Why JAX-bandflux?<a class="headerlink" href="#why-jax-bandflux" title="Link to this heading"></a></h2>
+<p>JAX-bandflux provides several key advantages over traditional supernova light curve modeling frameworks:</p>
+<ul class="simple">
+<li><p><strong>Differentiability</strong>: By implementing the SALT3 model in JAX, JAX-bandflux enables automatic differentiation of the entire modeling pipeline, allowing for efficient gradient-based optimization.</p></li>
+<li><p><strong>Performance</strong>: JAX’s just-in-time (JIT) compilation and GPU acceleration provide significant performance improvements, especially for large-scale analyses involving many supernovae.</p></li>
+<li><p><strong>Flexibility</strong>: The modular design allows for easy customization of bandpasses, models, and optimization strategies.</p></li>
+<li><p><strong>Compatibility</strong>: JAX-bandflux maintains compatibility with existing SNCosmo data formats and models, making it easy to integrate into existing workflows.</p></li>
+<li><p><strong>Research-Friendly</strong>: The codebase is designed with research in mind, providing tools for both standard analyses and novel approaches to supernova cosmology.</p></li>
+</ul>
+</section>
+<section id="key-features">
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Differentiable implementation of SALT3 model for supernova light curves</p></li>
+<li><p>GPU-accelerated flux calculations using JAX</p></li>
+<li><p>Flexible bandpass management for various astronomical filters</p></li>
+<li><p>Efficient data loading and processing routines</p></li>
+<li><p>Support for gradient-based optimization and nested sampling</p></li>
+<li><p>Comprehensive documentation and examples</p></li>
+</ul>
+</section>
+<section id="package-structure">
+<h2>Package Structure<a class="headerlink" href="#package-structure" title="Link to this heading"></a></h2>
+<p>JAX-bandflux is organized into several key components:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>jax_supernovae/
+├── salt3.py         # SALT3 model implementation
+├── bandpasses.py    # Bandpass management
+├── data.py          # Data loading and processing
+├── utils.py         # Utility functions
+├── constants.py     # Physical constants
+├── data/            # Example data files
+└── sncosmo-modelfiles/ # Model and bandpass files
+</pre></div>
+</div>
+<p>The following diagram shows the relationships between key components:</p>
+<div class="mermaid">
+graph TD
+    A[JAX-bandflux] --> B[SALT3 Model]
+    A --> C[Bandpass Management]
+    A --> D[Data Handling]
+    A --> E[Optimization Methods]
+    B --> F[salt3_bandflux]
+    B --> G[salt3_flux]
+    C --> H[Built-in Bandpasses]
+    C --> I[Custom Bandpasses]
+    C --> J[SVO Integration]
+    D --> K[HSF Data Format]
+    D --> L[Redshift Handling]
+    E --> M[L-BFGS-B]
+    E --> N[Nested Sampling]
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true});</script><div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#basic-installation">Basic Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#gpu-support">GPU Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#optional-dependencies">Optional Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#verifying-installation">Verifying Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#running-a-simple-example">Running a Simple Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#before-you-begin">Before You Begin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#basic-example">Basic Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#loading-data">Loading Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#fitting-salt-parameters">Fitting SALT Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#visualizing-results">Visualizing Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#complete-end-to-end-example">Complete End-to-End Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="core_concepts.html">Core Concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="core_concepts.html#salt3-model">SALT3 Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core_concepts.html#data-handling">Data Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core_concepts.html#differentiable-programming-with-jax">Differentiable Programming with JAX</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guides/bandpass_management.html">Bandpass Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/salt3_model.html">SALT3 Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/data_handling.html">Data Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/jax_optimization.html">JAX Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/basic_fitting.html">Basic Fitting Tutorial</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/custom_bandpasses.html">Custom Bandpasses Tutorial</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/nested_sampling.html">Nested Sampling Tutorial</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-relationships">Module Relationships</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#using-the-api">Using the API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#optimization-with-l-bfgs-b">Optimization with L-BFGS-B</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#nested-sampling">Nested Sampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#anomaly-detection">Anomaly Detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#plotting-light-curves">Plotting Light Curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#comparing-models">Comparing Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#custom-bandpasses">Custom Bandpasses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#working-with-multiple-supernovae">Working with Multiple Supernovae</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#jax-optimization-techniques">JAX Optimization Techniques</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#fixing-documentation-issues">Fixing Documentation Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#setting-up-a-readthedocs-account">Setting Up a ReadTheDocs Account</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#connecting-to-github-repository">Connecting to GitHub Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#configuring-readthedocs-project-settings">Configuring ReadTheDocs Project Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#triggering-the-initial-build">Triggering the Initial Build</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#setting-up-automatic-builds">Setting Up Automatic Builds</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#best-practices-for-documentation-maintenance">Best Practices for Documentation Maintenance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_deployment_guide.html#troubleshooting-common-issues">Troubleshooting Common Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#readthedocs-dashboard">ReadTheDocs Dashboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#importing-a-project">Importing a Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#project-configuration">Project Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#project-dashboard">Project Dashboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#build-page">Build Page</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#build-log">Build Log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#versions-page">Versions Page</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#admin-page-integrations">Admin Page - Integrations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#admin-page-advanced-settings">Admin Page - Advanced Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#published-documentation">Published Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_visual_guide.html#github-webhook-settings">GitHub Webhook Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#build-failures">Build Failures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#documentation-rendering-issues">Documentation Rendering Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#webhook-and-integration-problems">Webhook and Integration Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#version-control-issues">Version Control Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#custom-domain-problems">Custom Domain Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#pdf-epub-generation-issues">PDF/ePub Generation Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readthedocs_troubleshooting.html#general-troubleshooting-tips">General Troubleshooting Tips</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>You can install JAX-bandflux using pip:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>jax-bandflux
+</pre></div>
+</div>
+<p>For development installation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/samleeney/JAX-bandflux.git
+<span class="nb">cd</span><span class="w"> </span>JAX-bandflux
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="o">[</span>dev<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="quick-links">
+<h2>Quick Links<a class="headerlink" href="#quick-links" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> - Installation instructions</p></li>
+<li><p><a class="reference internal" href="quickstart.html"><span class="doc">Quickstart</span></a> - Get started quickly with basic examples</p></li>
+<li><p><a class="reference internal" href="core_concepts.html"><span class="doc">Core Concepts</span></a> - Learn about the core concepts of JAX-bandflux</p></li>
+<li><p><a class="reference internal" href="guides/index.html"><span class="doc">Guides</span></a> - In-depth guides on specific topics</p></li>
+<li><p><a class="reference internal" href="tutorials/index.html"><span class="doc">Tutorials</span></a> - Step-by-step tutorials for common tasks</p></li>
+<li><p><a class="reference internal" href="api/index.html"><span class="doc">API Reference</span></a> - API reference documentation</p></li>
+<li><p><a class="reference internal" href="examples.html"><span class="doc">Examples</span></a> - Example scripts and notebooks</p></li>
+<li><p><a class="reference internal" href="readthedocs_deployment_guide.html"><span class="doc">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</span></a> - Comprehensive guide for deploying to ReadTheDocs</p></li>
+<li><p><a class="reference internal" href="readthedocs_visual_guide.html"><span class="doc">ReadTheDocs Visual Guide</span></a> - Visual guide to the ReadTheDocs interface</p></li>
+<li><p><a class="reference internal" href="readthedocs_troubleshooting.html"><span class="doc">ReadTheDocs Troubleshooting Guide</span></a> - Solutions for common ReadTheDocs issues</p></li>
+</ul>
+</section>
+<section id="getting-help">
+<h2>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading"></a></h2>
+<p>If you encounter any issues or have questions about JAX-bandflux, please:</p>
+<ul class="simple">
+<li><p>Check the <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> and <a class="reference internal" href="quickstart.html"><span class="doc">Quickstart</span></a> guides</p></li>
+<li><p>Look for similar issues in the <a class="reference external" href="https://github.com/samleeney/JAX-bandflux/issues">GitHub repository</a></p></li>
+<li><p>Open a new issue if your problem hasn’t been addressed</p></li>
+</ul>
+</section>
+<section id="indices-and-tables">
+<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

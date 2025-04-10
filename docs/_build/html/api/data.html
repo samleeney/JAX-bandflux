@@ -1,0 +1,384 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Module &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Utils Module" href="utils.html" />
+    <link rel="prev" title="Bandpasses Module" href="bandpasses.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#module-relationships">Module Relationships</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#using-the-api">Using the API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="salt3.html">SALT3 Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="bandpasses.html">Bandpasses Module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Data Module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#jax_supernovae.data.find_object_filepath"><code class="docutils literal notranslate"><span class="pre">find_object_filepath()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#jax_supernovae.data.load_hsf_data"><code class="docutils literal notranslate"><span class="pre">load_hsf_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#jax_supernovae.data.load_redshift"><code class="docutils literal notranslate"><span class="pre">load_redshift()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#jax_supernovae.data.load_and_process_data"><code class="docutils literal notranslate"><span class="pre">load_and_process_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#jax_supernovae.data.get_all_supernovae_with_redshifts"><code class="docutils literal notranslate"><span class="pre">get_all_supernovae_with_redshifts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#key-functions">Key Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example-usage">Example Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#data-format">Data Format</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="utils.html">Utils Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="constants.html">Constants Module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">Data Module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-jax_supernovae.data">
+<span id="data-module"></span><h1>Data Module<a class="headerlink" href="#module-jax_supernovae.data" title="Link to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="jax_supernovae.data.find_object_filepath">
+<span class="sig-prename descclassname"><span class="pre">jax_supernovae.data.</span></span><span class="sig-name descname"><span class="pre">find_object_filepath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/jax_supernovae/data.html#find_object_filepath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#jax_supernovae.data.find_object_filepath" title="Link to this definition"></a></dt>
+<dd><p>Find the data file for a given object in the base directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>base_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Base directory to search in</p></li>
+<li><p><strong>object_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Name of the object (e.g., ‘19agl’)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Full path to the data file</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="jax_supernovae.data.load_hsf_data">
+<span class="sig-prename descclassname"><span class="pre">jax_supernovae.data.</span></span><span class="sig-name descname"><span class="pre">load_hsf_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">object_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'data'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/jax_supernovae/data.html#load_hsf_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#jax_supernovae.data.load_hsf_data" title="Link to this definition"></a></dt>
+<dd><p>Load HSF data for a given object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>object_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Name of the object (e.g., ‘19agl’)</p></li>
+<li><p><strong>base_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Base directory containing the data files. Defaults to ‘data’.
+Expected structure is either:
+- [base_dir]/Ia/[object_name]/all.phot
+- Or any .dat/.phot file containing the object name</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Table containing the processed data with columns:</dt><dd><ul class="simple">
+<li><p>time: observation times (from mjd)</p></li>
+<li><p>band: filter/band names</p></li>
+<li><p>flux: flux measurements</p></li>
+<li><p>fluxerr: flux measurement errors</p></li>
+<li><p>zp: zero points (defaults to 27.5 if not present)</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>astropy.table.Table</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileNotFoundError" title="(in Python v3.13)"><strong>FileNotFoundError</strong></a> – If no data file is found for the given object</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If required columns are missing from the data file</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="jax_supernovae.data.load_redshift">
+<span class="sig-prename descclassname"><span class="pre">jax_supernovae.data.</span></span><span class="sig-name descname"><span class="pre">load_redshift</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">object_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redshift_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'data/redshifts.dat'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/jax_supernovae/data.html#load_redshift"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#jax_supernovae.data.load_redshift" title="Link to this definition"></a></dt>
+<dd><p>Load redshift for a given object from redshifts.dat.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>object_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Name of the object (e.g., ‘19agl’)</p></li>
+<li><p><strong>redshift_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Path to redshifts.dat file</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>(redshift, redshift_err, flag) where:</dt><dd><ul class="simple">
+<li><p>redshift is the heliocentric redshift</p></li>
+<li><p>redshift_err is the symmetric error (max of plus/minus)</p></li>
+<li><p>flag is the reliability flag (‘s’=strong, ‘w’=weak, ‘n’=no features)</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileNotFoundError" title="(in Python v3.13)"><strong>FileNotFoundError</strong></a> – If redshift file not found</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If object not found in redshift file</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="jax_supernovae.data.load_and_process_data">
+<span class="sig-prename descclassname"><span class="pre">jax_supernovae.data.</span></span><span class="sig-name descname"><span class="pre">load_and_process_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sn_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'data'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fix_z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/jax_supernovae/data.html#load_and_process_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#jax_supernovae.data.load_and_process_data" title="Link to this definition"></a></dt>
+<dd><p>Load and process supernova data, including bandpass registration and data array setup.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sn_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Name of the supernova to load (e.g., ‘19agl’)</p></li>
+<li><p><strong>data_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Directory containing the data files. Defaults to ‘data’.</p></li>
+<li><p><strong>fix_z</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Whether to fix redshift to value from redshifts.dat</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Contains processed data arrays and bridges:</dt><dd><ul class="simple">
+<li><p>times (jnp.array): Observation times</p></li>
+<li><p>fluxes (jnp.array): Flux measurements</p></li>
+<li><p>fluxerrs (jnp.array): Flux measurement errors</p></li>
+<li><p>zps (jnp.array): Zero points</p></li>
+<li><p>band_indices (jnp.array): Band indices</p></li>
+<li><p>bridges (tuple): Precomputed bridge data for each band</p></li>
+<li><p>fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="jax_supernovae.data.get_all_supernovae_with_redshifts">
+<span class="sig-prename descclassname"><span class="pre">jax_supernovae.data.</span></span><span class="sig-name descname"><span class="pre">get_all_supernovae_with_redshifts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">redshift_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'data/redshifts.dat'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/jax_supernovae/data.html#get_all_supernovae_with_redshifts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#jax_supernovae.data.get_all_supernovae_with_redshifts" title="Link to this definition"></a></dt>
+<dd><p>Get all supernovae that have measured redshifts in redshifts.dat.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>redshift_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Path to redshifts.dat file</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of tuples (sn_name, z, z_err, flag) for all supernovae with redshifts</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">data</span></code> module provides functionality for loading and processing supernova light curve data. It includes functions for loading data from various formats, converting data to JAX arrays, and handling redshift data.</p>
+</section>
+<section id="key-functions">
+<h2>Key Functions<a class="headerlink" href="#key-functions" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#jax_supernovae.data.load_and_process_data" title="jax_supernovae.data.load_and_process_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_supernovae.data.load_and_process_data</span></code></a></p></td>
+<td><p>Load and process supernova data, including bandpass registration and data array setup.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#jax_supernovae.data.load_hsf_data" title="jax_supernovae.data.load_hsf_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_supernovae.data.load_hsf_data</span></code></a></p></td>
+<td><p>Load HSF data for a given object.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#jax_supernovae.data.load_redshift" title="jax_supernovae.data.load_redshift"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_supernovae.data.load_redshift</span></code></a></p></td>
+<td><p>Load redshift for a given object from redshifts.dat.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="example-usage">
+<h2>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_and_process_data</span><span class="p">,</span> <span class="n">load_hsf_data</span><span class="p">,</span> <span class="n">load_redshift</span>
+
+<span class="c1"># Load and process data with automatic bandpass registration</span>
+<span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">zps</span><span class="p">,</span> <span class="n">band_indices</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">fixed_z</span> <span class="o">=</span> <span class="n">load_and_process_data</span><span class="p">(</span>
+    <span class="n">sn_name</span><span class="o">=</span><span class="s1">&#39;19dwz&#39;</span><span class="p">,</span>  <span class="c1"># Name of the supernova</span>
+    <span class="n">data_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span>  <span class="c1"># Optional, the default is &#39;data&#39;</span>
+    <span class="n">fix_z</span><span class="o">=</span><span class="kc">True</span>        <span class="c1"># Whether to load and fix redshift from redshifts.dat</span>
+<span class="p">)</span>
+
+<span class="c1"># Load raw data for a specific supernova</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">load_hsf_data</span><span class="p">(</span><span class="s1">&#39;19dwz&#39;</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+
+<span class="c1"># Load redshift data</span>
+<span class="n">z</span><span class="p">,</span> <span class="n">z_err</span> <span class="o">=</span> <span class="n">load_redshift</span><span class="p">(</span><span class="s1">&#39;19dwz&#39;</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="data-format">
+<h2>Data Format<a class="headerlink" href="#data-format" title="Link to this heading"></a></h2>
+<p>JAX-bandflux is optimized for loading data in the HSF DR1 format, which includes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">time</span></code>: Observation times (MJD)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">band</span></code>: Filter or band names</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">flux</span></code>: Flux measurements</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fluxerr</span></code>: Errors associated with flux measurements</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zp</span></code>: Zero points (defaults to 27.5 when not provided)</p></li>
+</ul>
+<p>The data can be stored in various file formats, including:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">.phot</span></code> files: Text files with columns for time, band, flux, fluxerr, and zp</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.dat</span></code> files: Text files with columns for redshift and redshift error</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="bandpasses.html" class="btn btn-neutral float-left" title="Bandpasses Module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="utils.html" class="btn btn-neutral float-right" title="Utils Module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

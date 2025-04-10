@@ -1,0 +1,433 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Core Concepts &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3741d27b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Guides" href="guides/index.html" />
+    <link rel="prev" title="Quickstart" href="quickstart.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Core Concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#salt3-model">SALT3 Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-handling">Data Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#differentiable-programming-with-jax">Differentiable Programming with JAX</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Core Concepts</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/core_concepts.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="core-concepts">
+<h1>Core Concepts<a class="headerlink" href="#core-concepts" title="Link to this heading"></a></h1>
+<p>This page explains the core concepts of JAX-bandflux and how they relate to supernova light curve modeling. Understanding these concepts is essential for effectively using JAX-bandflux for your research.</p>
+<nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#salt3-model" id="id19">SALT3 Model</a></p></li>
+<li><p><a class="reference internal" href="#data-handling" id="id20">Data Handling</a></p></li>
+<li><p><a class="reference internal" href="#differentiable-programming-with-jax" id="id21">Differentiable Programming with JAX</a></p></li>
+</ul>
+</nav>
+<section id="salt3-model">
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">SALT3 Model</a><a class="headerlink" href="#salt3-model" title="Link to this heading"></a></h2>
+<p>The SALT3 (Spectral Adaptive Lightcurve Template 3) model is a parametric model for Type Ia supernova light curves. It extends the SALT2 model with improved near-infrared coverage and updated training data.</p>
+<p>### Mathematical Formulation</p>
+<p>The SALT model is of the form:</p>
+<div class="math notranslate nohighlight">
+\[F(p, \lambda) = x_0 \left[ M_0(p, \lambda) + x_1 M_1(p, \lambda) + \ldots \right] \times \exp \left[ c \times CL(\lambda) \right]\]</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(x_0\)</span> is the overall flux normalization</p></li>
+<li><p><span class="math notranslate nohighlight">\(x_1\)</span> is the stretch parameter</p></li>
+<li><p><span class="math notranslate nohighlight">\(t_0\)</span> is the time of peak brightness</p></li>
+<li><p><span class="math notranslate nohighlight">\(c\)</span> is the color parameter</p></li>
+<li><p><span class="math notranslate nohighlight">\(M_0(p, \lambda)\)</span> and <span class="math notranslate nohighlight">\(M_1(p, \lambda)\)</span> are functions that describe the underlying flux surfaces</p></li>
+<li><p><span class="math notranslate nohighlight">\(p\)</span> is a function of redshift and <span class="math notranslate nohighlight">\(t-t_0\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(CL(\lambda)\)</span> is the color law</p></li>
+</ul>
+<p>### Model Components</p>
+<p>The SALT3 model consists of several key components:</p>
+<ol class="arabic simple">
+<li><p><strong>M0 Component</strong>: The mean spectral energy distribution (SED) of a Type Ia supernova as a function of phase and wavelength. This represents the “average” SN Ia.</p></li>
+<li><p><strong>M1 Component</strong>: The first-order variation in the SED, which captures the primary spectral diversity of SNe Ia. This is multiplied by the stretch parameter x1.</p></li>
+<li><p><strong>Color Law</strong>: A function that describes how the color parameter c affects the SED at different wavelengths. It’s implemented as a polynomial in wavelength.</p></li>
+<li><p><strong>Redshift Correction</strong>: The model accounts for redshift by scaling the wavelengths and applying a flux normalization factor.</p></li>
+</ol>
+<p>### Parameter Interpretation</p>
+<ul class="simple">
+<li><p><strong>x0</strong>: Controls the overall brightness of the supernova. It’s related to the distance modulus and is typically in the range of 10^-5 to 10^-4.</p></li>
+<li><p><strong>x1</strong>: The “stretch” parameter, which correlates with the width of the light curve. Positive values indicate broader light curves (slower decline), while negative values indicate narrower light curves (faster decline). Typically ranges from -3 to 3.</p></li>
+<li><p><strong>c</strong>: The color parameter, which correlates with the B-V color of the supernova. Positive values indicate redder colors, while negative values indicate bluer colors. Typically ranges from -0.3 to 0.3.</p></li>
+<li><p><strong>t0</strong>: The time of peak brightness in the B-band, measured in Modified Julian Date (MJD).</p></li>
+<li><p><strong>z</strong>: The redshift of the supernova, which affects both the observed wavelengths and the time dilation.</p></li>
+</ul>
+<p>### Visual Representation</p>
+<p>The following figure illustrates how the SALT3 model parameters affect the light curve:</p>
+<figure class="align-center" id="id9">
+<a class="reference internal image-reference" href="https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/docs/_static/salt3_parameters.png"><img alt="SALT3 Parameter Effects" src="https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/docs/_static/salt3_parameters.png" style="width: 80%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Effect of SALT3 parameters on light curves. Left: Effect of x1 (stretch). Right: Effect of c (color).</span><a class="headerlink" href="#id9" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>JAX-bandflux implements the SALT3 model in a differentiable way using JAX, which enables efficient gradient-based optimization and GPU acceleration.
+JAX-bandflux implements the SALT3 model in a differentiable way using JAX, which enables efficient gradient-based optimization and GPU acceleration.
+Bandpass Management
+—————–</p>
+<p>Bandpasses represent the transmission functions of astronomical filters. They define how much light at each wavelength passes through the filter.</p>
+<p>### Bandpass Integration</p>
+<p>The computation of the bandflux is achieved by integrating the model flux across the applied bandpass filters:</p>
+<div class="math notranslate nohighlight">
+\[\text{bandflux} = \int_{\lambda_\text{min}}^{\lambda_\text{max}} F(\lambda) \cdot T(\lambda) \cdot \frac{\lambda}{hc} \, d\lambda\]</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(F(\lambda)\)</span> is the model flux as a function of wavelength</p></li>
+<li><p><span class="math notranslate nohighlight">\(T(\lambda)\)</span> is the transmission function of the bandpass filter</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda\)</span> is the wavelength</p></li>
+<li><p><span class="math notranslate nohighlight">\(h\)</span> is the Planck constant</p></li>
+<li><p><span class="math notranslate nohighlight">\(c\)</span> is the speed of light</p></li>
+</ul>
+<p>The factor <span class="math notranslate nohighlight">\(\frac{\lambda}{hc}\)</span> converts from energy flux to photon flux, which is what most astronomical detectors measure.</p>
+<p>### Bandpass Implementation</p>
+<p>In JAX-bandflux, bandpasses are implemented as the <cite>Bandpass</cite> class, which contains:</p>
+<ul class="simple">
+<li><p>A wavelength array (<cite>wave</cite>)</p></li>
+<li><p>A transmission array (<cite>trans</cite>)</p></li>
+<li><p>Methods for interpolation and integration</p></li>
+</ul>
+<p>The integration is performed numerically using the trapezoidal rule on a pre-computed wavelength grid, which is optimized for accuracy and performance.</p>
+<p>### Precomputed Bridge Data</p>
+<p>For efficiency, JAX-bandflux precomputes “bridge data” for each bandpass, which includes:</p>
+<ul class="simple">
+<li><p>The integration wavelength grid</p></li>
+<li><p>The spacing between grid points</p></li>
+<li><p>The transmission values on the grid</p></li>
+</ul>
+<p>This precomputed data is passed to the flux calculation functions, avoiding redundant computations and improving performance.</p>
+<p>### Bandpass Management Features</p>
+<p>JAX-bandflux provides a flexible system for managing bandpasses:</p>
+<ul class="simple">
+<li><p><strong>Built-in Support</strong>: Common astronomical filters (ZTF, ATLAS, SDSS, 2MASS, WFCAM)</p></li>
+<li><p><strong>Custom Bandpasses</strong>: Ability to register custom bandpasses from files or arrays</p></li>
+<li><p><strong>SVO Integration</strong>: Access to the Spanish Virtual Observatory (SVO) Filter Profile Service</p></li>
+<li><p><strong>Bandpass Registry</strong>: A global registry for managing bandpasses by name</p></li>
+<li><p><strong>Bandpass Manipulation</strong>: Functions for combining, modifying, and visualizing bandpasses</p></li>
+</ul>
+<p>### Visual Representation</p>
+<p>The following figure illustrates the bandpass integration process:</p>
+<figure class="align-center" id="id10">
+<a class="reference internal image-reference" href="https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/docs/_static/bandpass_integration.png"><img alt="Bandpass Integration" src="https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/docs/_static/bandpass_integration.png" style="width: 80%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Bandpass integration process. The model flux (blue) is multiplied by the bandpass transmission (orange) to produce the integrated flux.</span><a class="headerlink" href="#id10" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Integration with the Spanish Virtual Observatory (SVO) Filter Profile Service</p></li>
+</ul>
+</section>
+<section id="data-handling">
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Data Handling</a><a class="headerlink" href="#data-handling" title="Link to this heading"></a></h2>
+<p>JAX-bandflux provides utilities for loading and processing supernova light curve data, making it easy to work with real observations.</p>
+<p>### Data Formats</p>
+<p>JAX-bandflux primarily supports the Hierarchical Supernova Format (HSF), which is a standardized format for supernova light curve data. The data is typically organized as:</p>
+<ul class="simple">
+<li><p>A directory for each supernova (e.g., <cite>data/19dwz/</cite>)</p></li>
+<li><p>A photometry file containing observations (e.g., <cite>all.phot</cite>)</p></li>
+<li><p>Optional metadata files (e.g., <cite>redshifts.dat</cite>)</p></li>
+</ul>
+<p>The photometry file contains columns for:</p>
+<ul class="simple">
+<li><p>Time (MJD)</p></li>
+<li><p>Band/filter name</p></li>
+<li><p>Flux</p></li>
+<li><p>Flux error</p></li>
+<li><p>Zero point</p></li>
+<li><p>Zero point system</p></li>
+</ul>
+<p>### Data Loading Process</p>
+<p>The data loading process in JAX-bandflux involves several steps:</p>
+<ol class="arabic simple">
+<li><p><strong>File Discovery</strong>: Finding the appropriate data files for a given supernova</p></li>
+<li><p><strong>Parsing</strong>: Reading the data files and extracting the relevant information</p></li>
+<li><p><strong>Validation</strong>: Checking that the required columns are present</p></li>
+<li><p><strong>Preprocessing</strong>: Converting to JAX arrays, handling missing values, etc.</p></li>
+<li><p><strong>Bandpass Registration</strong>: Registering the bandpasses needed for the data</p></li>
+<li><p><strong>Bridge Computation</strong>: Precomputing bridge data for efficient flux calculations</p></li>
+</ol>
+<p>### Key Data Functions</p>
+<ul class="simple">
+<li><p><cite>load_hsf_data</cite>: Loads raw data from HSF format files</p></li>
+<li><p><cite>load_redshift</cite>: Loads redshift information from a redshifts.dat file</p></li>
+<li><p><cite>load_and_process_data</cite>: Combines the above steps into a single function that returns all the data needed for modeling</p></li>
+</ul>
+<p>### Example Data Structure</p>
+<p><code class="docutils literal notranslate"><span class="pre">`python</span>
+<span class="pre">#</span> <span class="pre">Example</span> <span class="pre">of</span> <span class="pre">data</span> <span class="pre">returned</span> <span class="pre">by</span> <span class="pre">load_and_process_data</span>
+<span class="pre">times</span> <span class="pre">=</span> <span class="pre">jnp.array([58650.1,</span> <span class="pre">58651.2,</span> <span class="pre">...])</span>&#160; <span class="pre">#</span> <span class="pre">Observation</span> <span class="pre">times</span>
+<span class="pre">fluxes</span> <span class="pre">=</span> <span class="pre">jnp.array([1.2e-5,</span> <span class="pre">1.3e-5,</span> <span class="pre">...])</span>&#160;&#160; <span class="pre">#</span> <span class="pre">Observed</span> <span class="pre">fluxes</span>
+<span class="pre">fluxerrs</span> <span class="pre">=</span> <span class="pre">jnp.array([1.0e-6,</span> <span class="pre">1.1e-6,</span> <span class="pre">...])</span> <span class="pre">#</span> <span class="pre">Flux</span> <span class="pre">errors</span>
+<span class="pre">zps</span> <span class="pre">=</span> <span class="pre">jnp.array([27.5,</span> <span class="pre">27.5,</span> <span class="pre">...])</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">Zero</span> <span class="pre">points</span>
+<span class="pre">band_indices</span> <span class="pre">=</span> <span class="pre">jnp.array([0,</span> <span class="pre">1,</span> <span class="pre">0,</span> <span class="pre">...])</span>&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">Indices</span> <span class="pre">into</span> <span class="pre">bridges</span>
+<span class="pre">bridges</span> <span class="pre">=</span> <span class="pre">(bridge0,</span> <span class="pre">bridge1,</span> <span class="pre">...)</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">Precomputed</span> <span class="pre">bridge</span> <span class="pre">data</span>
+<span class="pre">fixed_z</span> <span class="pre">=</span> <span class="pre">(0.1234,</span> <span class="pre">0.0012)</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">Redshift</span> <span class="pre">and</span> <span class="pre">error</span>
+<span class="pre">`</span></code></p>
+</section>
+<section id="differentiable-programming-with-jax">
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Differentiable Programming with JAX</a><a class="headerlink" href="#differentiable-programming-with-jax" title="Link to this heading"></a></h2>
+<p>JAX-bandflux leverages JAX for differentiable programming, which provides several key advantages for supernova light curve modeling.</p>
+<p>### Automatic Differentiation</p>
+<p>JAX provides automatic differentiation, which allows for efficient computation of gradients. This is particularly useful for:</p>
+<ul class="simple">
+<li><p><strong>Gradient-based optimization</strong>: Finding the best-fit parameters using methods like L-BFGS-B</p></li>
+<li><p><strong>Sensitivity analysis</strong>: Understanding how changes in parameters affect the model</p></li>
+<li><p><strong>Fisher matrix calculations</strong>: Estimating parameter uncertainties</p></li>
+</ul>
+<p>### Just-in-Time (JIT) Compilation</p>
+<p>JAX’s JIT compilation converts Python functions into optimized machine code, providing significant performance improvements:</p>
+<ul class="simple">
+<li><p><strong>Reduced overhead</strong>: Eliminates Python interpretation overhead</p></li>
+<li><p><strong>Optimized execution</strong>: Applies compiler optimizations</p></li>
+<li><p><strong>Efficient memory usage</strong>: Minimizes memory allocations</p></li>
+</ul>
+<p>Example of JIT compilation:</p>
+<p><a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a>python
+&#64;jax.jit
+def salt3_bandflux(phase, bandpass, params):</p>
+<blockquote>
+<div><p># Function implementation
+…</p>
+</div></blockquote>
+<p><a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a></p>
+<p>### Vectorization</p>
+<p>JAX provides vectorization through its <cite>vmap</cite> function, which allows for efficient parallel computation:</p>
+<ul class="simple">
+<li><p><strong>Batch processing</strong>: Process multiple observations at once</p></li>
+<li><p><strong>Parameter exploration</strong>: Evaluate the model for multiple parameter sets</p></li>
+<li><p><strong>Efficient use of hardware</strong>: Utilize SIMD instructions on CPU or GPU</p></li>
+</ul>
+<p>Example of vectorization:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`python</span>
+<span class="pre">#</span> <span class="pre">Vectorize</span> <span class="pre">over</span> <span class="pre">phases</span>
+<span class="pre">phase_vmap</span> <span class="pre">=</span> <span class="pre">jax.vmap(lambda</span> <span class="pre">p:</span> <span class="pre">salt3_bandflux(p,</span> <span class="pre">bandpass,</span> <span class="pre">params))(phases)</span>
+<span class="pre">`</span></code></p>
+<p>### GPU Acceleration</p>
+<p>JAX can automatically run computations on GPUs, providing significant speedups for:</p>
+<ul class="simple">
+<li><p><strong>Large-scale analyses</strong>: Processing many supernovae</p></li>
+<li><p><strong>Complex models</strong>: Models with many parameters or components</p></li>
+<li><p><strong>Monte Carlo simulations</strong>: Generating and analyzing many simulated datasets</p></li>
+</ul>
+<p>### Performance Comparison</p>
+<p>The following table shows typical performance improvements with JAX:</p>
+<div class="line-block">
+<div class="line">Operation | NumPy | JAX (CPU) | JAX (GPU) |</div>
+</div>
+<p><a href="#id11"><span class="problematic" id="id12">|-----------|</span></a>——-<a href="#id13"><span class="problematic" id="id14">|-----------|</span></a>———–|
+| Single flux calculation | 1x | 5-10x | 20-50x |
+| Batch flux calculation | 1x | 10-20x | 50-100x |
+| Gradient computation | N/A | 1-2x overhead | 1-2x overhead |</p>
+<p>These capabilities make JAX-bandflux well-suited for large-scale supernova cosmology analyses, where performance and scalability are critical.
+Model Fitting
+———–</p>
+<p>JAX-bandflux supports various approaches to fitting SALT parameters to supernova light curve data, allowing for both frequentist and Bayesian analyses.</p>
+<p>### Gradient-Based Optimization</p>
+<p>JAX-bandflux is particularly well-suited for gradient-based optimization methods due to its differentiable nature. The most commonly used method is L-BFGS-B (Limited-memory Broyden-Fletcher-Goldfarb-Shanno with Bounds), which:</p>
+<ul class="simple">
+<li><p>Uses gradient information to efficiently navigate the parameter space</p></li>
+<li><p>Handles parameter bounds to ensure physically meaningful results</p></li>
+<li><p>Converges quickly for well-behaved problems</p></li>
+</ul>
+<p>Example workflow:</p>
+<ol class="arabic simple">
+<li><p>Define an objective function (typically chi-squared)</p></li>
+<li><p>Set initial parameter values and bounds</p></li>
+<li><p>Use <cite>scipy.optimize.minimize</cite> with the L-BFGS-B method</p></li>
+<li><p>Extract the best-fit parameters and uncertainties</p></li>
+</ol>
+<p>### Nested Sampling</p>
+<p>For Bayesian inference, JAX-bandflux supports nested sampling through integration with the <cite>blackjax</cite> library. Nested sampling:</p>
+<ul class="simple">
+<li><p>Samples the posterior distribution of parameters</p></li>
+<li><p>Computes the Bayesian evidence (marginal likelihood)</p></li>
+<li><p>Handles multimodal distributions and complex parameter spaces</p></li>
+</ul>
+<p>Example workflow:</p>
+<ol class="arabic simple">
+<li><p>Define a likelihood function and prior distributions</p></li>
+<li><p>Set up the nested sampling algorithm</p></li>
+<li><p>Run the sampler to generate posterior samples</p></li>
+<li><p>Analyze the results using corner plots and summary statistics</p></li>
+</ol>
+<p>### Custom Optimization Algorithms</p>
+<p>JAX-bandflux’s modular design allows for integration with custom optimization algorithms:</p>
+<ul class="simple">
+<li><p><strong>Markov Chain Monte Carlo (MCMC)</strong>: For sampling posterior distributions</p></li>
+<li><p><strong>Particle Swarm Optimization</strong>: For global optimization without gradients</p></li>
+<li><p><strong>Genetic Algorithms</strong>: For complex, non-convex optimization problems</p></li>
+</ul>
+<p>### Comparison of Fitting Methods</p>
+<div class="line-block">
+<div class="line">Method | Advantages | Disadvantages | Use Cases |</div>
+</div>
+<p><a href="#id15"><span class="problematic" id="id16">|--------|</span></a>————<a href="#id17"><span class="problematic" id="id18">|---------------|</span></a>———–|
+| L-BFGS-B | Fast, uses gradients, handles bounds | Can get stuck in local minima | Quick parameter estimation, well-behaved problems |
+| Nested Sampling | Computes evidence, handles multimodality | Computationally intensive | Model comparison, complex parameter spaces |
+| MCMC | Samples posterior, handles correlations | Slow convergence, tuning required | Detailed posterior analysis, non-Gaussian uncertainties |</p>
+<p>The differentiable nature of JAX-bandflux makes it particularly well-suited for gradient-based optimization methods, but its flexibility allows for a wide range of fitting approaches.</p>
+<p>### Model Comparison and Selection</p>
+<p>JAX-bandflux facilitates model comparison and selection through:</p>
+<ul class="simple">
+<li><p><strong>Chi-squared statistics</strong>: For frequentist model comparison</p></li>
+<li><p><strong>Bayesian evidence</strong>: For Bayesian model comparison</p></li>
+<li><p><strong>Information criteria</strong>: AIC, BIC for balancing goodness-of-fit and model complexity</p></li>
+</ul>
+<p>The differentiable nature of JAX-bandflux makes it particularly well-suited for gradient-based optimization methods.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="Quickstart" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="guides/index.html" class="btn btn-neutral float-right" title="Guides" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

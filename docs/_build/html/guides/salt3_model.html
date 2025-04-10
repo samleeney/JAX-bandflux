@@ -1,0 +1,434 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SALT3 Model &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Data Handling" href="data_handling.html" />
+    <link rel="prev" title="Bandpass Management" href="bandpass_management.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="bandpass_management.html">Bandpass Management</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">SALT3 Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction-to-salt3">Introduction to SALT3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#salt3-parameters">SALT3 Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-files">Model Files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#computing-model-flux">Computing Model Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bandflux-computation">Bandflux Computation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#differentiable-implementation">Differentiable Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#jit-compilation">JIT Compilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vectorization">Vectorization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gpu-acceleration">GPU Acceleration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-variants">Model Variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-models">Custom Models</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_handling.html">Data Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jax_optimization.html">JAX Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_deployment_guide.html">Comprehensive Guide to Deploying JAX-bandflux Documentation on ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_visual_guide.html">ReadTheDocs Visual Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../readthedocs_troubleshooting.html">ReadTheDocs Troubleshooting Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
+      <li class="breadcrumb-item active">SALT3 Model</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/salt3_model.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="salt3-model">
+<h1>SALT3 Model<a class="headerlink" href="#salt3-model" title="Link to this heading"></a></h1>
+<p>This guide provides in-depth information about the SALT3 model implementation in JAX-bandflux.</p>
+<section id="introduction-to-salt3">
+<h2>Introduction to SALT3<a class="headerlink" href="#introduction-to-salt3" title="Link to this heading"></a></h2>
+<p>SALT3 (Spectral Adaptive Lightcurve Template 3) is a parametric model for Type Ia supernova light curves. It extends the SALT2 model with improved near-infrared coverage and updated training data. The model is described in detail in Kenworthy et al. (2021) and Pierel et al. (2022).</p>
+<p>The SALT model is of the form:</p>
+<div class="math notranslate nohighlight">
+\[F(p, \lambda) = x_0 \left[ M_0(p, \lambda) + x_1 M_1(p, \lambda) + \ldots \right] \times \exp \left[ c \times CL(\lambda) \right]\]</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(x_0\)</span> is the overall flux normalization</p></li>
+<li><p><span class="math notranslate nohighlight">\(x_1\)</span> is the stretch parameter</p></li>
+<li><p><span class="math notranslate nohighlight">\(t_0\)</span> is the time of peak brightness</p></li>
+<li><p><span class="math notranslate nohighlight">\(c\)</span> is the color parameter</p></li>
+<li><p><span class="math notranslate nohighlight">\(M_0(p, \lambda)\)</span> and <span class="math notranslate nohighlight">\(M_1(p, \lambda)\)</span> are functions that describe the underlying flux surfaces</p></li>
+<li><p><span class="math notranslate nohighlight">\(p\)</span> is a function of redshift and <span class="math notranslate nohighlight">\(t-t_0\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(CL(\lambda)\)</span> is the color law</p></li>
+</ul>
+<p>JAX-bandflux implements the SALT3 model in a differentiable way using JAX, which enables efficient gradient-based optimization and GPU acceleration.</p>
+</section>
+<section id="salt3-parameters">
+<h2>SALT3 Parameters<a class="headerlink" href="#salt3-parameters" title="Link to this heading"></a></h2>
+<p>The SALT3 model has five main parameters:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">z</span></code>: Redshift of the supernova</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">t0</span></code>: Time of peak brightness (in MJD)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x0</span></code>: Overall flux normalization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x1</span></code>: Stretch parameter (related to the width of the light curve)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">c</span></code>: Color parameter (related to the reddening of the supernova)</p></li>
+</ol>
+<p>These parameters are typically stored in a dictionary:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
+    <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="mf">0.0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="model-files">
+<h2>Model Files<a class="headerlink" href="#model-files" title="Link to this heading"></a></h2>
+<p>JAX-bandflux includes SALT3 model files in the <code class="docutils literal notranslate"><span class="pre">sncosmo-modelfiles/models</span></code> directory. Three model variants are available:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">salt3-nir</span></code>: Extended SALT3 model with near-infrared coverage (2800-17000Å)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">salt3</span></code>: Standard SALT3 model (2800-12000Å)</p></li>
+</ul>
+<p>Each model directory contains the following key files:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">salt3_template_0.dat</span></code>: M0 component (mean SN Ia spectrum)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">salt3_template_1.dat</span></code>: M1 component (spectral variation)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">salt3_color_correction.dat</span></code>: Colour law coefficients</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SALT3.INFO</span></code>: Model metadata and configuration</p></li>
+<li><p>Additional files for variance and covariance</p></li>
+</ul>
+</section>
+<section id="computing-model-flux">
+<h2>Computing Model Flux<a class="headerlink" href="#computing-model-flux" title="Link to this heading"></a></h2>
+<p>JAX-bandflux provides functions for computing model flux and bandflux:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.salt3</span><span class="w"> </span><span class="kn">import</span> <span class="n">salt3_flux</span><span class="p">,</span> <span class="n">salt3_bandflux</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+
+<span class="c1"># Define parameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
+    <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="mf">0.0</span>
+<span class="p">}</span>
+
+<span class="c1"># Compute model flux at a specific time and wavelength</span>
+<span class="n">time</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">wavelength</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">4000</span><span class="p">,</span> <span class="mi">5000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">flux</span> <span class="o">=</span> <span class="n">salt3_flux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">wavelength</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Compute bandflux at a specific time for a bandpass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.bandpasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_all_bandpasses</span>
+<span class="n">bandpass_dict</span><span class="p">,</span> <span class="n">bridges_dict</span> <span class="o">=</span> <span class="n">register_all_bandpasses</span><span class="p">()</span>
+
+<span class="n">time</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">bandpass</span> <span class="o">=</span> <span class="n">bandpass_dict</span><span class="p">[</span><span class="s1">&#39;ztfg&#39;</span><span class="p">]</span>
+<span class="n">bridge</span> <span class="o">=</span> <span class="n">bridges_dict</span><span class="p">[</span><span class="s1">&#39;ztfg&#39;</span><span class="p">]</span>
+
+<span class="c1"># Using the bandpass directly</span>
+<span class="n">flux</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Using precomputed bridge data (more efficient)</span>
+<span class="n">flux</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">salt3_flux</span></code> function computes the model flux at a specific time and wavelength, while the <code class="docutils literal notranslate"><span class="pre">salt3_bandflux</span></code> function computes the integrated flux through a bandpass.</p>
+</section>
+<section id="bandflux-computation">
+<h2>Bandflux Computation<a class="headerlink" href="#bandflux-computation" title="Link to this heading"></a></h2>
+<p>The computation of the bandflux is achieved by integrating the model flux across the applied bandpass filters:</p>
+<div class="math notranslate nohighlight">
+\[\text{bandflux} = \int_{\lambda_\text{min}}^{\lambda_\text{max}} F(\lambda) \cdot T(\lambda) \cdot \frac{\lambda}{hc} \, d\lambda\]</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(F(\lambda)\)</span> is the model flux as a function of wavelength</p></li>
+<li><p><span class="math notranslate nohighlight">\(T(\lambda)\)</span> is the transmission function of the bandpass filter</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda\)</span> is the wavelength</p></li>
+<li><p><span class="math notranslate nohighlight">\(h\)</span> is the Planck constant</p></li>
+<li><p><span class="math notranslate nohighlight">\(c\)</span> is the speed of light</p></li>
+</ul>
+<p>For efficiency, JAX-bandflux precomputes “bridge data” for each bandpass using the <code class="docutils literal notranslate"><span class="pre">precompute_bandflux_bridge</span></code> function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.salt3</span><span class="w"> </span><span class="kn">import</span> <span class="n">precompute_bandflux_bridge</span>
+
+<span class="c1"># Precompute bridge data</span>
+<span class="n">bridge</span> <span class="o">=</span> <span class="n">precompute_bandflux_bridge</span><span class="p">(</span><span class="n">bandpass</span><span class="p">)</span>
+
+<span class="c1"># Use the bridge data in flux calculations</span>
+<span class="n">flux</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">register_all_bandpasses</span></code> function automatically precomputes bridge data for all registered bandpasses.</p>
+</section>
+<section id="differentiable-implementation">
+<h2>Differentiable Implementation<a class="headerlink" href="#differentiable-implementation" title="Link to this heading"></a></h2>
+<p>JAX-bandflux implements the SALT3 model in a differentiable way using JAX. This enables efficient gradient-based optimization and GPU acceleration.</p>
+<p>For example, you can compute the gradient of the bandflux with respect to the parameters:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="c1"># Define a function that computes the bandflux</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_bandflux</span><span class="p">(</span><span class="n">params_array</span><span class="p">):</span>
+    <span class="c1"># Convert the array to a dictionary</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Compute the bandflux</span>
+    <span class="k">return</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Compute the gradient</span>
+<span class="n">params_array</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">gradient</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">compute_bandflux</span><span class="p">)(</span><span class="n">params_array</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Gradient:&quot;</span><span class="p">,</span> <span class="n">gradient</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This gradient can be used in optimization algorithms like L-BFGS-B to find the best-fit parameters.</p>
+</section>
+<section id="jit-compilation">
+<h2>JIT Compilation<a class="headerlink" href="#jit-compilation" title="Link to this heading"></a></h2>
+<p>JAX-bandflux uses JAX’s just-in-time (JIT) compilation to improve performance. You can JIT-compile functions that use the SALT3 model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="c1"># Define a function that computes the chi-squared</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_chi2</span><span class="p">(</span><span class="n">params_array</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">zps</span><span class="p">):</span>
+    <span class="c1"># Convert the array to a dictionary</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;t0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">params_array</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Compute model fluxes</span>
+    <span class="n">model_fluxes</span> <span class="o">=</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zp</span><span class="o">=</span><span class="n">zps</span><span class="p">)</span>
+
+    <span class="c1"># Compute chi-squared</span>
+    <span class="n">chi2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">fluxes</span> <span class="o">-</span> <span class="n">model_fluxes</span><span class="p">)</span> <span class="o">/</span> <span class="n">fluxerrs</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">chi2</span>
+
+<span class="c1"># JIT-compile the function</span>
+<span class="n">jit_compute_chi2</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">compute_chi2</span><span class="p">)</span>
+
+<span class="c1"># Use the JIT-compiled function</span>
+<span class="n">params_array</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">chi2</span> <span class="o">=</span> <span class="n">jit_compute_chi2</span><span class="p">(</span><span class="n">params_array</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">zps</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Chi-squared:&quot;</span><span class="p">,</span> <span class="n">chi2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>JIT compilation can significantly improve performance, especially for repeated evaluations of the same function.</p>
+</section>
+<section id="vectorization">
+<h2>Vectorization<a class="headerlink" href="#vectorization" title="Link to this heading"></a></h2>
+<p>JAX-bandflux uses JAX’s vectorization capabilities to compute fluxes for multiple times, wavelengths, or parameters in parallel:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+
+<span class="c1"># Define a function that computes the bandflux for a single time</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_bandflux_single</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">salt3_bandflux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Vectorize the function over times</span>
+<span class="n">compute_bandflux_vectorized</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">compute_bandflux_single</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+<span class="c1"># Compute bandfluxes for multiple times</span>
+<span class="n">times</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">fluxes</span> <span class="o">=</span> <span class="n">compute_bandflux_vectorized</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bridge</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fluxes shape:&quot;</span><span class="p">,</span> <span class="n">fluxes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Vectorization can significantly improve performance for large-scale computations.</p>
+</section>
+<section id="gpu-acceleration">
+<h2>GPU Acceleration<a class="headerlink" href="#gpu-acceleration" title="Link to this heading"></a></h2>
+<p>JAX-bandflux can leverage GPU acceleration through JAX. To use GPU acceleration, you need to install the GPU version of JAX. Please refer to the <a class="reference external" href="https://github.com/google/jax#installation">JAX installation guide</a> for detailed instructions.</p>
+<p>Once you have installed the GPU version of JAX, you can use JAX-bandflux as usual, and JAX will automatically use the GPU for computations.</p>
+</section>
+<section id="model-variants">
+<h2>Model Variants<a class="headerlink" href="#model-variants" title="Link to this heading"></a></h2>
+<p>JAX-bandflux supports different variants of the SALT3 model:</p>
+<ol class="arabic simple">
+<li><p><strong>SALT3</strong>: The standard SALT3 model with wavelength coverage from 2800Å to 12000Å.</p></li>
+<li><p><strong>SALT3-NIR</strong>: An extended version of SALT3 with near-infrared coverage from 2800Å to 17000Å.</p></li>
+</ol>
+<p>You can specify which model to use when loading data:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_and_process_data</span>
+
+<span class="c1"># Load and process data with the SALT3-NIR model</span>
+<span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">zps</span><span class="p">,</span> <span class="n">band_indices</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">fixed_z</span> <span class="o">=</span> <span class="n">load_and_process_data</span><span class="p">(</span>
+    <span class="n">sn_name</span><span class="o">=</span><span class="s1">&#39;19dwz&#39;</span><span class="p">,</span>
+    <span class="n">data_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span>
+    <span class="n">fix_z</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">model_name</span><span class="o">=</span><span class="s1">&#39;salt3-nir&#39;</span>  <span class="c1"># Use the SALT3-NIR model</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The default model is <code class="docutils literal notranslate"><span class="pre">salt3-nir</span></code>.</p>
+</section>
+<section id="custom-models">
+<h2>Custom Models<a class="headerlink" href="#custom-models" title="Link to this heading"></a></h2>
+<p>You can use custom SALT3 models by placing the model files in a subdirectory of <code class="docutils literal notranslate"><span class="pre">sncosmo-modelfiles/models</span></code>. The model files should follow the same structure as the built-in models.</p>
+<p>For example, to use a custom model called <code class="docutils literal notranslate"><span class="pre">my-salt3</span></code>:</p>
+<ol class="arabic simple">
+<li><p>Create a directory <code class="docutils literal notranslate"><span class="pre">sncosmo-modelfiles/models/my-salt3/my-salt3-version</span></code></p></li>
+<li><p>Place the model files in this directory</p></li>
+<li><p>Specify the model name when loading data:</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_and_process_data</span>
+
+<span class="c1"># Load and process data with the custom model</span>
+<span class="n">times</span><span class="p">,</span> <span class="n">fluxes</span><span class="p">,</span> <span class="n">fluxerrs</span><span class="p">,</span> <span class="n">zps</span><span class="p">,</span> <span class="n">band_indices</span><span class="p">,</span> <span class="n">bridges</span><span class="p">,</span> <span class="n">fixed_z</span> <span class="o">=</span> <span class="n">load_and_process_data</span><span class="p">(</span>
+    <span class="n">sn_name</span><span class="o">=</span><span class="s1">&#39;19dwz&#39;</span><span class="p">,</span>
+    <span class="n">data_dir</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span>
+    <span class="n">fix_z</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">model_name</span><span class="o">=</span><span class="s1">&#39;my-salt3&#39;</span>  <span class="c1"># Use the custom model</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="bandpass_management.html" class="btn btn-neutral float-left" title="Bandpass Management" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_handling.html" class="btn btn-neutral float-right" title="Data Handling" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,593 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>jax_supernovae.bandpasses &mdash; JAX-bandflux 0.1.91 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=3741d27b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8e1ed48b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+ 
+<style>
+  /* Custom styles */
+  .wy-nav-content {
+    max-width: 1000px !important;
+  }
+  
+  /* Improve code block styling */
+  div.highlight {
+    background-color: #f8f8f8;
+  }
+  
+  /* Improve table styling */
+  table.docutils {
+    width: 100%;
+    margin-bottom: 1em;
+  }
+  
+  table.docutils td, table.docutils th {
+    padding: 8px;
+  }
+  
+  /* Improve heading styling */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Improve link styling */
+  a.reference {
+    border-bottom: 1px dotted #3091d1;
+  }
+  
+  a.reference:hover {
+    border-bottom: 1px solid #3091d1;
+  }
+</style>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            JAX-bandflux
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/index.html">Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">JAX-bandflux</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">jax_supernovae.bandpasses</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for jax_supernovae.bandpasses</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Bandpass handling for JAX supernova models.&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">HC_ERG_AA</span><span class="p">,</span> <span class="n">C_AA_PER_S</span><span class="p">,</span> <span class="n">MODEL_BANDFLUX_SPACING</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+
+<span class="c1"># Get package directory</span>
+<span class="n">PACKAGE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Bandpass">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.Bandpass">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Bandpass</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Bandpass filter class.&quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wave</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">integration_spacing</span><span class="o">=</span><span class="n">MODEL_BANDFLUX_SPACING</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize bandpass with wavelength and transmission arrays.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wave</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trans</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">trans</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_minwave</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">wave</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maxwave</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">wave</span><span class="p">))</span>
+        
+        <span class="c1"># Pre-compute integration grid to match sncosmo exactly</span>
+        <span class="n">range_diff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxwave</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_minwave</span>
+        <span class="n">n_steps</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">range_diff</span> <span class="o">/</span> <span class="n">integration_spacing</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_spacing</span> <span class="o">=</span> <span class="n">range_diff</span> <span class="o">/</span> <span class="n">n_steps</span>
+        
+        <span class="c1"># Create grid starting at minwave + 0.5 * spacing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_wave</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_minwave</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_spacing</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_maxwave</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_spacing</span><span class="p">,</span>
+            <span class="n">n_steps</span>
+        <span class="p">)</span>
+    
+<div class="viewcode-block" id="Bandpass.__call__">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.Bandpass.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wave</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get interpolated transmission at given wavelengths.&quot;&quot;&quot;</span>
+        <span class="n">wave</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">wave</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">interp</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wave</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trans</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Bandpass.minwave">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.Bandpass.minwave">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">minwave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get minimum wavelength.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_minwave</span></div>
+
+    
+<div class="viewcode-block" id="Bandpass.maxwave">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.Bandpass.maxwave">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">maxwave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get maximum wavelength.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxwave</span></div>
+
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get wavelength array.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wave</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">trans</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get transmission array.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trans</span>
+        
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">integration_wave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get pre-computed integration wavelength grid.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_wave</span>
+        
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">integration_spacing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get integration grid spacing.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_spacing</span></div>
+
+
+<span class="c1"># Registry to store bandpasses</span>
+<span class="n">_BANDPASSES</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="get_bandpass_filepath">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.get_bandpass_filepath">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_bandpass_filepath</span><span class="p">(</span><span class="n">band</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map bandpass name to file path.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    band : str</span>
+<span class="sd">        Bandpass name (e.g., &#39;c&#39;, &#39;o&#39;, &#39;ztfg&#39;, &#39;g&#39;, etc.)</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the bandpass file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bandpass_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1"># ATLAS bandpasses</span>
+        <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/atlas/Atlas.Cyan&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;o&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/atlas/Atlas.Orange&#39;</span><span class="p">,</span>
+        
+        <span class="c1"># ZTF bandpasses</span>
+        <span class="s1">&#39;ztfg&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/ztf/P48_g.dat&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;ztfr&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/ztf/P48_R.dat&#39;</span><span class="p">,</span>
+        
+        <span class="c1"># SDSS bandpasses</span>
+        <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/sdss/sdss_g.dat&#39;</span><span class="p">,</span>  <span class="c1"># SDSS g-band</span>
+        <span class="s1">&#39;r&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/sdss/sdss_r.dat&#39;</span><span class="p">,</span>  <span class="c1"># SDSS r-band</span>
+        <span class="s1">&#39;i&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/sdss/sdss_i.dat&#39;</span><span class="p">,</span>  <span class="c1"># SDSS i-band</span>
+        <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/sdss/sdss_z.dat&#39;</span><span class="p">,</span>  <span class="c1"># SDSS z-band</span>
+        
+        <span class="c1"># 2MASS bandpasses</span>
+        <span class="s1">&#39;H&#39;</span><span class="p">:</span> <span class="s1">&#39;bandpasses/2mass/2mass.H&#39;</span><span class="p">,</span>    <span class="c1"># 2MASS H-band</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="n">band</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">bandpass_map</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown bandpass: </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s2">. Available bandpasses: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">bandpass_map</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Look for the file in sncosmo-modelfiles directory</span>
+    <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles&#39;</span><span class="p">,</span> <span class="n">bandpass_map</span><span class="p">[</span><span class="n">band</span><span class="p">])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bandpass file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="k">return</span> <span class="n">filepath</span></div>
+
+
+<div class="viewcode-block" id="load_bandpass">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.load_bandpass">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_bandpass</span><span class="p">(</span><span class="n">band</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a bandpass from file.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    band : str</span>
+<span class="sd">        Name of the bandpass to load</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bandpass : Bandpass</span>
+<span class="sd">        A Bandpass object containing the filter transmission curve.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">get_bandpass_filepath</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Handle different file formats</span>
+        <span class="k">if</span> <span class="n">band</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;ztfg&#39;</span><span class="p">,</span> <span class="s1">&#39;ztfr&#39;</span><span class="p">]:</span>
+            <span class="c1"># ZTF files have a header line</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># All other files are simple two-column format</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+            
+        <span class="c1"># Create bandpass object</span>
+        <span class="k">return</span> <span class="n">Bandpass</span><span class="p">(</span>
+            <span class="n">wave</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]),</span>
+            <span class="n">trans</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bandpass file for &#39;</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s2">&#39; not found at </span><span class="si">{</span><span class="n">fname</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading bandpass file for &#39;</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_bandpass_from_file">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.load_bandpass_from_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_bandpass_from_file</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a bandpass from a custom file path.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filepath : str</span>
+<span class="sd">        Path to the bandpass file</span>
+<span class="sd">    skiprows : int, optional</span>
+<span class="sd">        Number of header rows to skip</span>
+<span class="sd">    name : str, optional</span>
+<span class="sd">        Name to register the bandpass under. If None, uses the filename.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        (name, bandpass) where:</span>
+<span class="sd">        - name is the registered name of the bandpass</span>
+<span class="sd">        - bandpass is the Bandpass object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># If name not provided, use filename without extension</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filepath</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            
+        <span class="c1"># Load data from file</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="n">skiprows</span><span class="p">)</span>
+        
+        <span class="c1"># Create bandpass object</span>
+        <span class="n">bandpass</span> <span class="o">=</span> <span class="n">Bandpass</span><span class="p">(</span>
+            <span class="n">wave</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]),</span>
+            <span class="n">trans</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="n">bandpass</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bandpass file not found at </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading bandpass file from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_bandpass_from_svo">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.create_bandpass_from_svo">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_bandpass_from_svo</span><span class="p">(</span><span class="n">filter_id</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s1">&#39;filter_data&#39;</span><span class="p">,</span> <span class="n">force_download</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a bandpass object from a filter profile in the SVO Filter Profile Service.</span>
+<span class="sd">    </span>
+<span class="sd">    This function downloads a filter profile from the Spanish Virtual Observatory (SVO)</span>
+<span class="sd">    Filter Profile Service and creates a Bandpass object from it.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filter_id : str</span>
+<span class="sd">        The SVO filter identifier, e.g., &#39;UKIRT/WFCAM.J&#39;</span>
+<span class="sd">    output_dir : str, optional</span>
+<span class="sd">        Directory to save the downloaded filter file. Default is &#39;filter_data&#39;.</span>
+<span class="sd">    force_download : bool, optional</span>
+<span class="sd">        If True, download the filter even if it already exists locally.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Bandpass</span>
+<span class="sd">        A Bandpass object for the specified filter</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        If the filter profile file cannot be found or downloaded</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check if the file already exists locally</span>
+    <span class="n">local_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filter_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.dat&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">local_filename</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_download</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading filter </span><span class="si">{</span><span class="n">filter_id</span><span class="si">}</span><span class="s2"> from local file </span><span class="si">{</span><span class="n">local_filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">local_filename</span><span class="p">)</span>
+            <span class="n">wave</span><span class="p">,</span> <span class="n">trans</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">Bandpass</span><span class="p">(</span><span class="n">wave</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">wave</span><span class="p">),</span> <span class="n">trans</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">trans</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load filter profile from </span><span class="si">{</span><span class="n">local_filename</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># If the file doesn&#39;t exist locally, suggest using the download_svo_filter.py script</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Filter profile file for </span><span class="si">{</span><span class="n">filter_id</span><span class="si">}</span><span class="s2"> not found at </span><span class="si">{</span><span class="n">local_filename</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Please use the download_svo_filter.py script to download it:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;python examples/download_svo_filter.py --filter </span><span class="si">{</span><span class="n">filter_id</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="register_bandpass">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.register_bandpass">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_bandpass</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a bandpass with a given name.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Name to register the bandpass under</span>
+<span class="sd">    bandpass : Bandpass</span>
+<span class="sd">        Bandpass object to register</span>
+<span class="sd">    force : bool, optional</span>
+<span class="sd">        If True, overwrite any existing bandpass with the same name</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If a bandpass with the given name already exists and force=False</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_BANDPASSES</span>
+    
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_BANDPASSES</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bandpass &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; already exists in registry&quot;</span><span class="p">)</span>
+    
+    <span class="n">_BANDPASSES</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">bandpass</span></div>
+
+
+<div class="viewcode-block" id="get_bandpass">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.get_bandpass">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_bandpass</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get a bandpass from the registry.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str or Bandpass</span>
+<span class="sd">        Name of the bandpass or a Bandpass object</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bandpass : Bandpass</span>
+<span class="sd">        The requested bandpass</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">Bandpass</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">name</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_BANDPASSES</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bandpass </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_BANDPASSES</span><span class="p">[</span><span class="n">name</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="load_custom_bandpasses">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.load_custom_bandpasses">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_custom_bandpasses</span><span class="p">(</span><span class="n">bandpass_files</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load custom bandpasses from a list of file paths.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bandpass_files : list of str or dict</span>
+<span class="sd">        List of file paths to bandpass files, or a dictionary mapping</span>
+<span class="sd">        bandpass names to file paths</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary mapping bandpass names to Bandpass objects</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">custom_bandpasses</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">bandpass_files</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">custom_bandpasses</span>
+        
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bandpass_files</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="c1"># Dictionary mapping names to file paths</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">filepath</span> <span class="ow">in</span> <span class="n">bandpass_files</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">bandpass</span> <span class="o">=</span> <span class="n">load_bandpass_from_file</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">register_bandpass</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">custom_bandpasses</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">bandpass</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registered custom bandpass &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Failed to load custom bandpass &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># List of file paths</span>
+        <span class="k">for</span> <span class="n">filepath</span> <span class="ow">in</span> <span class="n">bandpass_files</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">name</span><span class="p">,</span> <span class="n">bandpass</span> <span class="o">=</span> <span class="n">load_bandpass_from_file</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+                <span class="n">register_bandpass</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">custom_bandpasses</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">bandpass</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registered custom bandpass &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Failed to load custom bandpass from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">custom_bandpasses</span></div>
+
+
+<div class="viewcode-block" id="register_all_bandpasses">
+<a class="viewcode-back" href="../../api/bandpasses.html#jax_supernovae.bandpasses.register_all_bandpasses">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_all_bandpasses</span><span class="p">(</span><span class="n">custom_bandpass_files</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">svo_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register bandpasses in JAX and return dictionaries of bandpasses and bridges.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    custom_bandpass_files : list or dict, optional</span>
+<span class="sd">        List of file paths to custom bandpass files, or a dictionary mapping</span>
+<span class="sd">        bandpass names to file paths</span>
+<span class="sd">    svo_filters : list, optional</span>
+<span class="sd">        List of dictionaries containing SVO filter information. Each dictionary</span>
+<span class="sd">        should have the following keys:</span>
+<span class="sd">        - &#39;name&#39;: Name to register the bandpass under</span>
+<span class="sd">        - &#39;filter_id&#39;: SVO filter identifier (e.g., &#39;UKIRT/WFCAM.J&#39;)</span>
+<span class="sd">        - &#39;variants&#39;: Optional list of variant names to register using the same bandpass</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        A tuple containing:</span>
+<span class="sd">        - bandpass_dict: Dictionary mapping bandpass names to Bandpass objects</span>
+<span class="sd">        - bridges_dict: Dictionary mapping bandpass names to precomputed bridge data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">jax_supernovae.salt3</span><span class="w"> </span><span class="kn">import</span> <span class="n">precompute_bandflux_bridge</span>
+    
+    <span class="n">bandpass_info</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="c1"># ZTF bandpasses</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ztfg&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/ztf/P48_g.dat&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ztfr&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/ztf/P48_R.dat&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+        
+        <span class="c1"># ATLAS bandpasses</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        
+        <span class="c1"># SDSS bandpasses</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;g&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/sdss/sdss_g.dat&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/sdss/sdss_r.dat&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/sdss/sdss_i.dat&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/sdss/sdss_z.dat&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        
+        <span class="c1"># 2MASS bandpasses</span>
+        <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PACKAGE_DIR</span><span class="p">,</span> <span class="s1">&#39;sncosmo-modelfiles/bandpasses/2mass/2mass.H&#39;</span><span class="p">),</span> <span class="s1">&#39;skiprows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+    <span class="p">]</span>
+    
+    <span class="n">bandpass_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">bridges_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="c1"># Load standard bandpasses</span>
+    <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">bandpass_info</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;file&#39;</span><span class="p">],</span> <span class="n">skiprows</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;skiprows&#39;</span><span class="p">])</span>
+            <span class="n">wave</span><span class="p">,</span> <span class="n">trans</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">jax_bandpass</span> <span class="o">=</span> <span class="n">Bandpass</span><span class="p">(</span><span class="n">wave</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+            <span class="n">register_bandpass</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">jax_bandpass</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">bandpass_dict</span><span class="p">[</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">jax_bandpass</span>
+            <span class="n">bridges_dict</span><span class="p">[</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">precompute_bandflux_bridge</span><span class="p">(</span><span class="n">jax_bandpass</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Failed to load bandpass </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Load SVO filter bandpasses if provided</span>
+    <span class="k">if</span> <span class="n">svo_filters</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">filter_info</span> <span class="ow">in</span> <span class="n">svo_filters</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Create and register the main bandpass</span>
+                <span class="n">bandpass</span> <span class="o">=</span> <span class="n">create_bandpass_from_svo</span><span class="p">(</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;filter_id&#39;</span><span class="p">])</span>
+                
+                <span class="c1"># Register the main bandpass</span>
+                <span class="n">register_bandpass</span><span class="p">(</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">bandpass_dict</span><span class="p">[</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">bandpass</span>
+                <span class="n">bridges_dict</span><span class="p">[</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">precompute_bandflux_bridge</span><span class="p">(</span><span class="n">bandpass</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registered </span><span class="si">{</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> bandpass from SVO Filter Profile Service&quot;</span><span class="p">)</span>
+                
+                <span class="c1"># Register variants if any</span>
+                <span class="k">if</span> <span class="s1">&#39;variants&#39;</span> <span class="ow">in</span> <span class="n">filter_info</span> <span class="ow">and</span> <span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;variants&#39;</span><span class="p">]:</span>
+                    <span class="k">for</span> <span class="n">variant</span> <span class="ow">in</span> <span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;variants&#39;</span><span class="p">]:</span>
+                        <span class="n">register_bandpass</span><span class="p">(</span><span class="n">variant</span><span class="p">,</span> <span class="n">bandpass</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                        <span class="n">bandpass_dict</span><span class="p">[</span><span class="n">variant</span><span class="p">]</span> <span class="o">=</span> <span class="n">bandpass</span>
+                        <span class="n">bridges_dict</span><span class="p">[</span><span class="n">variant</span><span class="p">]</span> <span class="o">=</span> <span class="n">precompute_bandflux_bridge</span><span class="p">(</span><span class="n">bandpass</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registered </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;variants&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> variants of </span><span class="si">{</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> bandpass&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Failed to create </span><span class="si">{</span><span class="n">filter_info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> bandpass from SVO: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Load custom bandpasses if provided</span>
+    <span class="k">if</span> <span class="n">custom_bandpass_files</span><span class="p">:</span>
+        <span class="n">custom_bandpasses</span> <span class="o">=</span> <span class="n">load_custom_bandpasses</span><span class="p">(</span><span class="n">custom_bandpass_files</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">bandpass</span> <span class="ow">in</span> <span class="n">custom_bandpasses</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">bandpass_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">bandpass</span>
+            <span class="n">bridges_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">precompute_bandflux_bridge</span><span class="p">(</span><span class="n">bandpass</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">bandpass_dict</span><span class="p">,</span> <span class="n">bridges_dict</span> </div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Samuel Alan Kossoff Leeney.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+ 
+<script>
+  // Add any custom JavaScript here
+</script>
+
+
+</body>
+</html>

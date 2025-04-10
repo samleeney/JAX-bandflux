@@ -1,0 +1,275 @@
+Bandpasses Module
+=================
+
+.. automodule:: jax_supernovae.bandpasses
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Overview
+--------
+
+The ``bandpasses`` module provides functionality for managing astronomical filter bandpasses. It includes classes and functions for creating, registering, and manipulating bandpasses. Bandpasses represent the transmission functions of astronomical filters, which define how much light at each wavelength passes through the filter.
+
+The module implements bandpass integration for calculating observed fluxes:
+
+.. math::
+
+   \text{bandflux} = \int_{\lambda_\text{min}}^{\lambda_\text{max}} F(\lambda) \cdot T(\lambda) \cdot \frac{\lambda}{hc} \, d\lambda
+
+Where:
+
+* :math:`F(\lambda)` is the model flux as a function of wavelength
+* :math:`T(\lambda)` is the transmission function of the bandpass filter
+* :math:`\lambda` is the wavelength
+* :math:`h` is the Planck constant
+* :math:`c` is the speed of light
+
+The factor :math:`\frac{\lambda}{hc}` converts from energy flux to photon flux, which is what most astronomical detectors measure.
+
+Bandpass Class
+-------------
+
+The core of the module is the ``Bandpass`` class, which represents a filter transmission curve. It stores wavelength and transmission arrays, and provides methods for interpolation, integration, and other operations.
+
+Key features of the ``Bandpass`` class:
+
+* Efficient interpolation using JAX
+* Methods for finding wavelength range (minwave, maxwave)
+* Callable interface for evaluating transmission at any wavelength
+* Integration with the SALT3 model for flux calculations
+
+Bandpass Registry
+----------------
+
+The module maintains a global registry of bandpasses, which allows them to be accessed by name. This is particularly useful for working with multiple bandpasses and for integrating with the SALT3 model.
+
+Key functions for managing the registry:
+
+* ``register_bandpass``: Register a bandpass with a given name
+* ``get_bandpass``: Get a registered bandpass by name
+* ``register_all_bandpasses``: Register all built-in bandpasses
+* ``get_all_bandpasses``: Get all registered bandpasses
+
+Key Classes and Functions
+------------------------
+
+.. autosummary::
+   :nosignatures:
+
+   jax_supernovae.bandpasses.Bandpass
+   jax_supernovae.bandpasses.register_bandpass
+   jax_supernovae.bandpasses.get_bandpass
+   jax_supernovae.bandpasses.register_all_bandpasses
+   jax_supernovae.bandpasses.get_all_bandpasses
+   jax_supernovae.bandpasses.load_bandpass_from_file
+   jax_supernovae.bandpasses.download_svo_filter
+   jax_supernovae.bandpasses.load_bandpass_from_file
+
+Example Usage
+------------
+
+Creating and Registering Bandpasses:
+
+.. code-block:: python
+
+   import jax
+   import jax.numpy as jnp
+   from jax_supernovae.bandpasses import Bandpass, register_bandpass, get_bandpass, register_all_bandpasses
+   
+   # Enable float64 precision for better accuracy
+   jax.config.update("jax_enable_x64", True)
+   
+   # Create a rectangular bandpass
+   wave = jnp.linspace(4000, 5000, 100)
+   trans = jnp.ones_like(wave)
+   rect_bandpass = Bandpass(wave=wave, trans=trans)
+   
+   # Create a Gaussian bandpass
+   wave = jnp.linspace(4000, 5000, 100)
+   trans = jnp.exp(-0.5 * ((wave - 4500) / 200)**2)
+   gauss_bandpass = Bandpass(wave=wave, trans=trans)
+   
+   # Register the bandpasses
+   register_bandpass('rectangular', rect_bandpass)
+   register_bandpass('gaussian', gauss_bandpass)
+   
+   # Register all built-in bandpasses
+   bandpass_dict, bridges_dict = register_all_bandpasses()
+   
+   # Access registered bandpasses
+   rect_bp = get_bandpass('rectangular')
+   gauss_bp = get_bandpass('gaussian')
+   ztfg_bp = get_bandpass('ztfg')
+   
+   # Print wavelength ranges
+   print(f"Rectangular bandpass: {rect_bp.minwave():.1f} - {rect_bp.maxwave():.1f} Å")
+   print(f"Gaussian bandpass: {gauss_bp.minwave():.1f} - {gauss_bp.maxwave():.1f} Å")
+   print(f"ZTF g bandpass: {ztfg_bp.minwave():.1f} - {ztfg_bp.maxwave():.1f} Å")
+
+Visualizing Bandpasses:
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+   
+   # Plot the bandpasses
+   plt.figure(figsize=(10, 6))
+   
+   # Plot rectangular bandpass
+   plt.plot(rect_bp.wave, rect_bp.trans, label='Rectangular')
+   
+   # Plot Gaussian bandpass
+   plt.plot(gauss_bp.wave, gauss_bp.trans, label='Gaussian')
+   
+   # Plot ZTF g bandpass
+   plt.plot(ztfg_bp.wave, ztfg_bp.trans, label='ZTF g')
+   
+   plt.xlabel('Wavelength (Å)')
+   plt.ylabel('Transmission')
+   plt.title('Bandpass Comparison')
+   plt.legend()
+   plt.grid(True, alpha=0.3)
+   plt.show()
+
+Loading Bandpasses from Files
+----------------------------
+
+JAX-bandflux supports loading bandpasses from files in various formats:
+
+.. code-block:: python
+
+   import jax
+   import jax.numpy as jnp
+   from jax_supernovae.bandpasses import load_bandpass_from_file, register_bandpass
+   
+   # Enable float64 precision
+   jax.config.update("jax_enable_x64", True)
+   
+   # Load a bandpass from a file
+   name, bandpass = load_bandpass_from_file('path/to/bandpass.dat')
+   
+   # Register the bandpass
+   register_bandpass(name, bandpass)
+   
+   # Print information about the bandpass
+   print(f"Loaded bandpass '{name}' with wavelength range: {bandpass.minwave():.1f} - {bandpass.maxwave():.1f} Å")
+   print(f"Number of points: {len(bandpass.wave)}")
+
+The file format should be a simple text file with two columns: wavelength (in Angstroms) and transmission. For example:
+
+.. code-block:: text
+
+   # Wavelength (Å)  Transmission
+   4000.0            0.0
+   4100.0            0.2
+   4200.0            0.5
+   4300.0            0.8
+   4400.0            1.0
+   4500.0            1.0
+   4600.0            0.8
+   4700.0            0.5
+   4800.0            0.2
+   4900.0            0.0
+   5000.0            0.0
+
+SVO Filter Profile Service Integration
+-------------------------------------
+
+JAX-bandflux provides integration with the Spanish Virtual Observatory (SVO) Filter Profile Service, which offers a comprehensive database of filter profiles from various instruments and surveys:
+
+.. code-block:: python
+
+   import jax
+   import jax.numpy as jnp
+   from jax_supernovae.bandpasses import download_svo_filter, register_bandpass
+   
+   # Enable float64 precision
+   jax.config.update("jax_enable_x64", True)
+   
+   # Download a filter from SVO
+   filter_id = 'SLOAN/SDSS.g'
+   filepath = download_svo_filter(filter_id, output_dir='filter_data')
+   
+   # Load the filter and register it
+   name, bandpass = load_bandpass_from_file(filepath)
+   register_bandpass('sdss_g', bandpass)
+   
+   # Print information about the bandpass
+   print(f"Downloaded and registered SDSS g-band filter")
+   print(f"Wavelength range: {bandpass.minwave():.1f} - {bandpass.maxwave():.1f} Å")
+   print(f"Number of points: {len(bandpass.wave)}")
+
+Supported Bandpasses
+-------------------
+
+JAX-bandflux includes built-in support for many common astronomical filters. These can be registered using the ``register_all_bandpasses()`` function:
+
+- **ZTF bandpasses**:
+  - ``ztfg``: ZTF g-band (4087-5522 Å)
+  - ``ztfr``: ZTF r-band (5600-7316 Å)
+
+- **ATLAS bandpasses**:
+  - ``c``: ATLAS cyan filter (4200-6500 Å)
+  - ``o``: ATLAS orange filter (5600-8200 Å)
+
+- **SDSS bandpasses**:
+  - ``g``: SDSS g-band (3800-5500 Å)
+  - ``r``: SDSS r-band (5500-7000 Å)
+  - ``i``: SDSS i-band (7000-8500 Å)
+  - ``z``: SDSS z-band (8500-10000 Å)
+
+- **2MASS bandpasses**:
+  - ``H``: 2MASS H-band (1.5-1.8 μm)
+
+- **WFCAM bandpasses**:
+  - ``J``: WFCAM J-band (1.17-1.33 μm)
+  - ``J_1D3``: WFCAM J-band (1D3 version)
+
+Additionally, you can access thousands of other filters through the SVO Filter Profile Service integration.
+
+Creating Custom Bandpasses
+-------------------------
+
+You can create custom bandpasses with specific shapes or properties:
+
+.. code-block:: python
+
+   import jax
+   import jax.numpy as jnp
+   import matplotlib.pyplot as plt
+   from jax_supernovae.bandpasses import Bandpass, register_bandpass
+   
+   # Enable float64 precision
+   jax.config.update("jax_enable_x64", True)
+   
+   # Create a custom bandpass with atmospheric effects
+   def create_realistic_filter(central_wave, fwhm, num_points=200):
+       """Create a realistic filter with atmospheric effects."""
+       # Create wavelength grid
+       sigma = fwhm / 2.355
+       wave = jnp.linspace(central_wave - 3*sigma, central_wave + 3*sigma, num_points)
+       
+       # Create base Gaussian transmission
+       trans = jnp.exp(-0.5 * ((wave - central_wave) / sigma)**2)
+       
+       # Add atmospheric absorption (simplified)
+       if central_wave > 7500 and central_wave < 7700:
+           # O2 A-band absorption
+           o2_abs = 1.0 - 0.3 * jnp.exp(-0.5 * ((wave - 7600) / 15)**2)
+           trans = trans * o2_abs
+       
+       return Bandpass(wave=wave, trans=trans)
+   
+   # Create and register a custom filter
+   custom_bp = create_realistic_filter(6200, 1200)
+   register_bandpass('custom_r', custom_bp)
+   
+   # Plot the custom bandpass
+   plt.figure(figsize=(10, 6))
+   plt.plot(custom_bp.wave, custom_bp.trans)
+   plt.xlabel('Wavelength (Å)')
+   plt.ylabel('Transmission')
+   plt.title('Custom r-band Filter with Atmospheric Effects')
+   plt.grid(True, alpha=0.3)
+   plt.show()
