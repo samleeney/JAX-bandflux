@@ -4,30 +4,34 @@
 This codebase implements a JAX-based version of the SALT3-NIR supernova model, specifically focusing on bandflux calculations. The implementation must maintain exact consistency with the SNCosmo implementation. Any modifications to the bandflux calculation functions MUST be verified against SNCosmo outputs using the test suite.
 
 ## Critical Rules
-1. NEVER modify the core bandflux calculation without running test_salt3_consistency.py
+1. NEVER modify the core bandflux calculation without running test_salt3nir_consistency.py
 2. ALL likelihood functions and priors MUST be fully JIT compiled
 3. numpy MUST NOT be used except in data loading functions that are called once
 4. ALL mathematical operations MUST use jax.numpy (imported as jnp)
-5. Maintain float64 precision throughout calculations
+5. Maintain float64 precision throughout calculations (jax.config.update("jax_enable_x64", True))
+6. Ensure all functions that perform mathematical operations are JIT-compatible
 
 ## Code Structure
 1. Core Model Implementation:
    - salt3.py: Contains the SALT3-NIR model implementation
    - Primary functions: salt3_m0, salt3_m1, salt3_colorlaw, salt3_bandflux
-   - Optimised versions: optimized_salt3_bandflux, optimized_salt3_multiband_flux
+   - Optimized versions: optimized_salt3_bandflux, optimized_salt3_multiband_flux
+   - Bridge pattern: precompute_bandflux_bridge for efficient calculations
 
 2. Data Handling:
    - data.py: Functions for loading HSF DR1 format data
    - bandpasses.py: Bandpass registration and management
    - Key classes: Bandpass
+   - SVO Filter Profile Service integration: create_bandpass_from_svo
 
 3. Testing:
-   - test_salt3_consistency.py: Verifies consistency with SNCosmo
+   - test_salt3nir_consistency.py: Verifies consistency with SNCosmo
+   - test_bandflux_performance.py: Benchmarks performance against SNCosmo
    - test_ns_completion.py: Tests nested sampling functionality
 
 4. Sampling Implementation:
    - ns.py: Nested sampling implementation
-   - fmin_bfgs.py: BFGS optimisation implementation
+   - fmin_bfgs.py: BFGS optimization implementation
 
 ## Data Structures
 
@@ -49,6 +53,11 @@ class Bandpass:
     _trans: jnp.array   # Transmission array
     _integration_wave   # Pre-computed integration grid
     _integration_spacing # Grid spacing
+    
+    # Methods
+    __call__(wave): # Get interpolated transmission at given wavelengths
+    minwave(): # Get minimum wavelength
+    maxwave(): # Get maximum wavelength
 ```
 
 3. Data Format Requirements:
@@ -58,12 +67,21 @@ class Bandpass:
    - Flux errors
    - Zero points (default 27.5)
 
+4. Bridge Data Structure:
+```python
+bridge = {
+    'wave': jnp.array,  # Integration wavelength grid
+    'dwave': float,     # Spacing between grid points
+    'trans': jnp.array  # Transmission values on the grid
+}
+```
+
 ## Usage Patterns
 
 1. Data Loading:
 ```python
 from jax_supernovae.data import load_and_process_data
-times, fluxes, fluxerrs, zps, band_indices, bridges = load_and_process_data('19agl')
+times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19agl', fix_z=True)
 ```
 
 2. Bandflux Calculation:
@@ -81,22 +99,44 @@ def loglikelihood(params):
     return -0.5 * chi2
 ```
 
+4. Custom Bandpass Registration:
+```python
+from jax_supernovae.bandpasses import load_bandpass_from_file, register_bandpass
+name, bandpass = load_bandpass_from_file('path/to/filter.dat', skiprows=1)
+register_bandpass(name, bandpass)
+```
+
+5. SVO Filter Service:
+```python
+from jax_supernovae.bandpasses import create_bandpass_from_svo
+bandpass = create_bandpass_from_svo('UKIRT/WFCAM.J', output_dir='filter_data')
+```
+
 ## Critical Implementation Details
 
 1. Integration Grid:
    - Must match SNCosmo's integration grid exactly
-   - Uses MODEL_BANDFLUX_SPACING constant
+   - Uses MODEL_BANDFLUX_SPACING constant (5.0 Å)
    - Grid starts at minwave + 0.5 * spacing
+   - Precomputed in Bandpass initialization for performance
 
 2. Colour Law:
    - Matches SALT3-NIR implementation
    - Uses pre-defined wavelength range [3000Å, 7000Å]
    - Polynomial coefficients must match exactly
+   - Handles extrapolation outside the defined range
 
 3. Interpolation:
    - Uses bicubic interpolation away from boundaries
    - Falls back to linear interpolation near boundaries
    - Must handle edge cases identically to SNCosmo
+   - Kernel function (kernval) matches SNCosmo exactly
+
+4. Performance Optimization:
+   - Use precomputed bridge data structures
+   - Leverage JAX's JIT compilation and vectorization
+   - Minimize redundant calculations
+   - Use optimized_salt3_multiband_flux for multiple bands
 
 ## Error Handling Rules
 
@@ -104,13 +144,34 @@ def loglikelihood(params):
    - Verify parameter dictionary contains all required keys
    - Check wavelength ranges are within model bounds
    - Validate zpsys is 'ab' when zp is provided
+   - Handle missing files gracefully with informative error messages
 
 2. Numerical Stability:
    - Use jnp.where for conditional operations
    - Avoid direct boolean indexing
    - Handle non-finite values in likelihood calculations
+   - Use appropriate clipping for indices to prevent out-of-bounds access
 
 3. Shape Handling:
    - Support both scalar and array inputs
-   - Maintain consistent broadcasting behaviour
-   - Return appropriate shapes for single vs multiple observations 
+   - Maintain consistent broadcasting behavior
+   - Return appropriate shapes for single vs multiple observations
+   - Use jnp.atleast_1d for consistent array handling
+
+## Testing Requirements
+
+1. Consistency Testing:
+   - Always run test_salt3nir_consistency.py after modifying core functions
+   - Verify M0, M1, and color law components match SNCosmo
+   - Ensure integration grids match exactly
+   - Validate bandflux calculations with and without zero points
+
+2. Performance Testing:
+   - Use test_bandflux_performance.py to benchmark against SNCosmo
+   - Ensure optimized functions maintain performance advantages
+   - Verify results match within acceptable tolerance (rtol=1e-2)
+
+3. Nested Sampling Testing:
+   - Verify convergence on test problems
+   - Check posterior distributions against known results
+   - Validate evidence calculations
