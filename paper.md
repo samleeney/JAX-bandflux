@@ -1,5 +1,5 @@
 ---
-title: 'JAX-based differentiable supernovae SALT modelling for cosmological analysis'
+title: 'JAX-bandflux: differentiable supernovae SALT modelling for cosmological analysis on GPUs'
 tags:
   - Python
   - astronomy
