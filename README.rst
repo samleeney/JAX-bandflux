@@ -14,7 +14,7 @@ JAX Bandflux for Supernovae SALT3 model fitting
    :target: https://github.com/samleeney/JAX-bandflux/actions
    :alt: Build Status
 
-`JAX-bandflux' presents an implementation of supernova light curve modelling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality implemented in JAX.
+`JAX-bandflux` presents an implementation of supernova light curve modelling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality implemented in JAX.
 
 Quickstart
 ----------
@@ -35,5 +35,5 @@ This repository implements the JAX version of the SNCosmo bandflux function. Alt
 What is the .airules file?
 --------------------------
 
-Large Language Models are frequently used to optimise research and development. The `.airules` file provides context to help LLMs understand and work with this codebase. This is particularly important for new code that will not have been included in model training datasets. The file contains detailed information about data structures, core functions, critical implementation rules, and testing requirements. If you are using Cursor, rename this file to `.cursorrules` and it will be automatically interpreted as context.
+The `.airules` file provides context to help LLMs understand and work with this codebase. This is particularly important for new code that will not have been included in model training datasets. The file contains detailed information about data structures, core functions, critical implementation rules, and testing requirements. If you are using `cursor`, rename this file to `.cursorrules` and it will be automatically interpreted as context.
 
