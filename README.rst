@@ -1,5 +1,5 @@
 =======================================
-JAX Bandflux for Supernovae SALT3 model fitting
+``JAX`` Bandflux for Supernovae ``SALT3`` model fitting
 =======================================
 :Author: Samuel Alan Kossoff Leeney
 :version: |pypi version|
@@ -14,12 +14,12 @@ JAX Bandflux for Supernovae SALT3 model fitting
    :target: https://github.com/samleeney/JAX-bandflux/actions
    :alt: Build Status
 
-`JAX-bandflux` presents an implementation of supernova light curve modelling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality implemented in JAX.
+``JAX-bandflux`` presents an implementation of supernova light curve modelling using ``JAX``. The codebase offers a differentiable approach to core `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_ functionality implemented in ``JAX``.
 
 Quickstart
 ----------
 
-Run example analagous to SNCosmo's `Using a custom fitter` example:
+Run example analagous to `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_'s "Using a custom fitter" example:
 
 .. code:: bash
 
@@ -30,15 +30,15 @@ Run example analagous to SNCosmo's `Using a custom fitter` example:
 Testing
 -------
 
-This repository implements the JAX version of the SNCosmo bandflux function. Although the implementations are nearly identical, a minor difference exists due to the absence of a specific interpolation function in JAX, resulting in a discrepancy of approximately 0.001% in bandflux results. Tests have been provided to confirm that key functions in the SNCosmo version correspond with our JAX implementation. It is recommended to run these tests, especially following any modifications.
+This repository implements the ``JAX`` version of the `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_ bandflux function. Although the implementations are nearly identical, a minor difference exists due to the absence of a specific interpolation function in ``JAX``, resulting in a discrepancy of approximately 0.001% in bandflux results. Tests have been provided to confirm that key functions in the `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_ version correspond with our ``JAX`` implementation. It is recommended to run these tests, especially following any modifications.
 
-What is the .airules file?
+What is the ``.airules`` file?
 --------------------------
 
-.airules
+``.airules``
 ========
 
-The `.airules` file provides essential context to help language models understand 
+The ``.airules`` file provides essential context to help language models understand
 and work with this codebase—particularly for new code that may not be included 
 in model training datasets. It contains detailed information on:
 
@@ -47,5 +47,5 @@ in model training datasets. It contains detailed information on:
 - Implementation constraints  
 - Testing requirements  
 
-If you are using `cursor`, rename this file to `.cursorrules` to enable 
+If you are using ``cursor``, rename this file to ``.cursorrules`` to enable
 automatic context integration.
