@@ -16,7 +16,7 @@ affiliations:
    index: 1
  - name: Kavli Institute for Cosmology, Madingley Road, Cambridge CB3 0HA, UK
    index: 2
-date: 10 April 2025
+date: 9 April 2025
 bibliography: paper.bib
 ---
 # Summary
