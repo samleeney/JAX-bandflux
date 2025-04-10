@@ -1,7 +1,8 @@
 =======================================
 JAX Bandflux for Supernovae SALT3 model fitting
 =======================================
-:Version: |PyPI version|
+:Author: Samuel Alan Kossoff Leeney
+:version: |pypi version|
 :Homepage: https://github.com/samleeney/JAX-bandflux
 :Documentation: https://jax-bandflux.readthedocs.io/
 
@@ -13,7 +14,7 @@ JAX Bandflux for Supernovae SALT3 model fitting
    :target: https://github.com/samleeney/JAX-bandflux/actions
    :alt: Build Status
 
-This repository presents an implementation of supernova light curve modelling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality implemented in JAX.
+`JAX-bandflux' presents an implementation of supernova light curve modelling using JAX. The codebase offers a differentiable approach to core SNCosmo functionality implemented in JAX.
 
 Quickstart
 ----------
