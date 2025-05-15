@@ -9,3 +9,4 @@ tqdm
 anesthetic
 git+https://github.com/handley-lab/blackjax@proposal
 requests
+distrax
