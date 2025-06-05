@@ -7,6 +7,6 @@ pyyaml>=6.0.0
 matplotlib
 tqdm
 anesthetic
-blackjax>=1.3.0
+git+https://github.com/handley-lab/blackjax.git
 requests
 distrax
