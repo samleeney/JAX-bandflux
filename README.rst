@@ -16,6 +16,41 @@
 
 ``JAX-bandflux`` presents an implementation of supernova light curve modelling using ``JAX``. The codebase offers a differentiable approach to core `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_ functionality implemented in ``JAX``.
 
+Installation
+------------
+
+Install from PyPI:
+
+.. code:: bash
+
+   pip install jax-bandflux
+
+Install from GitHub:
+
+.. code:: bash
+
+   pip install git+https://github.com/samleeney/JAX-bandflux.git
+
+For development:
+
+.. code:: bash
+
+   git clone https://github.com/samleeney/JAX-bandflux.git
+   cd JAX-bandflux
+   pip install -e .
+
+Dependencies
+~~~~~~~~~~~~
+
+JAX-bandflux requires:
+
+- Python >= 3.10
+- JAX >= 0.4.20 (with CUDA support for GPU acceleration)
+- NumPy >= 1.24.0
+- SNCosmo >= 2.9.0
+- BlackJAX >= 1.3.0 (for nested sampling)
+- Distrax (for probability distributions)
+
 Quickstart
 ----------
 
