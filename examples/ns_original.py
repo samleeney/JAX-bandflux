@@ -12,6 +12,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import tqdm
+
+
 import blackjax
 import os
 from blackjax.ns.utils import log_weights
@@ -34,7 +36,7 @@ fit_sigma = False
 fix_z = True
 
 NS_SETTINGS = {
-    'n_delete': 1,
+    'num_delete': 1,
     'n_live': 125,
     'num_mcmc_steps_multiplier': 5
 }
@@ -250,11 +252,11 @@ num_mcmc_steps = n_params_total * NS_SETTINGS['num_mcmc_steps_multiplier']
 
 # Initialize nested sampling algorithm
 print("Setting up nested sampling algorithm...")
-algo = blackjax.ns.adaptive.nss(
+algo = blackjax.nss(
     logprior_fn=logprior,
     loglikelihood_fn=compute_single_loglikelihood,
-    n_delete=NS_SETTINGS['n_delete'],
-    num_mcmc_steps=num_mcmc_steps,
+    num_delete=NS_SETTINGS['num_delete'],
+    num_inner_steps=num_mcmc_steps,
 )
 
 # Initialize random key and particles
@@ -294,21 +296,21 @@ def one_step(carry, xs):
 dead = []
 print("Running nested sampling...")
 with tqdm.tqdm(desc="Dead points", unit=" dead points") as pbar:
-    while (not state.sampler_state.logZ_live - state.sampler_state.logZ < -3):
+    while (not state.logZ_live - state.logZ < -3):
         (state, rng_key), dead_info = one_step((state, rng_key), None)
         dead.append(dead_info)
-        pbar.update(NS_SETTINGS['n_delete'])
+        pbar.update(NS_SETTINGS['num_delete'])
         
         # Optional: Print progress periodically
         # if len(dead) % 10 == 0:
-        #     print(f"logZ = {state.sampler_state.logZ:.2f}")
+        #     print(f"logZ = {state.logZ:.2f}")
 
 # Process results
-dead = jax.tree_map(lambda *args: jnp.concatenate(args), *dead)
+dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
 logw = log_weights(rng_key, dead)
 logZs = jax.scipy.special.logsumexp(logw, axis=0)
 
-print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
+print(f"Runtime evidence: {state.logZ:.2f}")
 print(f"Estimated evidence: {logZs.mean():.2f} ± {logZs.std():.2f}")
 
 # Save chains using the utility function

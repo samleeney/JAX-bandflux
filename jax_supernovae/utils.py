@@ -66,8 +66,8 @@ def save_chains_dead_birth(dead_info, param_names=None, root_dir="chains"):
     
     # Extract data from NSInfo
     points = np.array(dead_info.particles)
-    logls_death = np.array(dead_info.logL)
-    logls_birth = np.array(dead_info.logL_birth)
+    logls_death = np.array(dead_info.loglikelihood)
+    logls_birth = np.array(dead_info.loglikelihood_birth)
     
     # Combine data: parameters, death likelihood, birth likelihood
     data = np.column_stack([points, logls_death, logls_birth])

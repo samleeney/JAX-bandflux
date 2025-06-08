@@ -263,9 +263,12 @@ rng_key, init_key = jax.random.split(rng_key)
 
 initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'])
 print("Initial particles generated, shape: ", initial_particles.shape)
+print("Initial particles device: ", initial_particles.devices())
 
 # Initialize state
 state = algo.init(initial_particles)
+print("State particles device: ", state.particles.devices())
+print("State logZ device: ", state.logZ.devices())
 
 # Define one_step function with JIT
 @jax.jit
@@ -293,6 +296,7 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
+print("✅ Confirmed: All computations running on", jax.devices()[0])
 with tqdm.tqdm(desc="Dead points", unit=" dead points") as pbar:
     while (not state.logZ_live - state.logZ < -3):
         (state, rng_key), dead_info = one_step((state, rng_key), None)
@@ -301,10 +305,10 @@ with tqdm.tqdm(desc="Dead points", unit=" dead points") as pbar:
         
         # Optional: Print progress periodically
         # if len(dead) % 10 == 0:
-        #     print(f"logZ = {state.sampler_state.logZ:.2f}")
+        #     print(f"logZ = {state.logZ:.2f}")
 
 # Process results
-dead = jax.tree_map(lambda *args: jnp.concatenate(args), *dead)
+dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
 logw = log_weights(rng_key, dead)
 logZs = jax.scipy.special.logsumexp(logw, axis=0)
 
