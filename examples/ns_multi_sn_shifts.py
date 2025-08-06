@@ -28,13 +28,6 @@ SN_NAMES = ['19dwz', '20aai']  # List of supernovae to fit
 fix_z = True  # Fix redshift from redshifts.dat or targets.dat
 fit_sigma = False  # Whether to fit an error scaling parameter
 
-# NS settings
-NS_SETTINGS = {
-    'n_delete': 1,
-    'n_live': 150,  # Increased for multi-SN fitting
-    'num_mcmc_steps_multiplier': 5
-}
-
 # Prior bounds
 PRIOR_BOUNDS = {
     'z': {'min': 0.001, 'max': 0.2},
@@ -142,11 +135,22 @@ n_params_total = n_sne * n_params_per_sn + n_bands
 if fit_sigma:
     n_params_total += 1
 
+# NS settings - set n_live based on number of parameters
+n_live = n_params_total * 25
+NS_SETTINGS = {
+    'n_live': n_live,
+    'n_delete': n_live // 2,  # Set to n_live/2 for efficiency
+    'num_mcmc_steps_multiplier': 5
+}
+
 print(f"Total parameters: {n_params_total}")
 print(f"  - {n_sne} SNe × {n_params_per_sn} params/SN = {n_sne * n_params_per_sn}")
 print(f"  - {n_bands} shared shift parameters")
 if fit_sigma:
     print(f"  - 1 error scaling parameter")
+print(f"\nNested sampling configuration:")
+print(f"  - n_live: {NS_SETTINGS['n_live']} (25 × {n_params_total} parameters)")
+print(f"  - n_delete: {NS_SETTINGS['n_delete']}")
 
 @jax.jit
 def logprior(params):
