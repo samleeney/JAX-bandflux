@@ -33,10 +33,22 @@ class Bandpass:
             n_steps
         )
     
-    def __call__(self, wave):
-        """Get interpolated transmission at given wavelengths."""
+    def __call__(self, wave, shift=0.0):
+        """Get interpolated transmission at given wavelengths with optional shift.
+        
+        Parameters
+        ----------
+        wave : array_like
+            Wavelengths at which to evaluate transmission
+        shift : float, optional
+            Constant wavelength shift to apply (in Angstroms)
+        """
         wave = jnp.asarray(wave)
-        return interp(wave, self._wave, self._trans)
+        
+        # Apply constant shift
+        effective_wave = wave - shift
+            
+        return interp(effective_wave, self._wave, self._trans)
     
     def minwave(self):
         """Get minimum wavelength."""

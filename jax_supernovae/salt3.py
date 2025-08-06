@@ -544,14 +544,53 @@ def precompute_bandflux_bridge(bandpass):
         - 'wave': the integration wavelength grid
         - 'dwave': spacing between grid points
         - 'trans': the transmission values computed on the grid
+        - 'wave_original': original wavelength array for shift interpolation
+        - 'trans_original': original transmission array
     """
     wave = bandpass.integration_wave
     dwave = bandpass.integration_spacing
     trans = bandpass(wave)
-    return {'wave': wave, 'dwave': dwave, 'trans': trans}
+    
+    # Store original arrays for shift interpolation
+    return {
+        'wave': wave, 
+        'dwave': dwave, 
+        'trans': trans,
+        'wave_original': bandpass.wave,
+        'trans_original': bandpass.trans
+    }
+
+@jax.jit
+def compute_shifted_transmission(wave, wave_original, trans_original, shift):
+    """Compute transmission values with wavelength shift.
+    
+    Parameters
+    ----------
+    wave : array
+        Wavelengths at which to evaluate transmission
+    wave_original : array
+        Original wavelength array from bandpass
+    trans_original : array
+        Original transmission array from bandpass
+    shift : float or array
+        Wavelength shift(s) to apply
+        
+    Returns
+    -------
+    array
+        Shifted transmission values
+    """
+    # Apply shift - if shift is callable, it should be evaluated outside JIT
+    effective_wave = wave - shift
+    
+    # Use existing interp function from utils
+    from jax_supernovae.utils import interp
+    return interp(effective_wave, wave_original, trans_original)
 
 @partial(jax.jit, static_argnames=['zpsys'])
-def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=None):
+def optimized_salt3_bandflux(phase, wave, dwave, trans, params, 
+                            zp=None, zpsys=None, shift=0.0,
+                            wave_original=None, trans_original=None):
     """Calculate bandflux for a single bandpass using precomputed static data.
     
     Parameters
@@ -563,18 +602,24 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=N
     dwave : float
         Spacing between wavelength grid points
     trans : array
-        Transmission values on the wavelength grid
+        Transmission values on the wavelength grid (used if shift=0)
     params : dict
         Dictionary containing model parameters: 'z', 't0', 'x0', 'x1', 'c'
     zp : float or None, optional
-        Zero point for flux scaling. If provided, zpsys must also be given
+        Zero point for flux scaling
     zpsys : str or None, optional
         Magnitude system (e.g. 'ab')
+    shift : float, optional
+        Constant wavelength shift to apply to transmission curve (in Angstroms)
+    wave_original : array, optional
+        Original wavelength array (required if shift != 0)
+    trans_original : array, optional
+        Original transmission array (required if shift != 0)
     
     Returns
     -------
     float or array
-        Flux in photons/s/cm^2. If phase is scalar then returns scalar
+        Flux in photons/s/cm^2
     """
     if zp is not None and zpsys is None:
         raise ValueError('zpsys must be given if zp is not None')
@@ -595,6 +640,23 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=N
 
     # Scale the integration grid to rest-frame wavelengths.
     restwave = wave * a
+    
+    # Get transmission values - use shifted version if shift is non-zero
+    # Use jnp.where to handle conditional logic in JAX
+    shift_is_nonzero = jnp.abs(shift) > 0.0
+    has_original_arrays = (wave_original is not None) and (trans_original is not None)
+    
+    if has_original_arrays:
+        # Apply shift and recompute transmission
+        trans_computed = compute_shifted_transmission(
+            wave, wave_original, trans_original, shift
+        )
+        # Use jnp.where to select between shifted and original transmission
+        trans_shifted = jnp.where(shift_is_nonzero, trans_computed, trans)
+    else:
+        # Use pre-computed transmission (backward compatibility)
+        trans_shifted = trans
+    
     # Compute colour law on the restwave grid.
     cl = salt3_colorlaw(restwave)
 
@@ -604,13 +666,14 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=N
 
     # Compute rest-frame flux including the colour law effect.
     rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
-    integrand = wave[None, :] * trans[None, :] * rest_flux
+    integrand = wave[None, :] * trans_shifted[None, :] * rest_flux
     result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
 
     # Apply zero point correction if required.
     if zp is not None:
         if zpsys == 'ab':
-            zpbandflux = 3631e-23 * dwave / H_ERG_S * jnp.sum(trans / wave)
+            # Note: zpbandflux should also use shifted transmission
+            zpbandflux = 3631e-23 * dwave / H_ERG_S * jnp.sum(trans_shifted / wave)
         else:
             raise ValueError(f"Unsupported magnitude system: {zpsys}")
         zpnorm = 10**(0.4 * zp) / zpbandflux
@@ -622,8 +685,8 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params, zp=None, zpsys=N
     return result
 
 @partial(jax.jit, static_argnames=['zpsys'])
-def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None):
-    """Calculate fluxes for multiple bandpasses.
+def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None, shifts=None):
+    """Calculate fluxes for multiple bandpasses with transmission shifts.
     
     Parameters
     ----------
@@ -637,6 +700,8 @@ def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None)
         Zero points for each bandpass
     zpsys : str or None, optional
         Magnitude system
+    shifts : list or array or None, optional
+        Constant wavelength shifts for each bandpass (in Angstroms)
     
     Returns
     -------
@@ -648,9 +713,19 @@ def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None)
     n_bands = len(bridges)
     result = jnp.zeros((n_phase, n_bands))
     
+    # Default shifts to zero if not provided
+    if shifts is None:
+        shifts = [0.0] * n_bands
+    
     for i in range(n_bands):
         bp_bridge = bridges[i]
         curr_zp = zps[i] if zps is not None else None
+        curr_shift = shifts[i]
+        
+        # Extract original arrays if available
+        wave_original = bp_bridge.get('wave_original', None)
+        trans_original = bp_bridge.get('trans_original', None)
+        
         band_flux = optimized_salt3_bandflux(
             phase, 
             bp_bridge['wave'], 
@@ -658,7 +733,10 @@ def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None)
             bp_bridge['trans'], 
             params, 
             zp=curr_zp, 
-            zpsys=zpsys
+            zpsys=zpsys,
+            shift=curr_shift,
+            wave_original=wave_original,
+            trans_original=trans_original
         )
         result = result.at[:, i].set(band_flux)
     
