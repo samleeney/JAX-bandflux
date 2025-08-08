@@ -110,7 +110,7 @@ def load_hsf_data(object_name, base_dir='data'):
     return data
 
 def load_redshift(object_name, redshift_file='data/redshifts.dat'):
-    """Load redshift for a given object from redshifts.dat.
+    """Load redshift for a given object from redshifts.dat or targets.dat.
     
     Parameters
     ----------
@@ -134,36 +134,64 @@ def load_redshift(object_name, redshift_file='data/redshifts.dat'):
     ValueError
         If object not found in redshift file
     """
-    # Try package data directory first
+    # List of files to check in order
+    files_to_check = []
+    
+    # Add package data files
     package_redshift_file = os.path.join(PACKAGE_DIR, 'data', 'redshifts.dat')
+    package_targets_file = os.path.join(PACKAGE_DIR, 'data', 'targets.dat')
+    
     if os.path.exists(package_redshift_file):
-        redshift_file = package_redshift_file
-    elif not os.path.exists(redshift_file):
-        raise FileNotFoundError(f"Redshift file not found: {redshift_file}")
+        files_to_check.append(package_redshift_file)
+    if os.path.exists(package_targets_file):
+        files_to_check.append(package_targets_file)
         
-    # Skip comment lines and read data
-    with open(redshift_file, 'r') as f:
-        lines = f.readlines()
+    # Add user-provided files
+    if os.path.exists(redshift_file):
+        files_to_check.append(redshift_file)
+    if os.path.exists('data/targets.dat'):
+        files_to_check.append('data/targets.dat')
+        
+    if not files_to_check:
+        raise FileNotFoundError(f"Neither redshifts.dat nor targets.dat found")
     
-    data_lines = [l for l in lines if not l.startswith('#')]
-    
-    # Find all measurements for this object
+    # Try each file in order
     measurements = []
-    for line in data_lines:
-        if not line.strip():
-            continue
-        parts = line.split()
-        if len(parts) < 6:
-            continue
-        if parts[0].lower() == object_name.lower():
-            try:
-                z = float(parts[2])
-                plus = float(parts[3])
-                minus = float(parts[4])
-                flag = parts[5] if len(parts) > 5 else 'n'
-                measurements.append((z, plus, minus, flag))
-            except (ValueError, IndexError):
+    for file_path in files_to_check:
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+        
+        data_lines = [l for l in lines if not l.startswith('#')]
+        
+        # Find all measurements for this object
+        for line in data_lines:
+            if not line.strip():
                 continue
+            parts = line.split()
+            if len(parts) < 5:
+                continue
+            if parts[0].lower() == object_name.lower():
+                try:
+                    # Check if it's targets.dat format (redshift in column 6)
+                    # or redshifts.dat format (redshift in column 3)
+                    if 'targets' in file_path and len(parts) >= 6:
+                        z = float(parts[5])  # Column 6 (index 5) in targets.dat
+                        # targets.dat doesn't have error columns in same format
+                        plus = minus = 0.001  # Default small error
+                        flag = 's'  # Assume strong since it's in targets
+                    else:
+                        # redshifts.dat format
+                        z = float(parts[2])
+                        plus = float(parts[3])
+                        minus = float(parts[4])
+                        flag = parts[5] if len(parts) > 5 else 'n'
+                    measurements.append((z, plus, minus, flag))
+                except (ValueError, IndexError):
+                    continue
+        
+        # If we found measurements in this file, stop looking
+        if measurements:
+            break
     
     if not measurements:
         raise ValueError(f"No redshift measurements found for object {object_name}")
