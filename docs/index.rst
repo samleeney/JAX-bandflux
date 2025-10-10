@@ -84,6 +84,7 @@ The following diagram shows the relationships between key components:
    data_loading
    bandpass_loading
    model_fluxes
+   dust
    sampling
 
 Quick Links
@@ -94,6 +95,7 @@ Quick Links
 * :doc:`data_loading` - Learn how to load and process supernova data
 * :doc:`bandpass_loading` - Working with astronomical filters and bandpasses
 * :doc:`model_fluxes` - Computing model fluxes using the SALT3 model
+* :doc:`dust` - Applying dust extinction to supernova models
 * :doc:`sampling` - Techniques for parameter estimation and sampling
 
 Getting Help
