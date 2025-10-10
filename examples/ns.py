@@ -54,9 +54,10 @@ prior_dists = {p: distrax.Uniform(low=PRIOR_BOUNDS[p][0], high=PRIOR_BOUNDS[p][1
 @jax.jit
 def logprior(params):
     """Calculate log prior probability."""
-    logp = sum(prior_dists[prior_params[i]].log_prob(params[i])
-               for i in range(len(prior_params)))
-    return logp
+    params = jnp.atleast_2d(params)
+    logp_parts = jnp.stack([prior_dists[prior_params[i]].log_prob(params[:, i])
+                            for i in range(len(prior_params))], axis=0)
+    return jnp.sum(logp_parts, axis=0)
 
 @jax.jit
 def compute_single_loglikelihood(params):

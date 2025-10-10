@@ -64,9 +64,9 @@ anomaly_prior_dists = {p: distrax.Uniform(low=PRIOR_BOUNDS[p][0], high=PRIOR_BOU
 def logprior_standard(params):
     """Standard log prior (4 parameters)."""
     params = jnp.atleast_2d(params)
-    logp = sum(standard_prior_dists[base_params[i]].log_prob(params[:, i])
-               for i in range(len(base_params)))
-    return jnp.reshape(logp, (-1,))
+    logp_parts = jnp.stack([standard_prior_dists[base_params[i]].log_prob(params[:, i])
+                            for i in range(len(base_params))], axis=0)
+    return jnp.sum(logp_parts, axis=0)
 
 
 @jax.jit
@@ -87,7 +87,7 @@ def compute_single_loglikelihood_standard(params):
 def loglikelihood_standard(params):
     """Vectorized standard likelihood."""
     params = jnp.atleast_2d(params)
-    return jax.vmap(compute_single_loglikelihood_standard)(params).reshape(-1,)
+    return jax.vmap(compute_single_loglikelihood_standard)(params)
 
 
 # Anomaly detection likelihood functions
@@ -95,9 +95,9 @@ def loglikelihood_standard(params):
 def logprior_anomaly(params):
     """Anomaly log prior (5 parameters including log_p)."""
     params = jnp.atleast_2d(params)
-    logp = sum(anomaly_prior_dists[anomaly_params[i]].log_prob(params[:, i])
-               for i in range(len(anomaly_params)))
-    return jnp.reshape(logp, (-1,))
+    logp_parts = jnp.stack([anomaly_prior_dists[anomaly_params[i]].log_prob(params[:, i])
+                            for i in range(len(anomaly_params))], axis=0)
+    return jnp.sum(logp_parts, axis=0)
 
 
 @jax.jit
@@ -132,7 +132,7 @@ def loglikelihood_anomaly(params):
     """Vectorized anomaly likelihood."""
     params = jnp.atleast_2d(params)
     batch_loglike, _ = jax.vmap(compute_single_loglikelihood_anomaly)(params)
-    return jnp.reshape(batch_loglike, (-1,))
+    return batch_loglike
 
 
 def sample_from_priors(rng_key, n_samples, is_anomaly=False):
