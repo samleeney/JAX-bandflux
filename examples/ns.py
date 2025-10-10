@@ -31,7 +31,7 @@ fit_sigma = False
 fix_z = True
 
 NS_SETTINGS = {
-    'n_delete': 1,
+    'n_delete': 60,
     'n_live': 125,
     'num_mcmc_steps_multiplier': 5
 }
