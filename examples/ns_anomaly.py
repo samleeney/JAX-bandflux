@@ -875,11 +875,11 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
         compute_batch_ll = compute_batch_loglikelihood_standard
     
     # Initialize nested sampling algorithm
-    algo = blackjax.ns.adaptive.nss(
+    algo = blackjax.nss(
         logprior_fn=logprior_fn,
         loglikelihood_fn=ll_fn,
-        n_delete=NS_SETTINGS['n_delete'],
-        num_mcmc_steps=num_mcmc_steps,
+        num_inner_steps=num_mcmc_steps,
+        num_delete=NS_SETTINGS['n_delete'],
     )
     
     # Initialize random key and particles
@@ -891,7 +891,7 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
     print("Initial particles generated, shape: ", initial_particles.shape)
     
     # Initialize state
-    state = algo.init(initial_particles, compute_batch_ll)
+    state = algo.init(initial_particles)
     
     # Define one_step function with JIT
     @jax.jit
@@ -909,7 +909,7 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
     with tqdm.tqdm(desc="Dead points", unit=" dead points", total=num_iterations*NS_SETTINGS['n_delete']) as pbar:
         for i in range(num_iterations):
             # Check termination criterion
-            if state.sampler_state.logZ_live - state.sampler_state.logZ < -3:
+            if state.logZ_live - state.logZ < -3:
                 break
                 
             # Perform one step of nested sampling
@@ -925,11 +925,11 @@ def run_nested_sampling(ll_fn, output_prefix, sn_name, identifier="", num_iterat
                     emax_values.append(emax)
             
             if i % 10 == 0:
-                print(f"Iteration {i}: logZ = {state.sampler_state.logZ:.2f}")
+                print(f"Iteration {i}: logZ = {state.logZ:.2f}")
     dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
     logw = log_weights(rng_key, dead)
     logZs = jax.scipy.special.logsumexp(logw, axis=0)
-    print(f"Runtime evidence: {state.sampler_state.logZ:.2f}")
+    print(f"Runtime evidence: {state.logZ:.2f}")
     print(f"Estimated evidence: {logZs.mean():.2f} +- {logZs.std():.2f}")
     if ll_fn == loglikelihood_standard:
         if fix_z:

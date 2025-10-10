@@ -12,6 +12,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import tqdm
+
+
 import blackjax
 import os
 from blackjax.ns.utils import log_weights
@@ -34,7 +36,7 @@ fit_sigma = False
 fix_z = True
 
 NS_SETTINGS = {
-    'n_delete': 1,
+    'num_delete': 1,
     'n_live': 125,
     'num_mcmc_steps_multiplier': 5
 }
@@ -253,8 +255,8 @@ print("Setting up nested sampling algorithm...")
 algo = blackjax.nss(
     logprior_fn=logprior,
     loglikelihood_fn=compute_single_loglikelihood,
+    num_delete=NS_SETTINGS['num_delete'],
     num_inner_steps=num_mcmc_steps,
-    num_delete=NS_SETTINGS['n_delete'],
 )
 
 # Initialize random key and particles
@@ -263,12 +265,9 @@ rng_key, init_key = jax.random.split(rng_key)
 
 initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'])
 print("Initial particles generated, shape: ", initial_particles.shape)
-print("Initial particles device: ", initial_particles.devices())
 
 # Initialize state
-state = algo.init(initial_particles)
-print("State particles device: ", state.particles.devices())
-print("State logZ device: ", state.logZ.devices())
+state = algo.init(initial_particles, compute_single_loglikelihood)
 
 # Define one_step function with JIT
 @jax.jit
@@ -296,12 +295,11 @@ def one_step(carry, xs):
 # Run nested sampling
 dead = []
 print("Running nested sampling...")
-print("✅ Confirmed: All computations running on", jax.devices()[0])
 with tqdm.tqdm(desc="Dead points", unit=" dead points") as pbar:
     while (not state.logZ_live - state.logZ < -3):
         (state, rng_key), dead_info = one_step((state, rng_key), None)
         dead.append(dead_info)
-        pbar.update(NS_SETTINGS['n_delete'])
+        pbar.update(NS_SETTINGS['num_delete'])
         
         # Optional: Print progress periodically
         # if len(dead) % 10 == 0:
