@@ -11,6 +11,7 @@ from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from functools import partial
 from jax import vmap
 import importlib.resources
+from jax_supernovae import dust
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -125,7 +126,7 @@ def kernval(x):
     
     # Use where to select the appropriate result
     result = jnp.where(x <= 1, case1,
-                      jnp.where(x < 2, case2, 0.0))
+                       jnp.where(x < 2, case2, 0.0))
     
     return result
 
@@ -424,6 +425,10 @@ def salt3_bandflux(phase, bandpass, params, zp=None, zpsys=None):
         Bandpass to calculate flux through.
     params : dict
         Model parameters including z, t0, x0, x1, c.
+        Optional dust parameters:
+        - 'dust_type': int, dust law index (0=ccm89, 1=od94, 2=f99)
+        - 'ebv': float, E(B-V) value
+        - 'r_v': float, R_V value (default: 3.1)
     zp : float or None, optional
         Zero point for flux. If None, no scaling is applied.
     zpsys : str, optional
@@ -471,6 +476,30 @@ def salt3_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     
     # Calculate rest-frame flux for all phases and wavelengths at once
     rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
+    
+    # Apply dust extinction if parameters are provided
+    has_dust = 'dust_type' in params and 'ebv' in params
+    if has_dust:
+        dust_type_idx = params['dust_type']
+        ebv = params['ebv']
+        r_v = params.get('r_v', 3.1)  # Default R_V = 3.1 if not specified
+        
+        # Get the appropriate dust law function based on the index
+        if dust_type_idx == 0:
+            dust_law = dust.ccm89_extinction
+        elif dust_type_idx == 1:
+            dust_law = dust.od94_extinction
+        elif dust_type_idx == 2:
+            dust_law = dust.f99_extinction
+        else:
+            # Default to CCM89
+            dust_law = dust.ccm89_extinction
+        
+        # Calculate extinction for each wavelength
+        extinction = dust_law(restwave, ebv, r_v)
+        
+        # Apply extinction to rest-frame flux
+        rest_flux = dust.apply_extinction(rest_flux, extinction[None, :])
     
     # Integrate flux through bandpass using trapezoidal rule
     # Multiply by wave and transmission before integration
@@ -605,6 +634,10 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params,
         Transmission values on the wavelength grid (used if shift=0)
     params : dict
         Dictionary containing model parameters: 'z', 't0', 'x0', 'x1', 'c'
+        Optional dust parameters:
+        - 'dust_type': int, dust law index (0=ccm89, 1=od94, 2=f99)
+        - 'ebv': float, E(B-V) value
+        - 'r_v': float, R_V value (default: 3.1)
     zp : float or None, optional
         Zero point for flux scaling
     zpsys : str or None, optional
@@ -666,6 +699,36 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params,
 
     # Compute rest-frame flux including the colour law effect.
     rest_flux = x0 * (m0 + x1 * m1) * 10**(-0.4 * cl[None, :] * c) * a
+
+    # Apply dust extinction if parameters are provided
+    has_dust = 'dust_type' in params and 'ebv' in params
+
+    # Define a function to apply dust extinction based on dust_type
+    def apply_ccm89(restwave, ebv, r_v):
+        return dust.ccm89_extinction(restwave, ebv, r_v)
+
+    def apply_od94(restwave, ebv, r_v):
+        return dust.od94_extinction(restwave, ebv, r_v)
+
+    def apply_f99(restwave, ebv, r_v):
+        return dust.f99_extinction(restwave, ebv, r_v)
+
+    # Apply dust extinction conditionally
+    if has_dust:
+        ebv = params['ebv']
+        r_v = params.get('r_v', 3.1)  # Default R_V = 3.1 if not specified
+        dust_type_idx = params['dust_type']
+
+        # Use a JAX-friendly approach to select the dust law
+        extinction = jnp.zeros_like(restwave)
+        extinction = jnp.where(dust_type_idx == 0, apply_ccm89(restwave, ebv, r_v), extinction)
+        extinction = jnp.where(dust_type_idx == 1, apply_od94(restwave, ebv, r_v), extinction)
+        extinction = jnp.where(dust_type_idx == 2, apply_f99(restwave, ebv, r_v), extinction)
+
+        # Apply extinction to rest-frame flux
+        rest_flux = dust.apply_extinction(rest_flux, extinction[None, :])
+
+    # Use trans_shifted (which handles transmission shifts) instead of trans
     integrand = wave[None, :] * trans_shifted[None, :] * rest_flux
     result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
 
@@ -739,5 +802,5 @@ def optimized_salt3_multiband_flux(phase, bridges, params, zps=None, zpsys=None,
             trans_original=trans_original
         )
         result = result.at[:, i].set(band_flux)
-    
-    return result 
+
+    return result
