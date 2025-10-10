@@ -62,37 +62,33 @@ class SALT3Source:
 
     @property
     def param_names(self):
-        """List of SALT3 model parameter names.
+        """List of SALT3 model parameter names for the functional API.
 
-        Returns all five SALT3 parameters, even though the v3.0 functional API
-        allows you to pass only a subset (e.g., just x0, x1, c with z and t0
-        handled externally via phases).
+        Returns the core SALT3 parameters that are passed via the params dict
+        in the v3.0 functional API. Note that z and t0 are handled externally
+        via phase calculations (phase = (time - t0) / (1 + z)).
         """
-        return ['z', 't0', 'x0', 'x1', 'c']
+        return ['x0', 'x1', 'c']
 
-    @property
     def minphase(self):
         """Minimum phase for which the model is defined."""
         return -20.0
 
-    @property
     def maxphase(self):
         """Maximum phase for which the model is defined."""
         return 50.0
 
-    @property
     def minwave(self):
         """Minimum wavelength for which the model is defined (Angstroms)."""
         return 2000.0
 
-    @property
     def maxwave(self):
         """Maximum wavelength for which the model is defined (Angstroms)."""
-        return 18000.0
+        return 20000.0
 
     def __str__(self):
         """String representation."""
-        return f"SALT3Source(name='{self.name}')"
+        return f"SALT3Source(name='{self.name}', v3.0 functional API)"
 
     def __repr__(self):
         """Official string representation."""
@@ -190,9 +186,12 @@ class SALT3Source:
             # Index by band to get final fluxes
             model_fluxes = model_fluxes[jnp.arange(len(phases)), band_indices_arr]
 
+            # Convert to numpy for API compatibility
+            model_fluxes = np.array(model_fluxes)
+
             # Return scalar if input was scalar
             if len(phases) == 1:
-                return model_fluxes[0]
+                return float(model_fluxes[0])
             return model_fluxes
 
         # Standard path: create bridges on the fly
@@ -232,8 +231,8 @@ class SALT3Source:
                     full_params, zp=zps_arr[i], zpsys=zpsys
                 )
                 fluxes.append(flux)
-            result = jnp.array(fluxes)
-            return result[0] if scalar_input else result
+            result = np.array(fluxes)
+            return float(result[0]) if scalar_input else result
 
         # If single band, multiple phases
         elif len(bands_arr) == 1:
@@ -246,8 +245,8 @@ class SALT3Source:
                     full_params, zp=zps_arr[i], zpsys=zpsys
                 )
                 fluxes.append(flux)
-            result = jnp.array(fluxes)
-            return result[0] if scalar_input else result
+            result = np.array(fluxes)
+            return float(result[0]) if scalar_input else result
 
         # If single phase, multiple bands
         elif len(phases_arr) == 1:
@@ -261,7 +260,7 @@ class SALT3Source:
                     full_params, zp=zps_arr[i], zpsys=zpsys
                 )
                 fluxes.append(flux)
-            return jnp.array(fluxes)
+            return np.array(fluxes)
 
         else:
             raise ValueError(

@@ -268,12 +268,12 @@ def register_bandpass(name, bandpass, force=False):
 
 def get_bandpass(name):
     """Get a bandpass from the registry.
-    
+
     Parameters
     ----------
     name : str or Bandpass
         Name of the bandpass or a Bandpass object
-        
+
     Returns
     -------
     bandpass : Bandpass
@@ -282,7 +282,19 @@ def get_bandpass(name):
     if isinstance(name, Bandpass):
         return name
     if name not in _BANDPASSES:
-        raise ValueError(f"Bandpass {name} not found")
+        # Try to get from sncosmo as fallback
+        try:
+            import sncosmo
+            snc_bandpass = sncosmo.get_bandpass(name)
+            # Convert sncosmo bandpass to our Bandpass class
+            wave = snc_bandpass.wave
+            trans = snc_bandpass.trans
+            bandpass = Bandpass(wave, trans)
+            # Register it for future use
+            register_bandpass(name, bandpass, force=True)
+            return bandpass
+        except Exception:
+            raise ValueError(f"Bandpass {name} not found in registry or sncosmo")
     return _BANDPASSES[name]
 
 def load_custom_bandpasses(bandpass_files):

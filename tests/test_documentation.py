@@ -31,15 +31,13 @@ def test_quickstart():
     model fluxes with v3.0 functional API.
     """
     # Load data for SN 19dwz
-    source, data = load_and_process_data('19dwz', fix_z=True)
+    times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', fix_z=True)
 
-    # Extract data from the data dictionary
-    times = data['times']
-    bands = data['bands']  # String band names
-    fluxes = data['fluxes']
-    fluxerrs = data['fluxerrs']
-    zps = data['zps']
-    z = data.get('z', 0.1)
+    # Create source separately with v3.0 API
+    source = SALT3Source()
+
+    # Extract data
+    z = fixed_z[0] if fixed_z else 0.1
 
     # Create params dict (v3.0 functional API)
     params = {
@@ -52,8 +50,10 @@ def test_quickstart():
     t0 = 58650.0
     phase_array = (times - t0) / (1 + z)
 
-    # Calculate model fluxes using v3.0 functional API
-    model_fluxes = source.bandflux(params, bands, phase_array, zp=zps, zpsys='ab')
+    # Calculate model fluxes using v3.0 functional API with optimized path
+    model_fluxes = source.bandflux(params, None, phase_array, zp=zps, zpsys='ab',
+                                    band_indices=band_indices, bridges=bridges,
+                                    unique_bands=unique_bands)
 
     # Calculate chi-squared
     chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
@@ -70,7 +70,7 @@ def test_data_loading():
     work correctly with the new API.
     """
     # Test synthetic data generation
-    times = jnp.linspace(58650, 58700, 20)
+    times_synth = jnp.linspace(58650, 58700, 20)
     band_names = ['g', 'r', 'i']
 
     # Create synthetic data
@@ -78,21 +78,21 @@ def test_data_loading():
     all_bands = []
 
     for band in band_names:
-        all_times.extend(times)
-        all_bands.extend([band] * len(times))
+        all_times.extend(times_synth)
+        all_bands.extend([band] * len(times_synth))
 
     # Verify synthetic data
-    assert len(all_times) == len(times) * len(band_names)
-    assert len(all_bands) == len(times) * len(band_names)
+    assert len(all_times) == len(times_synth) * len(band_names)
+    assert len(all_bands) == len(times_synth) * len(band_names)
 
     # Test loading real data with new API
-    source, data = load_and_process_data('19dwz', fix_z=True)
+    times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', fix_z=True)
 
     # Verify real data structure
-    assert 'times' in data, "Data should contain 'times' key"
-    assert 'bands' in data, "Data should contain 'bands' key"
-    assert 'fluxes' in data, "Data should contain 'fluxes' key"
-    assert len(data['times']) > 0, "No data loaded for SN 19dwz"
+    assert times is not None, "Times should be loaded"
+    assert unique_bands is not None, "Bands should be loaded"
+    assert fluxes is not None, "Fluxes should be loaded"
+    assert len(times) > 0, "No data loaded for SN 19dwz"
 
 
 def test_bandpass_loading():
@@ -130,15 +130,13 @@ def test_model_fluxes():
     documentation work correctly with the v3.0 functional API.
     """
     # Load data
-    source, data = load_and_process_data('19dwz', fix_z=True)
+    times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', fix_z=True)
+
+    # Create source separately with v3.0 API
+    source = SALT3Source()
 
     # Extract data
-    times = data['times']
-    bands = data['bands']
-    fluxes = data['fluxes']
-    fluxerrs = data['fluxerrs']
-    zps = data['zps']
-    z = data.get('z', 0.1)
+    z = fixed_z[0] if fixed_z else 0.1
 
     # Create params dict (v3.0 functional API)
     params = {
@@ -151,8 +149,10 @@ def test_model_fluxes():
     t0 = 58650.0
     phase_array = (times - t0) / (1 + z)
 
-    # Calculate model fluxes using v3.0 functional API
-    model_fluxes = source.bandflux(params, bands, phase_array, zp=zps, zpsys='ab')
+    # Calculate model fluxes using v3.0 functional API with optimized path
+    model_fluxes = source.bandflux(params, None, phase_array, zp=zps, zpsys='ab',
+                                    band_indices=band_indices, bridges=bridges,
+                                    unique_bands=unique_bands)
 
     # Calculate chi-squared
     chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
@@ -221,15 +221,13 @@ def test_sampling():
     work correctly with the v3.0 functional API.
     """
     # Load data
-    source, data = load_and_process_data('19dwz', fix_z=True)
+    times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', fix_z=True)
+
+    # Create source separately with v3.0 API
+    source = SALT3Source()
 
     # Extract data
-    times = data['times']
-    bands = data['bands']
-    fluxes = data['fluxes']
-    fluxerrs = data['fluxerrs']
-    zps = data['zps']
-    z = data.get('z', 0.1)
+    z = fixed_z[0] if fixed_z else 0.1
 
     # Define objective function using v3.0 functional API
     def objective(x):
@@ -246,8 +244,10 @@ def test_sampling():
         # Calculate phase
         phase_array = (times - t0) / (1 + z)
 
-        # Calculate model fluxes using v3.0 functional API
-        model_fluxes = source.bandflux(params, bands, phase_array, zp=zps, zpsys='ab')
+        # Calculate model fluxes using v3.0 functional API with optimized path
+        model_fluxes = source.bandflux(params, None, phase_array, zp=zps, zpsys='ab',
+                                        band_indices=band_indices, bridges=bridges,
+                                        unique_bands=unique_bands)
 
         # Calculate chi2
         chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2)
