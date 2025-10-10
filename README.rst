@@ -62,6 +62,15 @@ Run example analagous to `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_'
    wget https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/examples/fmin_bfgs.py
    python fmin_bfgs.py
 
+API Compatibility with SNCosmo
+------------------------------
+
+JAX-bandflux aims to provide an API similar to SNCosmo's SALT3Source, with key differences for JAX compatibility:
+
+**Functional Parameter API**: Parameters are passed as dictionaries to methods rather than stored as object attributes. This enables JIT compilation while maintaining numerical accuracy within 0.001% of SNCosmo.
+
+**Performance Optimization**: The ``bridges`` parameter allows precomputed filter integration grids, providing ~100x speedup for repeated calculations (e.g., nested sampling). See the `documentation <https://jax-bandflux.readthedocs.io/>`_ for details.
+
 Testing
 -------
 
