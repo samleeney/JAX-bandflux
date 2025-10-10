@@ -1,149 +1,85 @@
 """
 Anomaly detection for supernova light curves using nested sampling.
 
-This script implements a Bayesian anomaly detection framework for supernova
-light curve analysis. It runs two nested sampling procedures:
-1. A standard version that fits SALT3 model parameters to the data
-2. An anomaly detection version that includes an additional parameter (log_p)
-   to identify potential outliers in the data
-
-The script generates comparison plots, parameter statistics, and weighted
-anomaly indicators (emax values) that highlight potential problematic data points.
+Runs two nested sampling procedures:
+1. Standard: fits SALT3 model parameters
+2. Anomaly: includes log_p parameter to identify outliers
 """
-import distrax
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+import distrax
 import jax
 import jax.numpy as jnp
 import numpy as np
 import tqdm
 import blackjax
 import yaml
-import pandas as pd
 from blackjax.ns.utils import log_weights
 from jax_supernovae.salt3 import optimized_salt3_multiband_flux, precompute_bandflux_bridge
-from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses, Bandpass
-from jax_supernovae.utils import save_chains_dead_birth
+from jax_supernovae.bandpasses import register_bandpass, register_all_bandpasses, Bandpass
 from jax_supernovae.data import load_redshift, load_hsf_data
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
-import requests
 
-
-# Define default settings for nested sampling and prior bounds
-DEFAULT_NS_SETTINGS = {
-    'max_iterations': int(os.environ.get('NS_MAX_ITERATIONS', '500')),
+# Configuration
+DEFAULT_SETTINGS = {
+    'sn_name': '19vnk',
+    'selected_bandpasses': None,
+    'custom_bandpass_files': None,
+    'max_iterations': 500,
     'n_delete': 75,
     'n_live': 150,
     'num_mcmc_steps_multiplier': 5,
-    'fit_sigma': False,
-    'fit_log_p': True,
-    'fit_z': True
+    'fit_sigma': False
 }
 
 DEFAULT_PRIOR_BOUNDS = {
-    'z': {'min': 0.001, 'max': 0.2},
-    't0': {'min': 58000.0, 'max': 60000.0},
-    'x0': {'min': -5.0, 'max': -1},
-    'x1': {'min': -10, 'max': 10},
-    'c': {'min': -0.6, 'max': 0.6},
-    'sigma': {'min': 0.001, 'max': 5},
-    'log_p': {'min': -20, 'max': -1}
+    't0': (58000.0, 60000.0),
+    'x0': (-5.0, -1.0),
+    'x1': (-10.0, 10.0),
+    'c': (-0.6, 0.6),
+    'sigma': (0.001, 5.0),
+    'log_p': (-20.0, -1.0)
 }
 
-# Default settings
-DEFAULT_SETTINGS = {
-    'fix_z': True,
-    'sn_name': '19vnk',  # Default supernova to analyze
-    'selected_bandpasses': None,  # Default: use all available bandpasses
-    'custom_bandpass_files': None  # Default: no custom bandpass files
-}
-
-# Try to load settings.yaml; if not found, use an empty dictionary
+# Load settings from file if available
 try:
     with open('settings.yaml', 'r') as f:
-        settings_from_file = yaml.safe_load(f)
+        settings_from_file = yaml.safe_load(f) or {}
 except FileNotFoundError:
     settings_from_file = {}
 
-# Merge the settings from file with the defaults
-settings = DEFAULT_SETTINGS.copy()
-settings.update(settings_from_file)
+settings = {**DEFAULT_SETTINGS, **settings_from_file}
+PRIOR_BOUNDS = {**DEFAULT_PRIOR_BOUNDS, **settings_from_file.get('prior_bounds', {})}
 
-fix_z = settings['fix_z']
 sn_name = settings['sn_name']
-selected_bandpasses = settings.get('selected_bandpasses', None)
-custom_bandpass_files = settings.get('custom_bandpass_files', None)
+selected_bandpasses = settings['selected_bandpasses']
+custom_bandpass_files = settings['custom_bandpass_files']
+fit_sigma = settings['fit_sigma']
 
-NS_SETTINGS = DEFAULT_NS_SETTINGS.copy()
-NS_SETTINGS.update(settings.get('nested_sampling', {}))
-
-PRIOR_BOUNDS = DEFAULT_PRIOR_BOUNDS.copy()
-if 'prior_bounds' in settings:
-    PRIOR_BOUNDS.update(settings['prior_bounds'])
-
-# Option flag: when fit_sigma is True, an extra parameter is added
-fit_sigma = NS_SETTINGS['fit_sigma']
-
-# Enable float64 precision
 jax.config.update("jax_enable_x64", True)
 
 def create_wfcam_j_bandpass():
-    """Create a bandpass object for the WFCAM J filter.
-    
-    This function attempts to load the WFCAM J filter profile from the SVO Filter Profile Service.
-    The filter profile must be downloaded first using the download_svo_filter.py script.
-    
-    Returns
-    -------
-    Bandpass
-        A Bandpass object for the WFCAM J filter
-        
-    Raises
-    ------
-    FileNotFoundError
-        If the WFCAM J filter profile file is not found
-    """
-    from jax_supernovae.bandpasses import Bandpass
-    import os
-    import numpy as np
-    
-    # Define possible paths to the WFCAM J filter profile
+    """Load WFCAM J filter bandpass from file."""
     filter_paths = [
-        # Check in the filter_data directory (where download_svo_filter.py saves it)
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'filter_data', 'UKIRT_WFCAM.J.dat'),
-        
-        # Check in the current directory
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     'filter_data', 'UKIRT_WFCAM.J.dat'),
         'WFCAM_J.dat',
         'UKIRT_WFCAM.J.dat',
-        
-        # Check in the examples directory
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'WFCAM_J.dat'),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'UKIRT_WFCAM.J.dat'),
-        
-        # Check in the filter_data directory
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'filter_data/UKIRT_WFCAM.J.dat'),
     ]
-    
-    # Try each path
+
     for filter_path in filter_paths:
         if os.path.exists(filter_path):
             try:
-                print(f"Loading WFCAM J filter from {filter_path}")
                 data = np.loadtxt(filter_path)
-                wave = data[:, 0]  # Wavelength in Angstroms
-                trans = data[:, 1]  # Transmission
-                
-                # Create and return the bandpass object
-                return Bandpass(wave, trans)
-            except Exception as e:
-                print(f"Failed to load filter from {filter_path}: {e}")
-    
-    # If we get here, we couldn't find the filter file
-    raise FileNotFoundError(
-        "WFCAM J filter profile file not found. "
-        "Please run the download_svo_filter.py script to download it."
-    )
+                return Bandpass(data[:, 0], data[:, 1])
+            except Exception:
+                continue
+
+    raise FileNotFoundError("WFCAM J filter not found. Run download_svo_filter.py.")
 
 def custom_load_and_process_data(sn_name, data_dir='data', fix_z=False, selected_bandpasses=None, custom_bandpass_files=None):
     """Load and process data for a supernova.
