@@ -445,11 +445,13 @@ def salt3_bandflux(phase, bandpass, params, zp=None, zpsys=None):
     # Check that if zp is provided, zpsys must also be provided
     if zp is not None and zpsys is None:
         raise ValueError('zpsys must be given if zp is not None')
-    
-    # Convert inputs to arrays and check if input was scalar
+
+    # Check if input is scalar BEFORE converting to array
+    is_scalar = jnp.ndim(phase) == 0
+
+    # Convert inputs to arrays
     phase = jnp.atleast_1d(phase)
-    is_scalar = len(phase.shape) == 0
-    
+
     # Get parameters
     z = params['z']
     t0 = params['t0']
@@ -657,9 +659,11 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params,
     if zp is not None and zpsys is None:
         raise ValueError('zpsys must be given if zp is not None')
 
-    # Convert inputs to arrays and check if input was scalar
+    # Check if input is scalar BEFORE converting to array
+    is_scalar = jnp.ndim(phase) == 0
+
+    # Convert inputs to arrays
     phase = jnp.atleast_1d(phase)
-    is_scalar = len(phase.shape) == 0
 
     z = params['z']
     t0 = params['t0']
