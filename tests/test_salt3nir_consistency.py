@@ -281,27 +281,25 @@ def test_parameter_names():
 
 
 def test_bandflux_return_types():
-    """Test that return types match sncosmo exactly.
+    """Test that return types match sncosmo behavior (v3.0, JIT-compatible).
 
-    Scalar inputs should return scalar, array inputs should return arrays.
+    Scalar inputs should return scalar (0-d array), array inputs should return arrays.
     """
     # v3.0 functional API
     source = SALT3Source()
     params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
 
-    # Scalar input -> scalar output
+    # Scalar input -> scalar output (JAX array with ndim=0 for JIT compatibility)
     flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
-    assert isinstance(flux, (float, np.floating)), \
-        f"Scalar bandflux should return float, got {type(flux)}"
+    assert jnp.ndim(flux) == 0, \
+        f"Scalar bandflux should return 0-d array (scalar), got shape {jnp.shape(flux)}"
 
     # Array input -> array output
     fluxes = source.bandflux(params, 'bessellb', [0.0, 1.0, 2.0], zp=27.5, zpsys='ab')
-    assert isinstance(fluxes, np.ndarray), \
-        f"Array bandflux should return ndarray, got {type(fluxes)}"
-    assert fluxes.shape == (3,), \
-        f"Array bandflux should have shape (3,), got {fluxes.shape}"
+    assert jnp.shape(fluxes) == (3,), \
+        f"Array bandflux should have shape (3,), got {jnp.shape(fluxes)}"
 
-    print("\n✓ Return types match sncosmo (scalar vs array)")
+    print("\n✓ Return types match sncosmo behavior (scalar vs array)")
 
 
 def test_error_handling():

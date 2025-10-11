@@ -40,40 +40,44 @@ class TestReturnTypes:
     """Test that return types match sncosmo exactly."""
 
     def test_scalar_phase_scalar_band_returns_float(self):
-        """Scalar inputs should return scalar float (v3.0 functional API)."""
+        """Scalar inputs should return scalar (v3.0 functional API, JIT-compatible)."""
+        import jax.numpy as jnp
+
         jax_source = SALT3Source()
         params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
 
         # Single band, single phase -> scalar (v3.0 functional API)
         flux = jax_source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
-        assert isinstance(flux, (float, np.floating)), \
-            f"Expected float, got {type(flux)}"
-        assert not isinstance(flux, np.ndarray), "Should not be array"
+        # For JIT compatibility, returns JAX array with ndim=0 (scalar)
+        assert jnp.ndim(flux) == 0, \
+            f"Expected scalar (0-d array), got shape {jnp.shape(flux)}"
 
     def test_array_phase_returns_array(self):
         """Array of phases should return array (v3.0 functional API)."""
+        import jax.numpy as jnp
+
         jax_source = SALT3Source()
         params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
 
         # Single band, multiple phases -> array (v3.0 functional API)
         fluxes = jax_source.bandflux(params, 'bessellb', [0.0, 1.0, 2.0], zp=27.5, zpsys='ab')
-        assert isinstance(fluxes, np.ndarray), \
-            f"Expected ndarray, got {type(fluxes)}"
-        assert fluxes.shape == (3,), f"Expected shape (3,), got {fluxes.shape}"
+        assert jnp.shape(fluxes) == (3,), f"Expected shape (3,), got {jnp.shape(fluxes)}"
 
     def test_array_band_returns_array(self):
         """Array of bands should return array (v3.0 functional API)."""
+        import jax.numpy as jnp
+
         jax_source = SALT3Source()
         params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
 
         # Multiple bands, single phase -> array (v3.0 functional API)
         fluxes = jax_source.bandflux(params, ['bessellb', 'bessellv'], 0.0, zp=27.5, zpsys='ab')
-        assert isinstance(fluxes, np.ndarray), \
-            f"Expected ndarray, got {type(fluxes)}"
-        assert fluxes.shape == (2,), f"Expected shape (2,), got {fluxes.shape}"
+        assert jnp.shape(fluxes) == (2,), f"Expected shape (2,), got {jnp.shape(fluxes)}"
 
     def test_return_type_matches_sncosmo(self):
-        """Return type should match sncosmo (v3.0 functional API)."""
+        """Return type should match sncosmo behavior (v3.0 functional API)."""
+        import jax.numpy as jnp
+
         jax_source = SALT3Source()
         params = {'x0': 1e-5, 'x1': 0.5, 'c': -0.1}
 
@@ -92,8 +96,8 @@ class TestReturnTypes:
             jax_flux = jax_source.bandflux(params, band, phase, zp=27.5, zpsys='ab')
             snc_flux = snc_source.bandflux(band, phase, zp=27.5, zpsys='ab')
 
-            # Check scalar vs array behavior
-            jax_is_scalar = isinstance(jax_flux, (float, np.floating)) and not isinstance(jax_flux, np.ndarray)
+            # Check scalar vs array behavior by shape
+            jax_is_scalar = jnp.ndim(jax_flux) == 0
             snc_is_scalar = isinstance(snc_flux, (float, np.floating)) and not isinstance(snc_flux, np.ndarray)
 
             assert jax_is_scalar == snc_is_scalar, \
@@ -101,7 +105,7 @@ class TestReturnTypes:
 
             # If array, shapes should match
             if not jax_is_scalar:
-                assert jax_flux.shape == snc_flux.shape, \
+                assert jnp.shape(jax_flux) == snc_flux.shape, \
                     f"Shape mismatch for band={band}, phase={phase}"
 
             # Values should match

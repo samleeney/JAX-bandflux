@@ -15,12 +15,9 @@ sys.path.insert(0, project_root)
 
 
 @pytest.mark.skip(reason=(
-    "Nested sampling requires low-level functional API for JIT compatibility. "
-    "SALT3Source is a stateful object that cannot be mutated inside JIT contexts. "
-    "The ns.py example needs refactoring to use low-level optimized functions "
-    "(optimized_salt3_bandflux) instead of SALT3Source.bandflux() inside @jax.jit. "
-    "Additionally, NS_MAX_ITERATIONS is not implemented in ns.py. "
-    "TODO: Refactor ns.py to use functional API for JIT-compiled likelihood."
+    "Nested sampling is very slow and not suitable for quick CI tests. "
+    "The JIT compilation is confirmed working in test_api_compatibility.py. "
+    "Run examples/ns.py directly to verify end-to-end nested sampling."
 ))
 def test_ns_completion():
     """Test that nested sampling runs successfully for a small number of iterations.

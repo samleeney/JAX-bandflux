@@ -278,23 +278,21 @@ def get_bandpass(name):
     -------
     bandpass : Bandpass
         The requested bandpass
+
+    Notes
+    -----
+    Bandpasses must be registered before use. Common bands (Bessell, SDSS, etc.)
+    are automatically registered when SALT3Source is initialized. For custom bands,
+    use register_bandpass() or register_all_bandpasses() before JIT compilation.
     """
     if isinstance(name, Bandpass):
         return name
     if name not in _BANDPASSES:
-        # Try to get from sncosmo as fallback
-        try:
-            import sncosmo
-            snc_bandpass = sncosmo.get_bandpass(name)
-            # Convert sncosmo bandpass to our Bandpass class
-            wave = snc_bandpass.wave
-            trans = snc_bandpass.trans
-            bandpass = Bandpass(wave, trans)
-            # Register it for future use
-            register_bandpass(name, bandpass, force=True)
-            return bandpass
-        except Exception:
-            raise ValueError(f"Bandpass {name} not found in registry or sncosmo")
+        raise ValueError(
+            f"Bandpass '{name}' not found in registry. "
+            f"Available bandpasses: {list(_BANDPASSES.keys())}. "
+            f"Bandpasses must be registered before use, especially before JIT compilation."
+        )
     return _BANDPASSES[name]
 
 def load_custom_bandpasses(bandpass_files):
@@ -367,20 +365,23 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
         # ZTF bandpasses
         {'name': 'ztfg', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_g.dat'), 'skiprows': 1},
         {'name': 'ztfr', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_R.dat'), 'skiprows': 1},
-        
+
         # ATLAS bandpasses
         {'name': 'c', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan'), 'skiprows': 0},
         {'name': 'o', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Orange'), 'skiprows': 0},
-        
+
         # SDSS bandpasses
         {'name': 'g', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_g.dat'), 'skiprows': 0},
         {'name': 'r', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_r.dat'), 'skiprows': 0},
         {'name': 'i', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_i.dat'), 'skiprows': 0},
         {'name': 'z', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/sdss/sdss_z.dat'), 'skiprows': 0},
-        
+
         # 2MASS bandpasses
         {'name': 'H', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/2mass/2mass.H'), 'skiprows': 0},
     ]
+
+    # Load commonly used bands from sncosmo (Bessell filters)
+    sncosmo_bands = ['bessellb', 'bessellv', 'bessellr', 'besselli', 'bessellux']
     
     bandpass_dict = {}
     bridges_dict = {}
@@ -396,6 +397,21 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
             bridges_dict[info['name']] = precompute_bandflux_bridge(jax_bandpass)
         except Exception as e:
             print(f"Warning: Failed to load bandpass {info['name']}: {e}")
+
+    # Load Bessell and other common bands from sncosmo
+    try:
+        import sncosmo
+        for band_name in sncosmo_bands:
+            try:
+                snc_bandpass = sncosmo.get_bandpass(band_name)
+                jax_bandpass = Bandpass(snc_bandpass.wave, snc_bandpass.trans)
+                register_bandpass(band_name, jax_bandpass, force=True)
+                bandpass_dict[band_name] = jax_bandpass
+                bridges_dict[band_name] = precompute_bandflux_bridge(jax_bandpass)
+            except Exception as e:
+                print(f"Warning: Failed to load bandpass {band_name} from sncosmo: {e}")
+    except ImportError:
+        print("Warning: sncosmo not available, skipping Bessell filter registration")
     
     # Load SVO filter bandpasses if provided
     if svo_filters:

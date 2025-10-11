@@ -191,12 +191,9 @@ class SALT3Source:
             # Index by band to get final fluxes
             model_fluxes = model_fluxes[jnp.arange(len(phases)), band_indices_arr]
 
-            # Convert to numpy for API compatibility
-            model_fluxes = np.array(model_fluxes)
-
-            # Return scalar if input was scalar
-            if len(phases) == 1:
-                return float(model_fluxes[0])
+            # Return scalar if input was scalar (keep as JAX array for JIT compatibility)
+            if scalar_input:
+                return model_fluxes[0]
             return model_fluxes
 
         # Standard path: create bridges on the fly
@@ -241,8 +238,8 @@ class SALT3Source:
                     full_params, zp=curr_zp, zpsys=curr_zpsys
                 )
                 fluxes.append(flux)
-            result = np.array(fluxes)
-            return float(result[0]) if scalar_input else result
+            result = jnp.stack(fluxes)
+            return result[0] if scalar_input else result
 
         # If single band, multiple phases
         elif len(bands_arr) == 1:
@@ -257,8 +254,8 @@ class SALT3Source:
                     full_params, zp=curr_zp, zpsys=curr_zpsys
                 )
                 fluxes.append(flux)
-            result = np.array(fluxes)
-            return float(result[0]) if scalar_input else result
+            result = jnp.stack(fluxes)
+            return result[0] if scalar_input else result
 
         # If single phase, multiple bands
         elif len(phases_arr) == 1:
@@ -274,7 +271,7 @@ class SALT3Source:
                     full_params, zp=curr_zp, zpsys=curr_zpsys
                 )
                 fluxes.append(flux)
-            return np.array(fluxes)
+            return jnp.stack(fluxes)
 
         else:
             raise ValueError(
