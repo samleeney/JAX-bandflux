@@ -5,7 +5,7 @@ This script loads MCMC chain results from both standard and anomaly detection
 nested sampling runs, creates comparison corner plots, and generates light curve
 plots that highlight potential anomalous data points. It also calculates and
 displays weighted Emax values that indicate the degree of anomaly for each
-data point.
+data point. Uses SALT3Source API for model flux calculations.
 """
 import jax
 import jax.numpy as jnp
@@ -13,11 +13,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from anesthetic import read_chains, make_2d_axes
 from jax_supernovae.data import load_and_process_data
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+from jax_supernovae import SALT3Source
 import os
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
+
+# Create SALT3 source for bandflux calculations
+source = SALT3Source()
 
 # These settings will be overridden if the script is imported from ns_anomaly.py
 if 'identifier' not in globals():
@@ -34,7 +37,7 @@ output_dir = f'results/chains_{sn_name}{identifier}'
 
 # Load data if not already loaded (will be already loaded if called from ns_anomaly.py)
 if 'times' not in globals():
-    times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(sn_name, data_dir='jax_supernovae/data', fix_z=fix_z)
+    times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data(sn_name, data_dir='jax_supernovae/data', fix_z=fix_z)
 
 # Try to load weighted emax values
 try:
@@ -158,8 +161,7 @@ try:
     t_max = np.max(times) + 5
     t_grid = np.linspace(t_min, t_max, 100)
 
-    # Get unique bands
-    unique_bands = np.unique(band_indices)
+    # Get number of bands (unique_bands already loaded from data)
     n_bands = len(unique_bands)
 
     # Set up the plot with two subplots
@@ -207,7 +209,7 @@ try:
 
     # Plot data points for each band
     try:
-        for i, band_idx in enumerate(unique_bands):
+        for i, band_idx in enumerate(np.unique(band_indices)):
             mask = band_indices == band_idx
             band_times = times[mask]
             band_fluxes = fluxes[mask]
@@ -274,20 +276,28 @@ try:
                     
                     for i in range(n_bands):
                         try:
-                            # Calculate model fluxes
-                            model_fluxes = optimized_salt3_multiband_flux(
-                                jnp.array(t_grid),
-                                bridges,
-                                params,
-                                zps=zps,
-                                zpsys='ab'
+                            # Calculate rest-frame phases from observer-frame times
+                            z = params['z']
+                            t0 = params['t0']
+                            phases = (t_grid - t0) / (1 + z)
+
+                            # Create band indices for this specific band
+                            band_idx_array = jnp.full(len(t_grid), i, dtype=jnp.int32)
+
+                            # Calculate model fluxes using SALT3Source
+                            model_fluxes = source.bandflux(
+                                params, None, jnp.array(phases),
+                                zp=zps, zpsys='ab',
+                                band_indices=band_idx_array,
+                                bridges=bridges,
+                                unique_bands=unique_bands
                             )
-                            
-                            # Extract fluxes for this band
-                            band_fluxes = model_fluxes[:, i]
-                            
+
+                            # model_fluxes is already the fluxes for this band
+                            band_fluxes = model_fluxes
+
                             # Plot model curve
-                            ax1.plot(t_grid, band_fluxes, linestyle, color=colours[i], 
+                            ax1.plot(t_grid, band_fluxes, linestyle, color=colours[i],
                                     label=f'Band {i} {name}', linewidth=2, alpha=0.8)
                         except Exception as e:
                             print(f"Warning: Failed to plot {name} model curve for band {i} - {str(e)}")

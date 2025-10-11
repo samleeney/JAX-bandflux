@@ -4,8 +4,7 @@ Plot light curves from SALT3 model fits.
 This script loads MCMC chain results from a previous nested sampling run,
 calculates the best-fit parameters, and plots the resulting light curves
 along with the observed data points. It demonstrates how to use the
-optimized_salt3_multiband_flux function to generate model light curves
-and visualize the results.
+SALT3Source API to generate model light curves and visualize the results.
 """
 import jax
 import jax.numpy as jnp
@@ -14,7 +13,7 @@ import matplotlib.pyplot as plt
 from anesthetic import read_chains
 import yaml
 from jax_supernovae.data import load_and_process_data
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+from jax_supernovae import SALT3Source
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -25,7 +24,10 @@ with open('settings.yaml', 'r') as f:
 
 # Load data
 fix_z = settings.get('fix_z', False)
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+
+# Create SALT3 source for bandflux calculations
+source = SALT3Source()
 
 # Load chains and get best fit parameters
 param_names = ['t0', 'log_x0', 'x1', 'c'] if fix_z else ['z', 't0', 'log_x0', 'x1', 'c']
@@ -49,8 +51,7 @@ t_min = np.min(times) - 5
 t_max = np.max(times) + 5
 t_grid = np.linspace(t_min, t_max, 100)
 
-# Get unique bands
-unique_bands = np.unique(band_indices)
+# Get number of bands
 n_bands = len(unique_bands)
 
 # Set up the plot
@@ -69,23 +70,20 @@ for i, band_idx in enumerate(unique_bands):
 
 # Calculate and plot model curves
 for i in range(n_bands):
-    # Create band indices array for this band
-    band_idx_grid = np.full_like(t_grid, i, dtype=int)
-    
-    # Calculate model fluxes
-    model_fluxes = optimized_salt3_multiband_flux(
-        jnp.array(t_grid),
-        bridges,
-        best_fit_params,
-        zps=zps,
-        zpsys='ab'
+    # Calculate model fluxes using SALT3Source
+    # Create band indices for this specific band
+    band_idx_array = jnp.full(len(t_grid), i, dtype=jnp.int32)
+    model_fluxes = source.bandflux(
+        best_fit_params, None, jnp.array(t_grid),
+        zp=zps, zpsys='ab',
+        band_indices=band_idx_array,
+        bridges=bridges,
+        unique_bands=unique_bands
     )
-    
-    # Extract fluxes for this band
-    band_fluxes = model_fluxes[:, i]
-    
+    band_fluxes = model_fluxes
+
     # Plot model curve
-    plt.plot(t_grid, band_fluxes, '-', color=colours[i], 
+    plt.plot(t_grid, band_fluxes, '-', color=colours[i],
              label=f'Band {i} Model', linewidth=2, alpha=0.8)
 
 # Add labels and title

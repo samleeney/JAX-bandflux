@@ -95,7 +95,7 @@ class SALT3Source:
         return f"SALT3Source(name='{self.name}')"
 
     def bandflux(self, params, bands, phases, zp=None, zpsys=None,
-                 band_indices=None, bridges=None, unique_bands=None):
+                 band_indices=None, bridges=None, unique_bands=None, shifts=None):
         """Calculate bandflux using v3.0 functional API.
 
         Parameters
@@ -123,6 +123,9 @@ class SALT3Source:
             For performance: precomputed bridge data structures.
         unique_bands : list, optional
             For performance: list of unique band names corresponding to bridges.
+        shifts : array or list, optional
+            Wavelength shifts in Angstroms for each unique band. Used to model
+            transmission uncertainties or systematic wavelength calibration errors.
 
         Returns
         -------
@@ -185,7 +188,7 @@ class SALT3Source:
 
             # Calculate model fluxes using optimized function
             model_fluxes = optimized_salt3_multiband_flux(
-                phases, bridges, full_params, zps=zps, zpsys=zpsys
+                phases, bridges, full_params, zps=zps, zpsys=zpsys, shifts=shifts
             )
 
             # Index by band to get final fluxes
