@@ -38,6 +38,8 @@ setup(
         'tqdm',
         'anesthetic',
         'requests',
+        # NOTE: For nested sampling, requires Handley Lab fork (not yet merged with main branch)
+        # See: https://handley-lab.co.uk/nested-sampling-book/intro.html
         'blackjax @ git+https://github.com/handley-lab/blackjax.git',
         'distrax'
     ],

@@ -9,6 +9,10 @@ This script implements a Bayesian anomaly detection framework that:
 
 The anomaly detection adds a parameter log_p that allows individual data points
 to be down-weighted if they don't fit the model well.
+
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
 """
 import distrax
 import os

@@ -3,6 +3,10 @@
 
 This script demonstrates how to run the nested sampling procedure for supernovae SALT model fitting using the JAX-bandflux package with transmission shift parameters for each filter.
 
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux).
 """
 

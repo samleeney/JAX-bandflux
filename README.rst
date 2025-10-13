@@ -48,8 +48,15 @@ JAX-bandflux requires:
 - JAX >= 0.4.20 (with CUDA support for GPU acceleration)
 - NumPy >= 1.24.0
 - SNCosmo >= 2.9.0
-- BlackJAX >= 1.3.0 (for nested sampling)
+- BlackJAX (for nested sampling: requires Handley Lab fork, not yet merged with main branch - see https://handley-lab.co.uk/nested-sampling-book/intro.html)
 - Distrax (for probability distributions)
+
+.. note::
+   For nested sampling examples, you must install the Handley Lab fork of BlackJAX (not yet merged with main branch):
+
+   .. code:: bash
+
+      pip install git+https://github.com/handley-lab/blackjax@proposal
 
 Quickstart
 ----------

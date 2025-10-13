@@ -6,6 +6,8 @@ pyyaml>=6.0.0
 matplotlib
 tqdm
 anesthetic
+# NOTE: For nested sampling, requires Handley Lab fork (not yet merged with main branch)
+# See: https://handley-lab.co.uk/nested-sampling-book/intro.html
 git+https://github.com/handley-lab/blackjax.git
 requests
 distrax

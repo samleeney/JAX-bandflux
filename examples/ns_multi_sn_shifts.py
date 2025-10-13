@@ -5,6 +5,10 @@ This script demonstrates how to fit multiple supernovae simultaneously with:
 - Individual SALT parameters (x0, x1, t0, c) for each supernova
 - Shared transmission shift parameters across all supernovae for each filter
 
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux).
 """
 

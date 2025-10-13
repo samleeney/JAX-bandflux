@@ -13,7 +13,12 @@ JAX-bandflux is a JAX-based implementation of the SALT3-NIR supernova model for 
 # Install in development mode with all dependencies
 pip install -e .
 pip install pytest numpy jax sncosmo pyyaml matplotlib
+
+# IMPORTANT: For nested sampling, install the Handley Lab fork of BlackJAX
+# This is NOT base BlackJAX - it includes nested sampling algorithms
+# See: https://handley-lab.co.uk/nested-sampling-book/intro.html
 pip install git+https://github.com/handley-lab/blackjax@proposal
+
 pip install git+https://github.com/google-deepmind/distrax
 
 # For development tools

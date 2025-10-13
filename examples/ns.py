@@ -3,6 +3,10 @@
 
 This script demonstrates how to run the nested sampling procedure for supernovae SALT model fitting using the JAX-bandflux package. We will install the package, load the data, set up and run the nested sampling algorithm, and finally produce a corner plot of the posterior samples.
 
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux). The academic paper associated with this work can be found [here](https://github.com/samleeney/JAX-bandflux/blob/71ca8d1b3b273147e1e9bf60a9ef11a806363b80/paper.bib).
 """
 
@@ -188,6 +192,7 @@ def compute_single_loglikelihood(params):
     model_fluxes = source.bandflux(
         param_dict,
         None,  # bands not needed when using bridges
+        
         phases,
         zp=zps,
         zpsys='ab',
