@@ -62,14 +62,14 @@ colours = ['g', 'c', 'orange', 'r']  # g, c, o, r bands
 markers = ['o', 's', 'D', '^']
 
 # Plot data points for each band
-for i, band_idx in enumerate(unique_bands):
-    mask = band_indices == band_idx
+for i, band_name in enumerate(unique_bands):
+    mask = band_indices == i  # band_indices contains integers, not strings
     plt.errorbar(times[mask], fluxes[mask], yerr=fluxerrs[mask],
-                fmt=markers[i], color=colours[i], label=f'Band {i} Data',
+                fmt=markers[i], color=colours[i], label=f'{band_name} Data',
                 markersize=8, alpha=0.6)
 
 # Calculate and plot model curves
-for i in range(n_bands):
+for i, band_name in enumerate(unique_bands):
     # Calculate model fluxes using SALT3Source
     # Create band indices for this specific band
     band_idx_array = jnp.full(len(t_grid), i, dtype=jnp.int32)
@@ -84,7 +84,7 @@ for i in range(n_bands):
 
     # Plot model curve
     plt.plot(t_grid, band_fluxes, '-', color=colours[i],
-             label=f'Band {i} Model', linewidth=2, alpha=0.8)
+             label=f'{band_name} Model', linewidth=2, alpha=0.8)
 
 # Add labels and title
 plt.xlabel('MJD', fontsize=12)
