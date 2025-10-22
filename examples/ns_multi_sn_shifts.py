@@ -5,6 +5,10 @@ This script demonstrates how to fit multiple supernovae simultaneously with:
 - Individual SALT parameters (x0, x1, t0, c) for each supernova
 - Shared transmission shift parameters across all supernovae for each filter
 
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux).
 """
 
@@ -16,7 +20,7 @@ import tqdm
 import blackjax
 import os
 from blackjax.ns.utils import log_weights
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+from jax_supernovae import SALT3Source
 from jax_supernovae.bandpasses import register_bandpass, get_bandpass
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_multiple_supernovae
@@ -45,6 +49,9 @@ jax.config.update("jax_enable_x64", True)
 # Load data for multiple supernovae
 print(f"Loading data for supernovae: {SN_NAMES}")
 multi_sn_data = load_multiple_supernovae(SN_NAMES, fix_z=fix_z)
+
+# Create SALT3 source for bandflux calculations (ONE instance before JIT)
+source = SALT3Source()
 
 n_sne = multi_sn_data['n_sne']
 n_bands = multi_sn_data['n_bands']
@@ -192,29 +199,32 @@ def logprior(params):
 
 @jax.jit
 def compute_multi_sn_loglikelihood(params):
-    """Compute combined log likelihood for multiple SNe with shared shifts."""
+    """Compute combined log likelihood for multiple SNe with shared shifts.
+
+    Uses SALT3Source with v3.0 functional API for each supernova.
+    """
     params = jnp.atleast_1d(params)
     if params.ndim > 1:
         return jax.vmap(compute_multi_sn_loglikelihood)(params)
-    
+
     total_log_likelihood = 0.0
     idx = 0
-    
+
     # Extract shared shift parameters (same for all SNe)
     shift_start_idx = n_sne * n_params_per_sn
     shifts = params[shift_start_idx:shift_start_idx + n_bands]
-    
+
     # Extract optional sigma
     if fit_sigma:
         log_sigma = params[shift_start_idx + n_bands]
         sigma = 10 ** log_sigma
     else:
         sigma = 1.0
-    
+
     # Calculate likelihood for each SN
     for sn_idx in range(n_sne):
         sn_name = multi_sn_data['sn_names'][sn_idx]
-        
+
         # Extract this SN's parameters
         if fix_z:
             z = fixed_z_list[sn_idx][0]
@@ -237,32 +247,43 @@ def compute_multi_sn_loglikelihood(params):
             idx += 1
             c = params[idx]
             idx += 1
-        
+
         x0 = 10 ** log_x0
-        param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
-        
+
+        # Create parameter dict for v3.0 functional API (x0, x1, c only)
+        param_dict = {'x0': x0, 'x1': x1, 'c': c}
+
         # Get this SN's data
         times = times_list[sn_idx]
         fluxes = fluxes_list[sn_idx]
         fluxerrs = fluxerrs_list[sn_idx]
         zps = zps_list[sn_idx]
         band_indices = band_indices_list[sn_idx]
-        
-        # Calculate model fluxes with shared shifts
-        model_fluxes = optimized_salt3_multiband_flux(
-            times, bridges, param_dict, zps=zps, zpsys='ab', shifts=shifts
+
+        # Calculate rest-frame phases from observer-frame times
+        phases = (times - t0) / (1 + z)
+
+        # Calculate model fluxes using SALT3Source with precomputed bridges and shifts
+        # Note: bands parameter is not used when bridges are provided
+        model_fluxes = source.bandflux(
+            param_dict,
+            None,  # bands not needed when using bridges
+            phases,
+            zp=zps,
+            zpsys='ab',
+            band_indices=band_indices,
+            bridges=bridges,
+            unique_bands=unique_bands,
+            shifts=shifts  # Add transmission shifts
         )
-        
-        # Select the appropriate flux for each observation
-        model_fluxes_selected = model_fluxes[jnp.arange(len(times)), band_indices]
-        
+
         # Calculate chi2 for this SN
         eff_fluxerrs = sigma * fluxerrs
-        chi2 = jnp.sum(((fluxes - model_fluxes_selected) / eff_fluxerrs) ** 2)
+        chi2 = jnp.sum(((fluxes - model_fluxes) / eff_fluxerrs) ** 2)
         log_likelihood_sn = -0.5 * (chi2 + jnp.sum(jnp.log(2 * jnp.pi * eff_fluxerrs ** 2)))
-        
+
         total_log_likelihood += log_likelihood_sn
-    
+
     return total_log_likelihood
 
 def sample_from_priors(rng_key, n_samples):

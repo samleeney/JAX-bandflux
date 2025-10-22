@@ -9,12 +9,15 @@ fixed or free redshift.
 import jax
 import jax.numpy as jnp
 from scipy.optimize import fmin_l_bfgs_b
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux
+from jax_supernovae import SALT3Source
 from jax_supernovae.data import load_and_process_data
 import numpy as np
 
 # Enable float64 precision for better accuracy
 jax.config.update("jax_enable_x64", True)
+
+# Create SALT3 source (do this once, outside functions for JIT)
+source = SALT3Source()
 
 def fit_salt3(fix_z=True, sn_name="19dwz"):
     """
@@ -28,7 +31,7 @@ def fit_salt3(fix_z=True, sn_name="19dwz"):
         Name of supernova for redshift lookup (default: "19dwz")
     """
     # Load and process data using the utility function
-    times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(
+    times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data(
         sn_name, data_dir='data', fix_z=fix_z
     )
 
@@ -65,11 +68,19 @@ def fit_salt3(fix_z=True, sn_name="19dwz"):
                     'c': parameters[4]
                 }
             
-            # Calculate model fluxes
-            model_fluxes = optimized_salt3_multiband_flux(
-                times, bridges, param_dict, zps=zps, zpsys='ab'
+            # Calculate rest-frame phases from observer-frame times
+            phases = (times - param_dict['t0']) / (1 + param_dict['z'])
+
+            # Use SALT3Source with v3.0 functional API
+            # Note: We only pass x0, x1, c to bandflux (not z or t0)
+            bandflux_params = {'x0': param_dict['x0'], 'x1': param_dict['x1'], 'c': param_dict['c']}
+            model_fluxes = source.bandflux(
+                bandflux_params, None, phases,
+                zp=zps, zpsys='ab',
+                band_indices=band_indices,
+                bridges=bridges,
+                unique_bands=unique_bands
             )
-            model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
             
             # Calculate chi-squared
             chi2 = float(jnp.sum(((fluxes - model_fluxes) / fluxerrs)**2))

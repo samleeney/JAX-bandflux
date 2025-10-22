@@ -3,6 +3,10 @@
 
 This script demonstrates how to run the nested sampling procedure for supernovae SALT model fitting using the JAX-bandflux package with transmission shift parameters for each filter.
 
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux).
 """
 
@@ -14,10 +18,7 @@ import tqdm
 import blackjax
 import os
 from blackjax.ns.utils import log_weights
-from jax_supernovae.salt3 import (
-    optimized_salt3_multiband_flux,
-)
-from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
+from jax_supernovae import SALT3Source
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_and_process_data
 import matplotlib.pyplot as plt
@@ -53,10 +54,12 @@ PRIOR_BOUNDS = {
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
 
-# Get unique bands and their count
-unique_bands = np.unique(band_indices)
+# Create SALT3 source for bandflux calculations
+source = SALT3Source()
+
+# Get band count
 n_bands = len(unique_bands)
 
 # Define parameter bounds and priors
@@ -175,12 +178,14 @@ def logprior(params):
 @jax.jit
 def compute_single_loglikelihood(params):
     """Compute Gaussian log likelihood for a single set of parameters.
-    
+
+    Uses SALT3Source with v3.0 functional API and transmission shifts.
+
     Parameters
     ----------
     params : array
         Parameter values to evaluate
-        
+
     Returns
     -------
     float
@@ -191,7 +196,7 @@ def compute_single_loglikelihood(params):
     if params.ndim > 1:
         # If we have a batch, vmap over it
         return jax.vmap(compute_single_loglikelihood)(params)
-    
+
     if fix_z:
         idx = 0
         t0 = params[idx]
@@ -202,19 +207,19 @@ def compute_single_loglikelihood(params):
         idx += 1
         c = params[idx]
         idx += 1
-        
+
         # Extract shift parameters
         shifts = []
         for i in range(n_bands):
             shifts.append(params[idx])
             idx += 1
-        
+
         if fit_sigma:
             log_sigma = params[idx]
             sigma = 10 ** log_sigma
         else:
             sigma = 1.0
-        
+
         z = fixed_z[0]  # Use fixed redshift
     else:
         idx = 0
@@ -228,25 +233,40 @@ def compute_single_loglikelihood(params):
         idx += 1
         c = params[idx]
         idx += 1
-        
+
         # Extract shift parameters
         shifts = []
         for i in range(n_bands):
             shifts.append(params[idx])
             idx += 1
-        
+
         if fit_sigma:
             log_sigma = params[idx]
             sigma = 10 ** log_sigma
         else:
             sigma = 1.0
-    
-    x0 = 10 ** log_x0
-    param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
 
-    # Calculate model fluxes for all observations at once using optimized function with shifts
-    model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab', shifts=shifts)
-    model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
+    x0 = 10 ** log_x0
+
+    # Create parameter dict for v3.0 functional API
+    param_dict = {'x0': x0, 'x1': x1, 'c': c}
+
+    # Calculate rest-frame phases from observer-frame times
+    phases = (times - t0) / (1 + z)
+
+    # Calculate model fluxes using SALT3Source with precomputed bridges and shifts
+    # Note: bands parameter is not used when bridges are provided
+    model_fluxes = source.bandflux(
+        param_dict,
+        None,  # bands not needed when using bridges
+        phases,
+        zp=zps,
+        zpsys='ab',
+        band_indices=band_indices,
+        bridges=bridges,
+        unique_bands=unique_bands,
+        shifts=shifts
+    )
 
     eff_fluxerrs = sigma * fluxerrs  # effective flux errors
     chi2 = jnp.sum(((fluxes - model_fluxes) / eff_fluxerrs) ** 2)

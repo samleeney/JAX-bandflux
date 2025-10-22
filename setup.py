@@ -23,10 +23,10 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Scientific/Engineering :: Astronomy",
     ],
-    python_requires=">=3.11",
+    python_requires=">=3.10",
     install_requires=[
         'numpy>=1.24.0',
         'jax[cuda12]>=0.4.20',
@@ -38,6 +38,8 @@ setup(
         'tqdm',
         'anesthetic',
         'requests',
+        # NOTE: For nested sampling, requires Handley Lab fork (not yet merged with main branch)
+        # See: https://handley-lab.co.uk/nested-sampling-book/intro.html
         'blackjax @ git+https://github.com/handley-lab/blackjax.git',
         'distrax'
     ],

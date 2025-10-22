@@ -81,6 +81,7 @@ The following diagram shows the relationships between key components:
 
    installation
    quickstart
+   api_differences
    data_loading
    bandpass_loading
    model_fluxes
@@ -92,6 +93,7 @@ Quick Links
 
 * :doc:`installation` - Installation instructions
 * :doc:`quickstart` - Get started quickly with basic examples
+* :doc:`api_differences` - How JAX-bandflux differs from SNCosmo
 * :doc:`data_loading` - Learn how to load and process supernova data
 * :doc:`bandpass_loading` - Working with astronomical filters and bandpasses
 * :doc:`model_fluxes` - Computing model fluxes using the SALT3 model

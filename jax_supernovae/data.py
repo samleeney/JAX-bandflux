@@ -249,6 +249,7 @@ def load_and_process_data(sn_name, data_dir='data', fix_z=False):
         - fluxerrs (jnp.array): Flux measurement errors
         - zps (jnp.array): Zero points
         - band_indices (jnp.array): Band indices
+        - unique_bands (list): List of unique band names
         - bridges (tuple): Precomputed bridge data for each band
         - fixed_z (tuple or None): If fix_z is True, returns (z, z_err), else None
     """
@@ -284,7 +285,7 @@ def load_and_process_data(sn_name, data_dir='data', fix_z=False):
             print(f"Warning: Could not load redshift: {e}")
             fixed_z = None
     
-    return times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z 
+    return times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z 
 
 def get_all_supernovae_with_redshifts(redshift_file='data/redshifts.dat'):
     """Get all supernovae that have measured redshifts in redshifts.dat.

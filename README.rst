@@ -48,8 +48,15 @@ JAX-bandflux requires:
 - JAX >= 0.4.20 (with CUDA support for GPU acceleration)
 - NumPy >= 1.24.0
 - SNCosmo >= 2.9.0
-- BlackJAX >= 1.3.0 (for nested sampling)
+- BlackJAX (for nested sampling: requires Handley Lab fork, not yet merged with main branch - see https://handley-lab.co.uk/nested-sampling-book/intro.html)
 - Distrax (for probability distributions)
+
+.. note::
+   For nested sampling examples, you must install the Handley Lab fork of BlackJAX (not yet merged with main branch):
+
+   .. code:: bash
+
+      pip install git+https://github.com/handley-lab/blackjax@proposal
 
 Quickstart
 ----------
@@ -61,6 +68,15 @@ Run example analagous to `SNCosmo <https://sncosmo.readthedocs.io/en/stable/>`_'
    pip install jax-bandflux
    wget https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/examples/fmin_bfgs.py
    python fmin_bfgs.py
+
+API Compatibility with SNCosmo
+------------------------------
+
+JAX-bandflux aims to provide an API similar to SNCosmo's SALT3Source, with key differences for JAX compatibility:
+
+**Functional Parameter API**: Parameters are passed as dictionaries to methods rather than stored as object attributes. This enables JIT compilation while maintaining numerical accuracy within 0.001% of SNCosmo.
+
+**Performance Optimization**: The ``bridges`` parameter allows precomputed filter integration grids, providing ~100x speedup for repeated calculations (e.g., nested sampling). See the `documentation <https://jax-bandflux.readthedocs.io/>`_ for details.
 
 Testing
 -------

@@ -3,6 +3,10 @@
 
 This script demonstrates how to run the nested sampling procedure for supernovae SALT model fitting using the JAX-bandflux package. We will install the package, load the data, set up and run the nested sampling algorithm, and finally produce a corner plot of the posterior samples.
 
+IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
+Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
+See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+
 For more examples and the complete codebase, visit the [JAX-bandflux GitHub repository](https://github.com/samleeney/JAX-bandflux). The academic paper associated with this work can be found [here](https://github.com/samleeney/JAX-bandflux/blob/71ca8d1b3b273147e1e9bf60a9ef11a806363b80/paper.bib).
 """
 
@@ -15,10 +19,7 @@ import tqdm
 import blackjax
 import os
 from blackjax.ns.utils import log_weights
-from jax_supernovae.salt3 import (
-    optimized_salt3_multiband_flux,
-)
-from jax_supernovae.bandpasses import register_bandpass, get_bandpass, register_all_bandpasses
+from jax_supernovae import SALT3Source
 from jax_supernovae.utils import save_chains_dead_birth
 from jax_supernovae.data import load_and_process_data
 import matplotlib.pyplot as plt
@@ -34,7 +35,7 @@ fit_sigma = False
 fix_z = True
 
 NS_SETTINGS = {
-    'n_delete': 1,
+    'n_delete': 60,
     'n_live': 125,
     'num_mcmc_steps_multiplier': 5
 }
@@ -53,7 +54,10 @@ PRIOR_BOUNDS = {
 jax.config.update("jax_enable_x64", True)
 
 # Load and process data
-times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data('19dwz', data_dir='data', fix_z=fix_z)
+
+# Create SALT3 source for bandflux calculations
+source = SALT3Source()
 
 # Define parameter bounds and priors
 if fix_z:
@@ -140,12 +144,14 @@ def logprior(params):
 @jax.jit
 def compute_single_loglikelihood(params):
     """Compute Gaussian log likelihood for a single set of parameters.
-    
+
+    Uses SALT3Source with v3.0 functional API.
+
     Parameters
     ----------
     params : array
         Parameter values to evaluate
-        
+
     Returns
     -------
     float
@@ -156,7 +162,7 @@ def compute_single_loglikelihood(params):
     if params.ndim > 1:
         # If we have a batch, vmap over it
         return jax.vmap(compute_single_loglikelihood)(params)
-    
+
     if fix_z:
         if fit_sigma:
             t0, log_x0, x1, c, log_sigma = params
@@ -172,12 +178,28 @@ def compute_single_loglikelihood(params):
         else:
             z, t0, log_x0, x1, c = params
             sigma = 1.0
-    x0 = 10 ** log_x0
-    param_dict = {'z': z, 't0': t0, 'x0': x0, 'x1': x1, 'c': c}
 
-    # Calculate model fluxes for all observations at once using optimized function
-    model_fluxes = optimized_salt3_multiband_flux(times, bridges, param_dict, zps=zps, zpsys='ab')
-    model_fluxes = model_fluxes[jnp.arange(len(times)), band_indices]
+    x0 = 10 ** log_x0
+
+    # Create parameter dict for v3.0 functional API
+    param_dict = {'x0': x0, 'x1': x1, 'c': c}
+
+    # Calculate rest-frame phases from observer-frame times
+    phases = (times - t0) / (1 + z)
+
+    # Calculate model fluxes using SALT3Source with precomputed bridges
+    # Note: bands parameter is not used when bridges are provided
+    model_fluxes = source.bandflux(
+        param_dict,
+        None,  # bands not needed when using bridges
+        
+        phases,
+        zp=zps,
+        zpsys='ab',
+        band_indices=band_indices,
+        bridges=bridges,
+        unique_bands=unique_bands
+    )
 
     eff_fluxerrs = sigma * fluxerrs  # effective flux errors
     chi2 = jnp.sum(((fluxes - model_fluxes) / eff_fluxerrs) ** 2)

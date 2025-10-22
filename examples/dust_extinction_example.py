@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 import sncosmo
-from jax_supernovae.bandpasses import Bandpass, load_bandpass
-from jax_supernovae.salt3 import optimized_salt3_bandflux, precompute_bandflux_bridge
+from jax_supernovae import SALT3Source
 from jax_supernovae.dust import ccm89_extinction, od94_extinction, f99_extinction
 
 # Enable float64 precision
@@ -20,19 +19,11 @@ jax.config.update("jax_enable_x64", True)
 
 def main():
     """Run the example script."""
+    # Create SALT3 source for bandflux calculations
+    source = SALT3Source()
+
     # Create a set of bandpasses (SDSS filters)
     sdss_bands = ['g', 'r', 'i', 'z']
-    bandpasses = []
-    bridges = []
-    
-    for band_name in sdss_bands:
-        # Load the bandpass directly from JAX-bandflux
-        jax_band = load_bandpass(band_name)
-        bandpasses.append(jax_band)
-        
-        # Create a bridge for the bandpass
-        bridge = precompute_bandflux_bridge(jax_band)
-        bridges.append(bridge)
     
     # Set up parameters for the SALT3 model
     base_params = {
@@ -70,54 +61,31 @@ def main():
     
     # Create a time grid
     phases = np.linspace(-10, 30, 41)
-    
+
     # Calculate fluxes for each bandpass and parameter set
-    fluxes_no_dust = np.zeros((len(phases), len(bridges)))
-    fluxes_ccm89 = np.zeros((len(phases), len(bridges)))
-    fluxes_od94 = np.zeros((len(phases), len(bridges)))
-    fluxes_f99 = np.zeros((len(phases), len(bridges)))
-    
-    for i, bridge in enumerate(bridges):
-        for j, phase in enumerate(phases):
-            # Calculate flux without dust
-            flux = optimized_salt3_bandflux(
-                np.array([phase]),
-                bridge['wave'],
-                bridge['dwave'],
-                bridge['trans'],
-                params_no_dust
-            )
-            fluxes_no_dust[j, i] = np.asarray(flux)[0]  # Extract scalar value
-            
-            # Calculate flux with CCM89 dust
-            flux = optimized_salt3_bandflux(
-                np.array([phase]),
-                bridge['wave'],
-                bridge['dwave'],
-                bridge['trans'],
-                params_ccm89
-            )
-            fluxes_ccm89[j, i] = np.asarray(flux)[0]  # Extract scalar value
-            
-            # Calculate flux with OD94 dust
-            flux = optimized_salt3_bandflux(
-                np.array([phase]),
-                bridge['wave'],
-                bridge['dwave'],
-                bridge['trans'],
-                params_od94
-            )
-            fluxes_od94[j, i] = np.asarray(flux)[0]  # Extract scalar value
-            
-            # Calculate flux with F99 dust
-            flux = optimized_salt3_bandflux(
-                np.array([phase]),
-                bridge['wave'],
-                bridge['dwave'],
-                bridge['trans'],
-                params_f99
-            )
-            fluxes_f99[j, i] = np.asarray(flux)[0]  # Extract scalar value
+    fluxes_no_dust = np.zeros((len(phases), len(sdss_bands)))
+    fluxes_ccm89 = np.zeros((len(phases), len(sdss_bands)))
+    fluxes_od94 = np.zeros((len(phases), len(sdss_bands)))
+    fluxes_f99 = np.zeros((len(phases), len(sdss_bands)))
+
+    # For each dust scenario, calculate all fluxes at once
+    for j, phase in enumerate(phases):
+        for i, band_name in enumerate(sdss_bands):
+            # No dust
+            flux = source.bandflux(params_no_dust, band_name, phase)
+            fluxes_no_dust[j, i] = float(flux)
+
+            # CCM89 dust
+            flux = source.bandflux(params_ccm89, band_name, phase)
+            fluxes_ccm89[j, i] = float(flux)
+
+            # OD94 dust
+            flux = source.bandflux(params_od94, band_name, phase)
+            fluxes_od94[j, i] = float(flux)
+
+            # F99 dust
+            flux = source.bandflux(params_f99, band_name, phase)
+            fluxes_f99[j, i] = float(flux)
     
     # Convert fluxes to magnitudes
     zp = 25.0  # Arbitrary zero point

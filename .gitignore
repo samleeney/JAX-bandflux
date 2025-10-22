@@ -40,6 +40,12 @@ htmlcov/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Sphinx documentation
+docs/_build/
+
+# Example outputs
+parameter_statistics.txt
+
 # Distribution / packaging
 .Python
 env/
