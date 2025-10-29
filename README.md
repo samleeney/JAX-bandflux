@@ -115,6 +115,19 @@ This repository implements the JAX version of the [SNCosmo](https://sncosmo.read
 pytest tests/ -v
 ```
 
+## Academic Use
+
+If you use JAX-bandflux in your research, please cite:
+
+```bibtex
+@article{leeney2025jax,
+  title={JAX-bandflux: differentiable supernovae SALT modelling for cosmological analysis on GPUs},
+  author={Leeney, Samuel Alan Kossoff},
+  journal={arXiv preprint arXiv:2504.08081},
+  year={2025}
+}
+```
+
 ## What is the `.airules` file?
 
 The `.airules` file provides essential context to help language models understand and work with this codebase—particularly for new code that may not be included in model training datasets. It contains detailed information on:
