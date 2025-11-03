@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-JAX-bandflux is a JAX-based implementation of the SALT3-NIR supernova model for bandflux calculations. The codebase maintains exact consistency with SNCosmo while providing GPU acceleration and automatic differentiation capabilities through JAX.
+JAX-bandflux is a JAX-based library for supernova light curve fitting providing:
+- **SALT3Source**: SALT3-NIR implementation for Type Ia supernova standardisation
+- **TimeSeriesSource**: Custom SED models for arbitrary spectral time series
+
+The codebase maintains exact consistency with SNCosmo (<0.01% difference) whilst providing GPU acceleration and automatic differentiation capabilities through JAX.
 
 ## Essential Commands
 
@@ -31,10 +35,11 @@ pip install -e ".[dev]"  # Includes pytest, black, isort, sphinx
 pytest tests/ -v
 
 # Run specific test files
-pytest tests/test_salt3nir_consistency.py -v  # CRITICAL: Run after any bandflux modifications
-pytest tests/test_bandflux_performance.py -v  # Performance benchmarks
-pytest tests/test_transmission_shifts.py -v   # Bandpass transmission tests
-pytest tests/test_documentation.py -v         # Documentation code validation
+pytest tests/test_salt3nir_consistency.py -v    # CRITICAL: SALT3 vs sncosmo consistency
+pytest tests/test_timeseries_source.py -v       # CRITICAL: TimeSeriesSource vs sncosmo consistency
+pytest tests/test_bandflux_performance.py -v    # Performance benchmarks
+pytest tests/test_transmission_shifts.py -v     # Bandpass transmission tests
+pytest tests/test_documentation.py -v           # Documentation code validation
 
 # Run a single test function
 pytest tests/test_salt3nir_consistency.py::test_function_name -v
@@ -71,6 +76,26 @@ Sophisticated filter handling with JAX optimization:
 - **SVO Integration**: `create_bandpass_from_svo` for accessing Spanish Virtual Observatory filters
 - **Transmission Shifts**: Support for wavelength-dependent transmission modifications
 - **Registration System**: Global registry for efficient bandpass lookup
+
+### Source Models (`jax_supernovae/source.py`)
+Two complementary source models with functional API:
+- **SALT3Source**: SALT3-NIR Type Ia supernova model
+  - Parameters: x0 (amplitude), x1 (stretch), c (colour)
+  - Use case: Type Ia standardisation for cosmology
+- **TimeSeriesSource**: Custom spectral time series model (NEW!)
+  - Parameters: amplitude (scaling factor)
+  - Use case: Fitting arbitrary SED models from templates, PCA, or theory
+  - Functional API: Parameters passed as dict to methods (not stored in object)
+  - Interpolation: Bicubic (time_spline_degree=3) or bilinear (=1)
+  - Matches sncosmo.TimeSeriesSource numerically to <0.01%
+
+### TimeSeries Engine (`jax_supernovae/timeseries.py`)
+JAX implementation of custom SED model calculations:
+- **Interpolation**: `interpolate_timeseries_2d` - Bicubic interpolation using JAX primitives
+- **Flux Calculation**: `timeseries_flux` - Amplitude scaling and zero_before handling
+- **Bandflux Functions**: Single-band and optimised multi-band calculations
+- **Shared Integration**: Uses common `bandflux_integration` function with SALT3
+- **Critical**: Reuses SALT3's `kernval` bicubic kernel for consistency
 
 ### Data Pipeline (`jax_supernovae/data.py`)
 Handles Hubble Space Telescope DR1 format:
@@ -164,6 +189,44 @@ from jax_supernovae.bandpasses import create_bandpass_from_svo, register_bandpas
 # Download and register UKIRT J-band filter
 bandpass = create_bandpass_from_svo('UKIRT/WFCAM.J', output_dir='filter_data')
 register_bandpass('ukirt_j', bandpass)
+```
+
+### Fitting Custom SED Models with TimeSeriesSource
+```python
+import numpy as np
+from jax_supernovae import TimeSeriesSource
+from jax_supernovae.bandpasses import get_bandpass
+from jax_supernovae.salt3 import precompute_bandflux_bridge
+import jax
+import jax.numpy as jnp
+
+# Create custom SED model (from templates, PCA, theory, etc.)
+phase = np.linspace(-20, 50, 100)  # Days
+wave = np.linspace(3000, 9000, 200)  # Angstroms
+flux = ...  # Your 2D flux array (erg/s/cm²/Å), shape (100, 200)
+
+# Create TimeSeriesSource
+source = TimeSeriesSource(phase, wave, flux,
+                          zero_before=False,
+                          time_spline_degree=3)  # Cubic interpolation
+
+# Simple mode: Calculate bandflux
+params = {'amplitude': 1.0}
+flux_b = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
+
+# Optimised mode: Pre-compute bridges for fitting
+unique_bands = ['bessellb', 'bessellv', 'bessellr']
+bridges = tuple(precompute_bandflux_bridge(get_bandpass(b)) for b in unique_bands)
+
+# JIT-compiled likelihood
+@jax.jit
+def loglikelihood(amplitude, phases, band_indices, observed_fluxes, errors):
+    params = {'amplitude': amplitude}
+    model_fluxes = source.bandflux(params, None, phases,
+                                   band_indices=band_indices,
+                                   bridges=bridges,
+                                   unique_bands=unique_bands)
+    return -0.5 * jnp.sum(((observed_fluxes - model_fluxes) / errors)**2)
 ```
 
 ## AI Assistant Context (.airules)
