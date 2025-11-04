@@ -1,498 +1,457 @@
 """
-Anomaly detection for supernova light curves using nested sampling.
+Nested sampling anomaly detection example using SALT3 with structured priors.
 
-This script implements a Bayesian anomaly detection framework that:
-1. Runs standard SALT3 nested sampling
-2. Runs anomaly detection nested sampling with an additional log_p parameter
-3. Identifies potential outlier data points using weighted emax values
-4. Compares the two approaches via corner plots and light curve fits
+This script mirrors the ``ns.py`` configuration style:
+    - Parameters live in dictionaries compatible with JAX PyTrees
+    - Uniform priors are generated via ``blackjax.ns.utils.uniform_prior``
+    - Log-likelihoods are JIT-compiled and operate on structured inputs
 
-The anomaly detection adds a parameter log_p that allows individual data points
-to be down-weighted if they don't fit the model well.
-
-IMPORTANT: This example requires the Handley Lab fork of BlackJAX (not yet merged with main branch).
-Install with: pip install git+https://github.com/handley-lab/blackjax@proposal
-See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+On top of the standard SALT3 fit it includes an anomaly model with a ``log_p``
+parameter that can down-weight outlying photometric points. Both runs are
+compared via corner plots and a light-curve diagnostic that highlights likely
+anomalies.
 """
-import distrax
+
 import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+import anesthetic
+import blackjax
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
 import tqdm
-import blackjax
-from blackjax.ns.utils import log_weights
+from anesthetic import make_2d_axes
+from blackjax.ns.utils import finalise, uniform_prior, log_weights
+from jax.scipy.special import logsumexp
 from jax_supernovae import SALT3Source
 from jax_supernovae.data import load_and_process_data
-from jax_supernovae.utils import save_chains_dead_birth
-import matplotlib.pyplot as plt
-from anesthetic import read_chains, make_2d_axes
 
-# ============================================================================
-# Configuration
-# ============================================================================
-
-# Supernova to analyze
-SN_NAME = '19dwz'
-
-# Nested sampling settings
-NS_SETTINGS = {
-    'n_delete': 60,
-    'n_live': 125,
-    'num_mcmc_steps_multiplier': 5,
-    'max_iterations': 500
-}
-
-# Prior bounds
-PRIOR_BOUNDS = {
-    't0': {'min': 58000.0, 'max': 59000.0},
-    'x0': {'min': -5.0, 'max': -2.6},
-    'x1': {'min': -4.0, 'max': 4.0},
-    'c': {'min': -0.3, 'max': 0.3},
-    'log_p': {'min': -20, 'max': -1}
-}
-
-# Whether to fix redshift (True = use spectroscopic z)
-FIX_Z = True
-
-# Enable float64 precision
+# Enable float64 precision for the model and nested sampling machinery.
 jax.config.update("jax_enable_x64", True)
 
-# ============================================================================
-# Load data
-# ============================================================================
+# Configuration constants
+SUPERNOVA_ID = "19dwz"
+DATA_DIR = "data"
+FIXED_Z = 0.04607963148708845
+NS_SETTINGS = {
+    "n_delete": 60,
+    "n_live": 125,
+    "num_mcmc_steps_multiplier": 5,
+    "max_iterations": 500,
+}
 
-print(f"Loading data for {SN_NAME}...")
-times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = \
-    load_and_process_data(SN_NAME, data_dir='data', fix_z=FIX_Z)
+# Prior bounds: sample SALT3 parameters uniformly in log_x0 rather than x0.
+PRIOR_BOUNDS_STANDARD = {
+    "t0": (58000.0, 59000.0),
+    "log_x0": (-5.0, -2.6),
+    "x1": (-4.0, 4.0),
+    "c": (-0.3, 0.3),
+}
 
-print(f"Loaded {len(times)} data points across {len(unique_bands)} bands: {unique_bands}")
-if FIX_Z:
-    print(f"Using fixed redshift: z = {fixed_z[0]:.4f}")
+PRIOR_BOUNDS_ANOMALY = {
+    **PRIOR_BOUNDS_STANDARD,
+    "log_p": (-20.0, -1.0),
+}
 
-# Create SALT3 source
+STANDARD_PARAM_NAMES = list(PRIOR_BOUNDS_STANDARD.keys())
+ANOMALY_PARAM_NAMES = list(PRIOR_BOUNDS_ANOMALY.keys())
+NUM_MCMC_STEPS_STANDARD = len(STANDARD_PARAM_NAMES) * NS_SETTINGS["num_mcmc_steps_multiplier"]
+NUM_MCMC_STEPS_ANOMALY = len(ANOMALY_PARAM_NAMES) * NS_SETTINGS["num_mcmc_steps_multiplier"]
+
+OUTPUT_DIR = f"chains_{SUPERNOVA_ID}"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Load and preprocess the photometric data.
+(
+    times,
+    fluxes,
+    fluxerrs,
+    zps,
+    band_indices,
+    unique_bands,
+    bridges,
+    _,
+) = load_and_process_data(
+    SUPERNOVA_ID,
+    data_dir=DATA_DIR,
+    fix_z=False,
+)
+
+# Instantiate SALT3 source for bandflux calls.
 source = SALT3Source()
 
-# ============================================================================
-# Set up priors
-# ============================================================================
+# Precompute constants used in the likelihoods.
+LOG_DET = jnp.sum(jnp.log(2.0 * jnp.pi * fluxerrs**2))
+ANOMALY_NORMALISATION = -0.5 * jnp.log(2.0 * jnp.pi * fluxerrs**2)
+ANOMALY_DELTA = jnp.max(jnp.abs(fluxes))
 
-# Standard model (no anomaly detection)
-standard_prior_dists = {
-    't0': distrax.Uniform(low=PRIOR_BOUNDS['t0']['min'], high=PRIOR_BOUNDS['t0']['max']),
-    'x0': distrax.Uniform(low=PRIOR_BOUNDS['x0']['min'], high=PRIOR_BOUNDS['x0']['max']),
-    'x1': distrax.Uniform(low=PRIOR_BOUNDS['x1']['min'], high=PRIOR_BOUNDS['x1']['max']),
-    'c': distrax.Uniform(low=PRIOR_BOUNDS['c']['min'], high=PRIOR_BOUNDS['c']['max'])
-}
-
-# Anomaly model (includes log_p parameter)
-anomaly_prior_dists = {
-    **standard_prior_dists,
-    'log_p': distrax.Uniform(low=PRIOR_BOUNDS['log_p']['min'], high=PRIOR_BOUNDS['log_p']['max'])
-}
-
-# ============================================================================
-# Likelihood functions
-# ============================================================================
 
 @jax.jit
-def logprior_standard(params):
-    """Calculate log prior for standard model."""
-    # Handle both single and batched inputs
-    params = jnp.atleast_1d(params)
-    if params.ndim > 1:
-        return jax.vmap(logprior_standard)(params)
+def _loglikelihood_standard_single(params: dict) -> jnp.ndarray:
+    """Return log-likelihood for a single set of standard SALT3 parameters."""
+    t0 = params["t0"]
+    log_x0 = params["log_x0"]
+    x1 = params["x1"]
+    c = params["c"]
 
-    logp = (standard_prior_dists['t0'].log_prob(params[0]) +
-            standard_prior_dists['x0'].log_prob(params[1]) +
-            standard_prior_dists['x1'].log_prob(params[2]) +
-            standard_prior_dists['c'].log_prob(params[3]))
-    return logp
-
-@jax.jit
-def logprior_anomaly(params):
-    """Calculate log prior for anomaly detection model."""
-    # Handle both single and batched inputs
-    params = jnp.atleast_1d(params)
-    if params.ndim > 1:
-        return jax.vmap(logprior_anomaly)(params)
-
-    logp = (anomaly_prior_dists['t0'].log_prob(params[0]) +
-            anomaly_prior_dists['x0'].log_prob(params[1]) +
-            anomaly_prior_dists['x1'].log_prob(params[2]) +
-            anomaly_prior_dists['c'].log_prob(params[3]) +
-            anomaly_prior_dists['log_p'].log_prob(params[4]))
-    return logp
-
-@jax.jit
-def compute_single_loglikelihood_standard(params):
-    """Compute log likelihood for standard model."""
-    # Handle both single and batched inputs
-    params = jnp.atleast_1d(params)
-    if params.ndim > 1:
-        return jax.vmap(compute_single_loglikelihood_standard)(params)
-
-    t0, log_x0, x1, c = params
-    z = fixed_z[0]
-    x0 = 10 ** log_x0
-
-    # Calculate model fluxes
-    param_dict = {'x0': x0, 'x1': x1, 'c': c}
-    phases = (times - t0) / (1 + z)
+    x0 = 10.0**log_x0
+    phases = (times - t0) / (1.0 + FIXED_Z)
+    param_dict = {"x0": x0, "x1": x1, "c": c}
 
     model_fluxes = source.bandflux(
-        param_dict, None, phases, zp=zps, zpsys='ab',
-        band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        param_dict,
+        bands=None,
+        phases=phases,
+        zp=zps,
+        zpsys="ab",
+        band_indices=band_indices,
+        bridges=bridges,
+        unique_bands=unique_bands,
     )
 
-    # Gaussian likelihood
-    chi2 = jnp.sum(((fluxes - model_fluxes) / fluxerrs) ** 2)
-    log_likelihood = -0.5 * (chi2 + jnp.sum(jnp.log(2 * jnp.pi * fluxerrs ** 2)))
-    return log_likelihood
+    residuals = (fluxes - model_fluxes) / fluxerrs
+    chi2 = jnp.sum(residuals**2)
+    return -0.5 * (chi2 + LOG_DET)
+
 
 @jax.jit
-def compute_single_loglikelihood_anomaly(params):
-    """Compute log likelihood with anomaly detection.
+def loglikelihood_standard(params: dict) -> jnp.ndarray:
+    """Vectorised log-likelihood for the standard SALT3 model."""
+    return jax.vmap(_loglikelihood_standard_single)(params)
 
-    Returns
-    -------
-    log_likelihood : float
-        Total log likelihood
-    emax : array
-        Boolean array indicating which data points are considered normal
-    """
-    # Handle both single and batched inputs
-    params = jnp.atleast_1d(params)
-    if params.ndim > 1:
-        # For batched inputs, vmap over the function
-        batch_loglike, batch_emax = jax.vmap(compute_single_loglikelihood_anomaly)(params)
-        return batch_loglike, batch_emax
 
-    t0, log_x0, x1, c, log_p = params
-    z = fixed_z[0]
-    x0 = 10 ** log_x0
+@jax.jit
+def _loglikelihood_anomaly_single(params: dict):
+    """Log-likelihood and anomaly mask for a single parameter set."""
+    t0 = params["t0"]
+    log_x0 = params["log_x0"]
+    x1 = params["x1"]
+    c = params["c"]
+    log_p = params["log_p"]
+
+    x0 = 10.0**log_x0
     p = jnp.exp(log_p)
-
-    # Calculate model fluxes
-    param_dict = {'x0': x0, 'x1': x1, 'c': c}
-    phases = (times - t0) / (1 + z)
+    phases = (times - t0) / (1.0 + FIXED_Z)
+    param_dict = {"x0": x0, "x1": x1, "c": c}
 
     model_fluxes = source.bandflux(
-        param_dict, None, phases, zp=zps, zpsys='ab',
-        band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        param_dict,
+        bands=None,
+        phases=phases,
+        zp=zps,
+        zpsys="ab",
+        band_indices=band_indices,
+        bridges=bridges,
+        unique_bands=unique_bands,
     )
 
-    # Per-point likelihood with anomaly model
-    point_logL = (-0.5 * ((fluxes - model_fluxes) / fluxerrs) ** 2
-                  - 0.5 * jnp.log(2 * jnp.pi * fluxerrs ** 2)
-                  + jnp.log(1 - p))
-
-    # Identify which points are well-fit (emax = True means normal)
-    delta = jnp.max(jnp.abs(fluxes))
-    emax = point_logL > (log_p - jnp.log(delta))
-
-    # Total likelihood
-    logL = jnp.where(emax, point_logL, log_p - jnp.log(delta))
+    residuals = (fluxes - model_fluxes) / fluxerrs
+    point_logL = -0.5 * residuals**2 + ANOMALY_NORMALISATION + jnp.log1p(-p)
+    log_floor = log_p - jnp.log(ANOMALY_DELTA)
+    emax = point_logL > log_floor
+    logL = jnp.where(emax, point_logL, log_floor)
     return jnp.sum(logL), emax
 
-# ============================================================================
-# Sampling from priors
-# ============================================================================
 
-def sample_from_priors(rng_key, n_samples, is_anomaly=False):
-    """Sample from prior distributions."""
-    if is_anomaly:
-        keys = jax.random.split(rng_key, 5)
-        return jnp.column_stack([
-            anomaly_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-            anomaly_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-            anomaly_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-            anomaly_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,)),
-            anomaly_prior_dists['log_p'].sample(seed=keys[4], sample_shape=(n_samples,))
-        ])
-    else:
-        keys = jax.random.split(rng_key, 4)
-        return jnp.column_stack([
-            standard_prior_dists['t0'].sample(seed=keys[0], sample_shape=(n_samples,)),
-            standard_prior_dists['x0'].sample(seed=keys[1], sample_shape=(n_samples,)),
-            standard_prior_dists['x1'].sample(seed=keys[2], sample_shape=(n_samples,)),
-            standard_prior_dists['c'].sample(seed=keys[3], sample_shape=(n_samples,))
-        ])
+@jax.jit
+def loglikelihood_anomaly(params: dict) -> jnp.ndarray:
+    """Vectorised anomaly log-likelihood (returns only logL)."""
+    logL, _ = jax.vmap(_loglikelihood_anomaly_single)(params)
+    return logL
 
-# ============================================================================
-# Run nested sampling
-# ============================================================================
 
-def run_nested_sampling(logprior_fn, loglikelihood_fn, is_anomaly=False, label=""):
-    """Run nested sampling and save results."""
+@jax.jit
+def anomaly_loglikelihood_with_mask(params: dict):
+    """Vectorised anomaly log-likelihood returning (logL, emax)."""
+    return jax.vmap(_loglikelihood_anomaly_single)(params)
 
-    print(f"\n{'='*60}")
-    print(f"Running {label} nested sampling...")
-    print(f"{'='*60}")
 
-    n_params = 5 if is_anomaly else 4
-    num_mcmc_steps = n_params * NS_SETTINGS['num_mcmc_steps_multiplier']
+def run_nested_sampling(
+    prior_bounds: dict,
+    param_names: list[str],
+    loglikelihood_fn,
+    label: str,
+    num_mcmc_steps: int,
+):
+    """Run a nested sampling configuration and save the resulting samples."""
+    print(f"\nSetting up {label} nested sampling...")
 
-    # Initialize algorithm
+    rng_key = jax.random.PRNGKey(0)
+    rng_key, prior_key = jax.random.split(rng_key)
+    particles, logprior_fn = uniform_prior(prior_key, NS_SETTINGS["n_live"], prior_bounds)
+
+    print(f"Particle structure: {particles.keys()}")
+    print(f"Shape of each parameter: {particles[param_names[0]].shape}")
+
     algo = blackjax.nss(
         logprior_fn=logprior_fn,
         loglikelihood_fn=loglikelihood_fn,
         num_inner_steps=num_mcmc_steps,
-        num_delete=NS_SETTINGS['n_delete'],
+        num_delete=NS_SETTINGS["n_delete"],
     )
 
-    # Initialize particles
-    rng_key = jax.random.PRNGKey(0)
-    rng_key, init_key = jax.random.split(rng_key)
-    initial_particles = sample_from_priors(init_key, NS_SETTINGS['n_live'], is_anomaly)
+    state = algo.init(particles)
+    print("Using device:", jax.devices()[0])
 
-    print(f"Initial particles shape: {initial_particles.shape}")
-
-    # Initialize state
-    state = algo.init(initial_particles)
-
-    # Define one step
     @jax.jit
-    def one_step(carry, xs):
-        state, k = carry
-        k, subk = jax.random.split(k, 2)
-        state, dead_point = algo.step(subk, state)
-        return (state, k), dead_point
+    def one_step(carry, _):
+        state, key = carry
+        key, subkey = jax.random.split(key)
+        state, dead_point = algo.step(subkey, state)
+        return (state, key), dead_point
 
-    # Run sampling loop
-    dead = []
-    emax_values = [] if is_anomaly else None
-
-    print("Running sampling...")
-    with tqdm.tqdm(desc="Dead points", unit=" pts") as pbar:
-        for i in range(NS_SETTINGS['max_iterations']):
-            if state.logZ_live - state.logZ < -3:
-                break
-
+    dead_points = []
+    iterations = 0
+    with tqdm.tqdm(desc=f"{label.capitalize()} dead points", unit=" dead") as progress:
+        while not state.logZ_live - state.logZ < -3.0 and iterations < NS_SETTINGS["max_iterations"]:
             (state, rng_key), dead_info = one_step((state, rng_key), None)
-            dead.append(dead_info)
-            pbar.update(NS_SETTINGS['n_delete'])
+            dead_points.append(dead_info)
+            progress.update(NS_SETTINGS["n_delete"])
+            iterations += 1
 
-            # Store emax values for anomaly detection
-            if is_anomaly:
-                for j in range(len(dead_info.particles)):
-                    _, emax = compute_single_loglikelihood_anomaly(dead_info.particles[j])
-                    emax_values.append(emax)
+    if iterations >= NS_SETTINGS["max_iterations"]:
+        print(f"Warning: reached max_iterations={NS_SETTINGS['max_iterations']} before convergence.")
 
-            if i % 10 == 0:
-                print(f"Iteration {i}: logZ = {state.logZ:.2f}")
+    ns_run = finalise(state, dead_points)
 
-    # Process results
-    dead = jax.tree.map(lambda *args: jnp.concatenate(args), *dead)
-    logw = log_weights(rng_key, dead)
-    logZs = jax.scipy.special.logsumexp(logw, axis=0)
+    nested_samples = anesthetic.NestedSamples(
+        data={name: ns_run.particles[name] for name in param_names},
+        logL=ns_run.logL,
+        logL_birth=ns_run.logL_birth,
+    )
 
-    print(f"\nRuntime evidence: {state.logZ:.2f}")
-    print(f"Estimated evidence: {logZs.mean():.2f} ± {logZs.std():.2f}")
+    csv_path = os.path.join(OUTPUT_DIR, f"{label}_samples.csv")
+    nested_samples.to_csv(csv_path)
+    print(f"Saved samples to {csv_path}")
 
-    # Save chains
-    output_dir = f'chains_{SN_NAME}'
-    os.makedirs(output_dir, exist_ok=True)
+    return ns_run, nested_samples
 
-    param_names = ['t0', 'log_x0', 'x1', 'c']
-    if is_anomaly:
-        param_names.append('log_p')
 
-    # Save dead-birth chains using utility function
-    # Change to output_dir, save chains with label as root_dir, then change back
-    original_cwd = os.getcwd()
-    os.chdir(output_dir)
-    save_chains_dead_birth(dead, param_names, root_dir=label)
-    chain_dir = label  # For use in emax saving below
-    os.chdir(original_cwd)
+def compute_weighted_emax(ns_run) -> np.ndarray:
+    """Compute weighted anomaly mask expectations for the anomaly run."""
+    logw = log_weights(jax.random.PRNGKey(1), ns_run)
+    logw_mean = logw.mean(axis=-1)
+    normalised_logw = logw_mean - logsumexp(logw_mean)
+    weights = jnp.exp(normalised_logw)
 
-    # Save weighted emax for anomaly detection
-    if is_anomaly and emax_values:
-        emax_array = jnp.stack(emax_values)
-        weights = jnp.exp(logw - jax.scipy.special.logsumexp(logw))
+    _, emax = anomaly_loglikelihood_with_mask(ns_run.particles)
+    weighted_emax = jnp.sum(emax * weights[:, None], axis=0) / jnp.sum(weights)
+    return np.array(weighted_emax)
 
-        if weights.ndim > 1:
-            weights = weights[:, 0]
 
-        # Ensure compatible shapes
-        min_len = min(len(emax_array), len(weights))
-        emax_array = emax_array[:min_len]
-        weights = weights[:min_len]
+def create_corner_plots(standard_samples, anomaly_samples):
+    """Generate comparison corner plots."""
+    print("Creating corner plots...")
+    comparison_axes = make_2d_axes(STANDARD_PARAM_NAMES, figsize=(10, 10), facecolor="w")
+    standard_samples.plot_2d(comparison_axes, alpha=0.7, label="Standard")
+    anomaly_samples[STANDARD_PARAM_NAMES].plot_2d(comparison_axes, alpha=0.7, label="Anomaly")
+    comparison_axes.iloc[-1, 0].legend(
+        bbox_to_anchor=(len(comparison_axes) / 2, len(comparison_axes)),
+        loc="lower center",
+        ncol=2,
+    )
+    comparison_axes.figure.suptitle(
+        "SALT3 Parameter Posteriors: Standard vs Anomaly",
+        y=1.02,
+        fontsize=14,
+    )
+    comparison_axes.figure.savefig(
+        os.path.join(OUTPUT_DIR, "corner_comparison.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
 
-        # Calculate weighted average
-        weighted_emax = jnp.zeros(emax_array.shape[1])
-        for i in range(emax_array.shape[1]):
-            weighted_emax = weighted_emax.at[i].set(
-                jnp.sum(emax_array[:, i] * weights) / jnp.sum(weights)
-            )
+    anomaly_axes = make_2d_axes(ANOMALY_PARAM_NAMES, figsize=(12, 12), facecolor="w")
+    anomaly_samples.plot_2d(anomaly_axes, alpha=0.7, label="Anomaly")
+    anomaly_axes.figure.suptitle(
+        "Anomaly Detection Parameters (including log_p)",
+        y=1.02,
+        fontsize=14,
+    )
+    anomaly_axes.figure.savefig(
+        os.path.join(OUTPUT_DIR, "corner_anomaly_logp.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
 
-        emax_file = os.path.join(output_dir, label, f'{label}_weighted_emax.txt')
-        np.savetxt(emax_file, weighted_emax)
-        print(f"Saved weighted emax to {emax_file}")
+    plt.close(comparison_axes.figure)
+    plt.close(anomaly_axes.figure)
 
-    return param_names, output_dir
 
-# Wrapper for anomaly likelihood that returns only logL (not emax)
-@jax.jit
-def loglikelihood_anomaly(params):
-    """Wrapper for anomaly likelihood that discards emax."""
-    logL, _ = compute_single_loglikelihood_anomaly(params)
-    return logL
+def create_light_curve_plot(anomaly_samples, weighted_emax: np.ndarray):
+    """Plot the light curve with anomaly indicators."""
+    print("Creating light curve plot with anomaly detection...")
+    try:
+        t0_med = float(anomaly_samples["t0"].median())
+        log_x0_med = float(anomaly_samples["log_x0"].median())
+        x1_med = float(anomaly_samples["x1"].median())
+        c_med = float(anomaly_samples["c"].median())
 
-# Run both versions
-standard_params, output_dir = run_nested_sampling(
-    logprior_standard, compute_single_loglikelihood_standard,
-    is_anomaly=False, label="standard"
-)
+        median_params = {
+            "t0": t0_med,
+            "x0": 10.0**log_x0_med,
+            "x1": x1_med,
+            "c": c_med,
+        }
 
-anomaly_params, _ = run_nested_sampling(
-    logprior_anomaly, loglikelihood_anomaly,
-    is_anomaly=True, label="anomaly"
-)
+        times_np = np.array(times)
+        fluxes_np = np.array(fluxes)
+        fluxerrs_np = np.array(fluxerrs)
+        zps_np = np.array(zps)
+        band_indices_np = np.array(band_indices)
 
-# ============================================================================
-# Create visualizations
-# ============================================================================
+        t_grid = np.linspace(times_np.min() - 10.0, times_np.max() + 10.0, 200)
+        phases_grid = (t_grid - median_params["t0"]) / (1.0 + FIXED_Z)
 
-print(f"\n{'='*60}")
-print("Creating visualizations...")
-print(f"{'='*60}")
-
-# Load chains (chains are saved as {root_dir}/{root_dir}_dead-birth.txt)
-standard_samples = read_chains(f'{output_dir}/standard/standard', columns=standard_params)
-anomaly_samples = read_chains(f'{output_dir}/anomaly/anomaly', columns=anomaly_params)
-
-# 1. Corner plot comparison (excluding log_p)
-print("\nCreating corner plot comparison...")
-fig, axes = make_2d_axes(standard_params, figsize=(10, 10), facecolor='w')
-standard_samples.plot_2d(axes, alpha=0.7, label="Standard")
-anomaly_samples[standard_params].plot_2d(axes, alpha=0.7, label="Anomaly")
-axes.iloc[-1, 0].legend(bbox_to_anchor=(len(axes)/2, len(axes)),
-                        loc='lower center', ncol=2)
-plt.suptitle('SALT3 Parameter Posteriors: Standard vs Anomaly', y=1.02, fontsize=14)
-plt.savefig(f'{output_dir}/corner_comparison.png', dpi=300, bbox_inches='tight')
-plt.close()
-
-# 2. Anomaly-specific corner plot (including log_p)
-print("Creating anomaly corner plot with log_p...")
-fig, axes = make_2d_axes(anomaly_params, figsize=(12, 12), facecolor='w')
-anomaly_samples.plot_2d(axes, alpha=0.7, label="Anomaly")
-plt.suptitle('Anomaly Detection Parameters (including log_p)', y=1.02, fontsize=14)
-plt.savefig(f'{output_dir}/corner_anomaly_logp.png', dpi=300, bbox_inches='tight')
-plt.close()
-
-# 3. Light curve with anomaly indicators
-print("Creating light curve plot with anomaly detection...")
-try:
-    weighted_emax = np.loadtxt(f'{output_dir}/anomaly/anomaly_weighted_emax.txt')
-
-    # Get median parameters from anomaly fit
-    median_params = {
-        't0': float(np.median(anomaly_samples['t0'])),
-        'x0': 10 ** float(np.median(anomaly_samples['log_x0'])),
-        'x1': float(np.median(anomaly_samples['x1'])),
-        'c': float(np.median(anomaly_samples['c']))
-    }
-
-    # Create time grid for model curve
-    t_grid = np.linspace(np.min(times) - 10, np.max(times) + 10, 200)
-    phases_grid = (t_grid - median_params['t0']) / (1 + fixed_z[0])
-
-    # Calculate model on grid
-    param_dict = {'x0': median_params['x0'], 'x1': median_params['x1'], 'c': median_params['c']}
-
-    # Create figure
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8),
-                                     gridspec_kw={'height_ratios': [3, 1]})
-
-    # Define colors for bands
-    colors = ['g', 'orange', 'r', 'brown']
-    markers = ['o', 's', 'D', '^']
-
-    # Identify anomalous points (threshold = 0.2)
-    threshold = 0.2
-    all_times_sorted = np.sort(np.unique(times))
-
-    # Plot each band
-    for i, band_name in enumerate(unique_bands):
-        mask = band_indices == i
-        band_times = times[mask]
-        band_fluxes = fluxes[mask]
-        band_errors = fluxerrs[mask]
-
-        # Map times to emax values
-        time_indices = np.searchsorted(all_times_sorted, band_times)
-        time_indices = np.clip(time_indices, 0, len(weighted_emax) - 1)
-        point_emax = weighted_emax[time_indices]
-
-        # Separate normal and anomalous points
-        normal_mask = point_emax >= threshold
-        anomaly_mask = point_emax < threshold
-
-        # Plot normal points
-        if np.any(normal_mask):
-            ax1.errorbar(band_times[normal_mask], band_fluxes[normal_mask],
-                        yerr=band_errors[normal_mask], fmt=markers[i], color=colors[i],
-                        label=f'{band_name}', markersize=6, alpha=0.6)
-
-        # Plot anomalous points as stars
-        if np.any(anomaly_mask):
-            ax1.errorbar(band_times[anomaly_mask], band_fluxes[anomaly_mask],
-                        yerr=band_errors[anomaly_mask], fmt='*', color=colors[i],
-                        markersize=12, alpha=0.8)
-
-        # Calculate and plot model curve for this band
-        model_fluxes_grid = source.bandflux(
-            param_dict, band_name, phases_grid, zp=zps[0], zpsys='ab'
+        fig, (ax1, ax2) = plt.subplots(
+            2,
+            1,
+            figsize=(12, 8),
+            gridspec_kw={"height_ratios": [3, 1]},
         )
-        ax1.plot(t_grid, model_fluxes_grid, '-', color=colors[i], linewidth=2, alpha=0.7)
 
-    ax1.set_ylabel('Flux', fontsize=12)
-    ax1.set_title(f'Light Curve with Anomaly Detection (z = {fixed_z[0]:.4f})', fontsize=14)
-    ax1.legend(ncol=2, fontsize=10)
-    ax1.grid(True, alpha=0.3)
+        colors = ["g", "orange", "r", "brown", "purple", "blue"]
+        markers = ["o", "s", "D", "^", "v", "P"]
+        threshold = 0.2
 
-    # Plot weighted emax
-    ax2.plot(all_times_sorted, weighted_emax, 'k-', linewidth=2)
-    ax2.fill_between(all_times_sorted, 0, weighted_emax, alpha=0.3)
-    ax2.axhline(y=threshold, color='r', linestyle='--', alpha=0.5,
-                label=f'Threshold = {threshold}')
-    ax2.set_xlabel('MJD', fontsize=12)
-    ax2.set_ylabel('Weighted Emax', fontsize=12)
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+        weighted_emax_np = np.array(weighted_emax)
 
-    # Match x-axis limits
-    ax1.set_xlim(ax2.get_xlim())
+        for i, band_name in enumerate(unique_bands):
+            mask = band_indices_np == i
+            if not np.any(mask):
+                continue
 
-    plt.tight_layout()
-    plt.savefig(f'{output_dir}/light_curve_anomaly.png', dpi=300, bbox_inches='tight')
-    plt.close()
+            band_times = times_np[mask]
+            band_fluxes = fluxes_np[mask]
+            band_errors = fluxerrs_np[mask]
+            band_emax = weighted_emax_np[mask]
 
-except Exception as e:
-    print(f"Warning: Could not create light curve plot - {str(e)}")
+            normal_mask = band_emax >= threshold
+            anomaly_mask = ~normal_mask
 
-# Print summary statistics
-print(f"\n{'='*60}")
-print("Parameter Statistics")
-print(f"{'='*60}")
-print(f"{'Parameter':<12} {'Standard':>20} {'Anomaly':>20}")
-print("-" * 60)
-for param in standard_params:
-    std_mean = standard_samples[param].mean()
-    std_std = standard_samples[param].std()
-    anom_mean = anomaly_samples[param].mean()
-    anom_std = anomaly_samples[param].std()
-    print(f"{param:<12} {std_mean:>10.4f} ± {std_std:<8.4f} {anom_mean:>10.4f} ± {anom_std:<8.4f}")
+            color = colors[i % len(colors)]
+            marker = markers[i % len(markers)]
 
-if 'log_p' in anomaly_samples.columns:
-    logp_mean = anomaly_samples['log_p'].mean()
-    logp_std = anomaly_samples['log_p'].std()
-    print(f"{'log_p':<12} {'N/A':>20} {logp_mean:>10.4f} ± {logp_std:<8.4f}")
+            if np.any(normal_mask):
+                ax1.errorbar(
+                    band_times[normal_mask],
+                    band_fluxes[normal_mask],
+                    yerr=band_errors[normal_mask],
+                    fmt=marker,
+                    color=color,
+                    label=f"{band_name}",
+                    markersize=6,
+                    alpha=0.6,
+                )
 
-print(f"\nResults saved to {output_dir}/")
-print("Generated plots:")
-print(f"  - corner_comparison.png")
-print(f"  - corner_anomaly_logp.png")
-print(f"  - light_curve_anomaly.png")
+            if np.any(anomaly_mask):
+                ax1.errorbar(
+                    band_times[anomaly_mask],
+                    band_fluxes[anomaly_mask],
+                    yerr=band_errors[anomaly_mask],
+                    fmt="*",
+                    color=color,
+                    markersize=12,
+                    alpha=0.8,
+                )
+
+            model_fluxes_grid = source.bandflux(
+                {"x0": median_params["x0"], "x1": median_params["x1"], "c": median_params["c"]},
+                band_name,
+                phases_grid,
+                zp=zps_np[mask][0] if np.any(mask) else zps_np[0],
+                zpsys="ab",
+            )
+            ax1.plot(t_grid, model_fluxes_grid, "-", color=color, linewidth=2, alpha=0.7)
+
+        ax1.set_ylabel("Flux", fontsize=12)
+        ax1.set_title(f"Light Curve with Anomaly Detection (z = {FIXED_Z:.5f})", fontsize=14)
+        ax1.legend(ncol=2, fontsize=10)
+        ax1.grid(True, alpha=0.3)
+
+        sorted_idx = np.argsort(times_np)
+        ax2.plot(times_np[sorted_idx], weighted_emax_np[sorted_idx], "k-", linewidth=2)
+        ax2.fill_between(
+            times_np[sorted_idx],
+            0,
+            weighted_emax_np[sorted_idx],
+            alpha=0.3,
+        )
+        ax2.axhline(y=threshold, color="r", linestyle="--", alpha=0.5, label=f"Threshold = {threshold}")
+        ax2.set_xlabel("MJD", fontsize=12)
+        ax2.set_ylabel("Weighted Emax", fontsize=12)
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        ax1.set_xlim(ax2.get_xlim())
+
+        plt.tight_layout()
+        plt.savefig(
+            os.path.join(OUTPUT_DIR, "light_curve_anomaly.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+    except Exception as exc:
+        print(f"Warning: Could not create light curve plot - {exc}")
+
+
+def print_summary_table(standard_samples, anomaly_samples):
+    """Display summary statistics for both fits."""
+    print("\n" + "=" * 60)
+    print("Parameter Statistics")
+    print("=" * 60)
+    print(f"{'Parameter':<12} {'Standard':>20} {'Anomaly':>20}")
+    print("-" * 60)
+    for param in STANDARD_PARAM_NAMES:
+        std_mean = standard_samples[param].mean()
+        std_std = standard_samples[param].std()
+        anom_mean = anomaly_samples[param].mean()
+        anom_std = anomaly_samples[param].std()
+        print(f"{param:<12} {std_mean:>10.4f} ± {std_std:<8.4f} {anom_mean:>10.4f} ± {anom_std:<8.4f}")
+
+    if "log_p" in anomaly_samples.columns:
+        logp_mean = anomaly_samples["log_p"].mean()
+        logp_std = anomaly_samples["log_p"].std()
+        print(f"{'log_p':<12} {'N/A':>20} {logp_mean:>10.4f} ± {logp_std:<8.4f}")
+
+
+def main():
+    print("Running anomaly detection example with fixed heliocentric redshift:")
+    print(f"  Supernova ID: {SUPERNOVA_ID}")
+    print(f"  z_hel = {FIXED_Z}")
+
+    standard_run, standard_samples = run_nested_sampling(
+        PRIOR_BOUNDS_STANDARD,
+        STANDARD_PARAM_NAMES,
+        loglikelihood_standard,
+        label="standard",
+        num_mcmc_steps=NUM_MCMC_STEPS_STANDARD,
+    )
+
+    anomaly_run, anomaly_samples = run_nested_sampling(
+        PRIOR_BOUNDS_ANOMALY,
+        ANOMALY_PARAM_NAMES,
+        loglikelihood_anomaly,
+        label="anomaly",
+        num_mcmc_steps=NUM_MCMC_STEPS_ANOMALY,
+    )
+
+    weighted_emax = compute_weighted_emax(anomaly_run)
+    emax_path = os.path.join(OUTPUT_DIR, "anomaly_weighted_emax.txt")
+    np.savetxt(emax_path, weighted_emax)
+    print(f"Saved weighted emax to {emax_path}")
+
+    create_corner_plots(standard_samples, anomaly_samples)
+    create_light_curve_plot(anomaly_samples, weighted_emax)
+    print_summary_table(standard_samples, anomaly_samples)
+
+    print(f"\nResults saved to {OUTPUT_DIR}/")
+    print("Generated plots:")
+    print("  - corner_comparison.png")
+    print("  - corner_anomaly_logp.png")
+    print("  - light_curve_anomaly.png")
+
+
+if __name__ == "__main__":
+    main()
