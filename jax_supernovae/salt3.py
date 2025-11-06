@@ -12,6 +12,7 @@ from functools import partial
 from jax import vmap
 import importlib.resources
 from jax_supernovae import dust
+from jax_supernovae.utils import bandflux_integration, apply_zeropoint
 
 # Enable float64 precision
 jax.config.update("jax_enable_x64", True)
@@ -503,10 +504,9 @@ def salt3_bandflux(phase, bandpass, params, zp=None, zpsys=None):
         # Apply extinction to rest-frame flux
         rest_flux = dust.apply_extinction(rest_flux, extinction[None, :])
     
-    # Integrate flux through bandpass using trapezoidal rule
-    # Multiply by wave and transmission before integration
-    integrand = wave[None, :] * trans[None, :] * rest_flux
-    result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
+    # Integrate flux through bandpass using shared integration function
+    # bandflux_integration expects flux with shape (..., N_wave)
+    result = bandflux_integration(wave, trans, rest_flux, dwave)
     
     # Apply zero point if provided
     if zp is not None:
@@ -733,8 +733,8 @@ def optimized_salt3_bandflux(phase, wave, dwave, trans, params,
         rest_flux = dust.apply_extinction(rest_flux, extinction[None, :])
 
     # Use trans_shifted (which handles transmission shifts) instead of trans
-    integrand = wave[None, :] * trans_shifted[None, :] * rest_flux
-    result = jnp.trapezoid(integrand, wave, axis=1) / HC_ERG_AA
+    # Integrate using shared integration function
+    result = bandflux_integration(wave, trans_shifted, rest_flux, dwave)
 
     # Apply zero point correction if required.
     if zp is not None:
