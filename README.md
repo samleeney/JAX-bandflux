@@ -36,11 +36,17 @@ pip install -e .
 JAX-bandflux requires:
 
 - Python >= 3.10
-- JAX >= 0.4.20 (with CUDA support for GPU acceleration)
+- JAX >= 0.4.20
 - NumPy >= 1.24.0
 - SNCosmo >= 2.9.0
 - BlackJAX (for nested sampling: requires Handley Lab fork, not yet merged with main branch)
 - Distrax (for probability distributions)
+
+> **Note:** JAX and JAXlib versions must match. The installation will automatically handle this. For GPU/CUDA support, install JAX with CUDA after installing jax-bandflux:
+> ```bash
+> pip install jax[cuda12]  # For CUDA 12
+> ```
+> See [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
 
 > **Note:** For nested sampling examples, you must install the Handley Lab fork of BlackJAX (not yet merged with main branch):
 > ```bash
@@ -53,10 +59,15 @@ JAX-bandflux requires:
 Run example analogous to [SNCosmo](https://sncosmo.readthedocs.io/en/stable/)'s "Using a custom fitter" example:
 
 ```bash
-pip install jax-bandflux
+# Install from GitHub (recommended - contains latest features)
+pip install git+https://github.com/samleeney/JAX-bandflux.git
+
+# Download and run example
 wget https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/examples/fmin_bfgs.py
 python fmin_bfgs.py
 ```
+
+> **Note:** The latest features (including `SALT3Source` and `TimeSeriesSource`) are available on GitHub but not yet published to PyPI. For CUDA/GPU support, see the installation section below.
 
 ## API Compatibility with SNCosmo
 

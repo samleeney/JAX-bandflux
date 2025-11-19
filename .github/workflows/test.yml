@@ -9,15 +9,15 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -29,7 +29,27 @@ jobs:
         pip install -r requirements.txt
         # Install documentation-specific dependencies
         pip install -r docs/requirements.txt
-    
+
     - name: Run tests
       run: |
-        pytest tests/ -v 
+        pytest tests/ -v
+
+  quickstart:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install from source (simulating GitHub install)
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+
+    - name: Run quickstart example
+      run: |
+        python examples/fmin_bfgs.py 
