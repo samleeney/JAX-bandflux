@@ -29,8 +29,8 @@ setup(
     python_requires=">=3.10",
     install_requires=[
         'numpy>=1.24.0',
-        'jax[cuda12]>=0.4.20',
-        'jaxlib>=0.4.20',
+        # JAX will automatically install matching jaxlib version
+        'jax>=0.4.20',
         'sncosmo>=2.9.0',
         'pytest>=7.0.0',
         'pyyaml>=6.0.0',
