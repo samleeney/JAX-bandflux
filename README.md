@@ -151,3 +151,8 @@ The `.airules` file provides essential context to help language models understan
 - Testing requirements
 
 If you are using Cursor, rename this file to `.cursorrules` to enable automatic context integration.
+
+## Contributing and support
+
+- See `CONTRIBUTING.md` for how to report bugs, propose features, and open PRs.
+- For questions/support, please open a GitHub issue with environment details (Python/JAX version), install path (PyPI/GitHub), and a minimal reproducer.
