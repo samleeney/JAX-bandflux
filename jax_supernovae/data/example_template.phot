@@ -1,0 +1,7 @@
+# Example photometry file for jax_supernovae.
+# Column order can include extra fields; required ones are:
+# mjd/time, band/bandpass, flux, fluxerr. Optional: zp (defaults to 27.5), zpsys.
+mjd bandpass flux fluxerr mag magerr  zp zpsys
+58600.1 g 250.0 40.0 17.9 0.17 23.9 ab
+58601.2 r 260.0 45.0 17.8 0.19 23.9 ab
+58602.3 o 180.0 30.0 18.3 0.18 23.9 ab
