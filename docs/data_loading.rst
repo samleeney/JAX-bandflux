@@ -35,7 +35,7 @@ Loading Real Data
    from jax_supernovae.data import load_and_process_data
 
    # Load data for a specific supernova
-   times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(
+   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data(
        sn_name='19dwz',  # Name of the supernova
        data_dir='data',  # Directory containing the data
        fix_z=True        # Whether to fix the redshift
@@ -54,6 +54,7 @@ The data used in jax_supernovae consists of the following components:
 - **fluxerrs**: Flux measurement errors
 - **zps**: Zero points for flux calibration
 - **band_indices**: Indices mapping observations to bandpasses
+- **unique_bands**: List of band names corresponding to band_indices/bridges
 - **bridges**: Precomputed data for efficient flux calculations
 - **fixed_z**: Tuple of (redshift, redshift_error) if fix_z=True
 

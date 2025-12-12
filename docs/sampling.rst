@@ -113,7 +113,7 @@ Here is a complete example that demonstrates the entire process of loading data,
     jax.config.update("jax_enable_x64", True)
 
     # Load data
-    times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(
+   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data(
         sn_name='19dwz',
         data_dir='data',
         fix_z=True
