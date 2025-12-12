@@ -1,13 +1,2 @@
-numpy>=1.24.0
-jax[cuda12]
-sncosmo>=2.9.0
-pytest>=7.0.0 
-pyyaml>=6.0.0
-matplotlib
-tqdm
-anesthetic
-# NOTE: For nested sampling, requires Handley Lab fork (not yet merged with main branch)
-# See: https://handley-lab.co.uk/nested-sampling-book/intro.html
-git+https://github.com/handley-lab/blackjax.git
-requests
-distrax
+# Development install uses the unified dependency definitions in pyproject.toml
+.[dev,nested]

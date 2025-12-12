@@ -11,48 +11,46 @@ JAX-bandflux presents an implementation of supernova light curve modelling using
 
 ## Installation
 
-### Install from PyPI
+### From PyPI (CPU by default)
 
 ```bash
 pip install jax-bandflux
 ```
 
-### Install from GitHub
+### GPU/CUDA wheels
+
+Install the matching CUDA JAX wheel, e.g. for CUDA 12:
 
 ```bash
-pip install git+https://github.com/samleeney/JAX-bandflux.git
+pip install "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install jax-bandflux
 ```
 
-### For development
+or with the extra marker:
+
+```bash
+pip install "jax-bandflux[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+```
+
+### Nested sampling extras
+
+Optional dependencies for the nested sampling examples:
+
+```bash
+pip install "jax-bandflux[nested]"
+```
+
+### Development install
 
 ```bash
 git clone https://github.com/samleeney/JAX-bandflux.git
 cd JAX-bandflux
-pip install -e .
+pip install -e ".[dev,nested,docs]"
 ```
 
-## Dependencies
-
-JAX-bandflux requires:
-
-- Python >= 3.10
-- JAX >= 0.4.20
-- NumPy >= 1.24.0
-- SNCosmo >= 2.9.0
-- BlackJAX (for nested sampling: requires Handley Lab fork, not yet merged with main branch)
-- Distrax (for probability distributions)
-
-> **Note:** JAX and JAXlib versions must match. The installation will automatically handle this. For GPU/CUDA support, install JAX with CUDA after installing jax-bandflux:
-> ```bash
-> pip install jax[cuda12]  # For CUDA 12
-> ```
-> See [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
-
-> **Note:** For nested sampling examples, you must install the Handley Lab fork of BlackJAX (not yet merged with main branch):
-> ```bash
-> pip install git+https://github.com/handley-lab/blackjax@proposal
-> ```
-> See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+> **Notes:**
+> - Python >= 3.10. Core deps include JAX >= 0.4.20, NumPy >= 1.24.0, Astropy, SNCosmo; SALT3/SALT3-NIR model files are bundled with the package (no GitHub install needed).
+> - GPU support requires installing the appropriate `jax[cuda*]` wheel from the JAX release index. See the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
 
 ## Quickstart
 
