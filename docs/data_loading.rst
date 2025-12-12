@@ -56,3 +56,57 @@ The data used in jax_supernovae consists of the following components:
 - **band_indices**: Indices mapping observations to bandpasses
 - **bridges**: Precomputed data for efficient flux calculations
 - **fixed_z**: Tuple of (redshift, redshift_error) if fix_z=True
+
+Preparing your own observations
+--------------------------------
+
+The loader expects a simple ASCII table per supernova. By default it looks for
+``data/<SN_NAME>/all.phot`` (or any ``.phot``/``.dat`` containing the object
+name). You can point to another root with ``data_dir=...``.
+
+**Required columns (case-insensitive aliases in parentheses):**
+
+- ``time`` (or ``mjd``): observation times in MJD
+- ``band`` (or ``bandpass``): filter name matching a registered band
+- ``flux``: calibrated flux in linear units consistent with ``zp``/``zpsys``
+- ``fluxerr``: 1-sigma uncertainty on ``flux``
+
+**Optional columns:**
+
+- ``zp``: zero point (defaults to 27.5 if missing)
+- ``zpsys``: zero-point system, typically ``ab`` (currently informational)
+- any extra columns (e.g., ``mag``, ``magerr``) are ignored by the loader
+
+**Band names recognised by default:** ``g, r, i, z, ztfg, ztfr, c, o, H`` plus
+``bessellb, bessellv, bessellr, besselli, bessellux`` (from sncosmo). Custom
+bandpasses can be registered via ``register_all_bandpasses(custom_bandpass_files=...)``.
+
+**Minimal file template:** ``jax_supernovae/data/example_template.phot`` shows
+the expected header and ordering. You can copy it next to your data and replace
+the rows with your measurements.
+
+**Converting magnitudes to flux:** if your data are in magnitudes, convert to
+flux using the same zero point and system you plan to store:
+
+.. code-block:: python
+
+   import numpy as np
+
+   zp = 23.9  # use the same value you write into the file
+   flux = 10 ** (-0.4 * (mag - zp))
+   fluxerr = flux * np.log(10) * 0.4 * magerr
+
+Redshifts
+---------
+
+If you set ``fix_z=True``, the loader looks in ``redshifts.dat`` (packaged in
+``jax_supernovae/data`` by default). To provide your own value, add a line with:
+
+``SN instrument z_hel plus minus flag``
+
+for example:
+
+``19dwz SNIFS 0.04608 5.2e-06 7.8e-07 s``
+
+You can also pass a custom ``redshift_file`` to ``load_redshift`` if you keep
+redshifts elsewhere.

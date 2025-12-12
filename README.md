@@ -69,6 +69,10 @@ python fmin_bfgs.py
 
 > **Note:** The latest features (including `SALT3Source` and `TimeSeriesSource`) are available on GitHub but not yet published to PyPI. For CUDA/GPU support, see the installation section below.
 
+## Data format
+
+Real light-curve data are simple ASCII tables per supernova (e.g., `data/<SN>/all.phot`) with required columns `time`/`mjd`, `band`/`bandpass`, `flux`, and `fluxerr`; `zp` defaults to 27.5 if omitted. A minimal template lives at `jax_supernovae/data/example_template.phot`. See the [data loading guide](docs/data_loading.rst) for column details, accepted band names, and mag→flux conversion tips.
+
 ## API Compatibility with SNCosmo
 
 JAX-bandflux provides an API similar to SNCosmo's SALT3Source, with key differences for JAX compatibility:
