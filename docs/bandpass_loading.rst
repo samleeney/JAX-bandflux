@@ -22,6 +22,9 @@ Creating a Synthetic Bandpass
    synthetic_bandpass = Bandpass(wave=wave, trans=trans, name='synthetic_g')
    register_bandpass('synthetic_g', synthetic_bandpass)
 
+   # The optional ``name`` is stored on the bandpass for convenience when you
+   # inspect or serialize it later.
+
 Loading a Bandpass from SVO
 ------------------------
 .. code-block:: python
