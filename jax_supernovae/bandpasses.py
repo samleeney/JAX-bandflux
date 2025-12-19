@@ -14,10 +14,11 @@ PACKAGE_DIR = os.path.dirname(__file__)
 class Bandpass:
     """Bandpass filter class."""
     
-    def __init__(self, wave, trans, integration_spacing=MODEL_BANDFLUX_SPACING):
+    def __init__(self, wave, trans, integration_spacing=MODEL_BANDFLUX_SPACING, name=None):
         """Initialize bandpass with wavelength and transmission arrays."""
         self._wave = jnp.asarray(wave)
         self._trans = jnp.asarray(trans)
+        self._name = name
         self._minwave = float(jnp.min(wave))
         self._maxwave = float(jnp.max(wave))
         
@@ -49,6 +50,11 @@ class Bandpass:
         effective_wave = wave - shift
             
         return interp(effective_wave, self._wave, self._trans)
+
+    @property
+    def name(self):
+        """Optional human-readable bandpass name."""
+        return self._name
     
     def minwave(self):
         """Get minimum wavelength."""
@@ -149,7 +155,8 @@ def load_bandpass(band):
         # Create bandpass object
         return Bandpass(
             wave=jnp.array(data[:, 0]),
-            trans=jnp.array(data[:, 1])
+            trans=jnp.array(data[:, 1]),
+            name=band
         )
     except FileNotFoundError:
         raise FileNotFoundError(f"Bandpass file for '{band}' not found at {fname}")
@@ -186,7 +193,8 @@ def load_bandpass_from_file(filepath, skiprows=0, name=None):
         # Create bandpass object
         bandpass = Bandpass(
             wave=jnp.array(data[:, 0]),
-            trans=jnp.array(data[:, 1])
+            trans=jnp.array(data[:, 1]),
+            name=name
         )
         
         return name, bandpass
@@ -227,7 +235,7 @@ def create_bandpass_from_svo(filter_id, output_dir='filter_data', force_download
             print(f"Loading filter {filter_id} from local file {local_filename}")
             data = np.loadtxt(local_filename)
             wave, trans = data[:, 0], data[:, 1]
-            return Bandpass(wave=jnp.array(wave), trans=jnp.array(trans))
+            return Bandpass(wave=jnp.array(wave), trans=jnp.array(trans), name=filter_id)
         except Exception as e:
             raise FileNotFoundError(f"Failed to load filter profile from {local_filename}: {e}")
     else:
@@ -391,7 +399,7 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
         try:
             data = np.loadtxt(info['file'], skiprows=info['skiprows'])
             wave, trans = data[:, 0], data[:, 1]
-            jax_bandpass = Bandpass(wave, trans)
+            jax_bandpass = Bandpass(wave, trans, name=info['name'])
             register_bandpass(info['name'], jax_bandpass, force=True)
             bandpass_dict[info['name']] = jax_bandpass
             bridges_dict[info['name']] = precompute_bandflux_bridge(jax_bandpass)
@@ -404,7 +412,7 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
         for band_name in sncosmo_bands:
             try:
                 snc_bandpass = sncosmo.get_bandpass(band_name)
-                jax_bandpass = Bandpass(snc_bandpass.wave, snc_bandpass.trans)
+                jax_bandpass = Bandpass(snc_bandpass.wave, snc_bandpass.trans, name=band_name)
                 register_bandpass(band_name, jax_bandpass, force=True)
                 bandpass_dict[band_name] = jax_bandpass
                 bridges_dict[band_name] = precompute_bandflux_bridge(jax_bandpass)
