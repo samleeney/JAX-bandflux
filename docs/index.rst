@@ -93,6 +93,7 @@ Support and Contributing
    model_fluxes
    dust
    sampling
+   api
 
 Quick Links
 ----------
