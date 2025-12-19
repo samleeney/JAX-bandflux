@@ -264,7 +264,17 @@ class SALT3Source:
         else:
             shifts_array = jnp.array(shifts_per_band)
 
-        compiled_fn = self._get_compiled_bandflux(band_key, bridges_to_use, zpsys, apply_zp)
+        # Canonicalize zpsys for caching/static use
+        zpsys_key = zpsys
+        if isinstance(zpsys, (list, tuple, np.ndarray)):
+            if len(zpsys) == 0:
+                zpsys_key = None
+            elif all(z == zpsys[0] for z in zpsys):
+                zpsys_key = zpsys[0]
+            else:
+                raise ValueError("Array-valued zpsys with mixed entries is not supported")
+
+        compiled_fn = self._get_compiled_bandflux(band_key, bridges_to_use, zpsys_key, apply_zp)
         gathered_flux = compiled_fn(phases_eval, band_indices_eval, full_params, zps_arr, shifts_array)
 
         if scalar_input:
