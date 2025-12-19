@@ -120,6 +120,8 @@ def likelihood(params):
 
 **What are bridges?** Precomputed wavelength grids with interpolated filter transmission values. Instead of interpolating the filter for every likelihood evaluation, you compute it once and reuse it. For nested sampling with 10,000+ evaluations, this provides a massive speedup.
 
+> **Batched parameter evaluations:** When JAX-bandflux is used inside GPU-based samplers and parameters are evaluated in batches, the fused bandflux kernels deliver roughly two orders of magnitude speedup per parameter set compared to SNCosmo while matching fluxes to 0.001% (see Leeney et al. 2025).
+
 See the [documentation](https://jax-bandflux.readthedocs.io/) for details.
 
 ## Testing

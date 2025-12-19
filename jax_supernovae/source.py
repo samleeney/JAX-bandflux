@@ -271,6 +271,53 @@ class SALT3Source:
             return gathered_flux[0]
         return gathered_flux
 
+    def bandflux_batch(self, params, bands, phases, zp=None, zpsys=None,
+                       band_indices=None, bridges=None, unique_bands=None, shifts=None):
+        """Batched bandflux evaluation over multiple parameter sets.
+
+        All core params (x0, x1, c) and optional z, t0 must be 1D arrays of the same length.
+        """
+        required = ['x0', 'x1', 'c']
+        for k in required:
+            if k not in params:
+                raise ValueError(f"params must contain '{k}' for batched evaluation")
+
+        def _as_1d(name, default):
+            val = params.get(name, default)
+            arr = jnp.atleast_1d(jnp.asarray(val))
+            if arr.ndim != 1:
+                raise ValueError(f"Parameter '{name}' must be 1D for batched evaluation")
+            return arr
+
+        x0_arr = _as_1d('x0', None)
+        x1_arr = _as_1d('x1', None)
+        c_arr = _as_1d('c', None)
+        z_arr = _as_1d('z', 0.0)
+        t0_arr = _as_1d('t0', 0.0)
+
+        batch_size = x0_arr.shape[0]
+        for name, arr in [('x1', x1_arr), ('c', c_arr), ('z', z_arr), ('t0', t0_arr)]:
+            if arr.shape[0] != batch_size:
+                raise ValueError(f"Parameter '{name}' batch size {arr.shape[0]} != {batch_size}")
+
+        def single(param_vec):
+            p = {
+                'x0': param_vec[0],
+                'x1': param_vec[1],
+                'c': param_vec[2],
+                'z': param_vec[3],
+                't0': param_vec[4],
+            }
+            return self.bandflux(
+                p, bands, phases, zp=zp, zpsys=zpsys,
+                band_indices=band_indices, bridges=bridges,
+                unique_bands=unique_bands, shifts=shifts
+            )
+
+        batched_fn = jax.vmap(single)
+        params_stack = jnp.stack([x0_arr, x1_arr, c_arr, z_arr, t0_arr], axis=1)
+        return batched_fn(params_stack)
+
     def bandmag(self, params, bands, magsys, phases, band_indices=None,
                 bridges=None, unique_bands=None):
         """Calculate magnitude using v3.0 functional API.
