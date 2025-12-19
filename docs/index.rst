@@ -87,6 +87,7 @@ The following diagram shows the relationships between key components:
    model_fluxes
    dust
    sampling
+   api
 
 Quick Links
 ----------
