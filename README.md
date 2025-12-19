@@ -130,6 +130,11 @@ This repository implements the JAX version of the [SNCosmo](https://sncosmo.read
 pytest tests/ -v
 ```
 
+## Contributing & Support
+
+- See `CONTRIBUTING.md` for how to report issues and submit PRs.
+- For help, open a GitHub issue with a minimal example and your environment (Python/JAX/JAXlib, CPU vs GPU, CUDA version).
+
 ## Academic Use
 
 If you use JAX-bandflux in your research, please cite:
