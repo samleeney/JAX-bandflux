@@ -9,6 +9,7 @@ Both use functional API where parameters are passed as dictionaries to methods
 rather than stored in the source object.
 """
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax_supernovae.salt3 import optimized_salt3_multiband_flux, precompute_bandflux_bridge
@@ -68,6 +69,8 @@ class SALT3Source:
         register_all_bandpasses()
         # Cache of precomputed bridges keyed by band name to avoid slow rebuilding
         self._bridge_cache = {}
+        # Cache of compiled bandflux functions keyed by band set and zeropoint usage
+        self._compiled_cache = {}
 
     @property
     def param_names(self):
@@ -111,6 +114,32 @@ class SALT3Source:
                 self._bridge_cache[band] = precompute_bandflux_bridge(get_bandpass(band))
             bridges.append(self._bridge_cache[band])
         return tuple(bridges)
+
+    def _get_compiled_bandflux(self, band_key, bridges, zpsys, apply_zp):
+        """Return a jitted bandflux function for a fixed band set."""
+        cache_key = (band_key, zpsys, apply_zp)
+        if cache_key in self._compiled_cache:
+            return self._compiled_cache[cache_key]
+
+        if zpsys not in (None, 'ab'):
+            raise ValueError(f"Unsupported magnitude system: {zpsys}")
+
+        band_zp_denoms = jnp.array([bridge['zpbandflux_ab'] for bridge in bridges])
+
+        def _fn(phases, band_indices, params, zps, shifts):
+            flux_matrix = optimized_salt3_multiband_flux(
+                phases, bridges, params, zps=None, zpsys=zpsys, shifts=shifts
+            )
+            gathered = flux_matrix[jnp.arange(len(phases)), band_indices]
+
+            if apply_zp:
+                zp_norms = 10 ** (0.4 * zps)
+                gathered = gathered * (zp_norms / band_zp_denoms[band_indices])
+            return gathered
+
+        compiled = jax.jit(_fn)
+        self._compiled_cache[cache_key] = compiled
+        return compiled
 
     def bandflux(self, params, bands, phases, zp=None, zpsys=None,
                  band_indices=None, bridges=None, unique_bands=None, shifts=None):
@@ -225,21 +254,18 @@ class SALT3Source:
             else:
                 raise ValueError(f"shifts length ({len(shifts_arr)}) must match unique bands ({len(bridges_to_use)})")
 
-        # Compute all band fluxes in one optimized call
-        flux_matrix = optimized_salt3_multiband_flux(
-            phases_eval, bridges_to_use, full_params, zps=None, zpsys=zpsys, shifts=shifts_per_band
-        )
+        band_key = tuple(unique_bands_list)
+        apply_zp = zps_arr is not None
+        if zps_arr is None:
+            zps_arr = jnp.zeros(len(phases_eval))
 
-        # Gather requested bands
-        gathered_flux = flux_matrix[jnp.arange(len(phases_eval)), band_indices_eval]
+        if shifts_per_band is None:
+            shifts_array = jnp.zeros(len(bridges_to_use))
+        else:
+            shifts_array = jnp.array(shifts_per_band)
 
-        # Apply zeropoint scaling per observation if provided
-        if zps_arr is not None:
-            if zpsys != 'ab':
-                raise ValueError(f"Unsupported magnitude system: {zpsys}")
-            band_zp_denoms = jnp.array([bridge['zpbandflux_ab'] for bridge in bridges_to_use])
-            zp_norms = 10 ** (0.4 * zps_arr)
-            gathered_flux = gathered_flux * (zp_norms / band_zp_denoms[band_indices_eval])
+        compiled_fn = self._get_compiled_bandflux(band_key, bridges_to_use, zpsys, apply_zp)
+        gathered_flux = compiled_fn(phases_eval, band_indices_eval, full_params, zps_arr, shifts_array)
 
         if scalar_input:
             return gathered_flux[0]
