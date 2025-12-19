@@ -11,11 +11,24 @@ JAX-bandflux presents an implementation of supernova light curve modelling using
 
 ## Installation
 
-### Install from PyPI
+### Install from PyPI (CPU)
 
 ```bash
 pip install jax-bandflux
+# then install CPU JAX
+pip install --upgrade \"jax[cpu]\"
 ```
+
+### Install with CUDA
+
+Follow the JAX CUDA wheels for your driver/toolkit. For CUDA 12:
+
+```bash
+pip install jax-bandflux
+pip install --upgrade \"jax[cuda12]\" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+```
+
+For other CUDA versions, see the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) and pick the matching wheel; we do not force a CUDA dependency in `install_requires`.
 
 ### Install from GitHub
 

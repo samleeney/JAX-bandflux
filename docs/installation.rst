@@ -3,28 +3,38 @@ Installation
 
 This section provides essential instructions for installing JAX-bandflux.
 
-Prerequisites
+CPU vs CUDA wheels
+------------------
+
+JAX-bandflux does **not** force a CUDA dependency. Choose the JAX wheel that matches your hardware:
+
+* **CPU**:
+
+  .. code-block:: bash
+
+     pip install jax-bandflux
+     pip install --upgrade "jax[cpu]"
+
+* **CUDA** (example for CUDA 12):
+
+  .. code-block:: bash
+
+     pip install jax-bandflux
+     pip install --upgrade "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+  For other CUDA versions, see the `JAX installation guide <https://jax.readthedocs.io/en/latest/installation.html>`_ and pick the matching wheel for your driver/toolkit.
+
+Dependencies
 ------------
 
-JAX-bandflux requires:
-
-* Python 3.8+
+* Python 3.10+
 * JAX 0.4.20+
 * NumPy 1.24.0+
 * SNCosmo 2.9.0+
 * Astropy 5.0.0+
 
-Basic Installation
------------------
-
-Install JAX-bandflux using pip:
-
-.. code-block:: bash
-
-   pip install jax-bandflux
-
 Verification
------------
+------------
 
 To verify that JAX-bandflux is installed correctly:
 
