@@ -11,6 +11,8 @@ import numpy as np
 import jax.numpy as jnp
 import sncosmo
 from jax_supernovae import SALT3Source
+from jax_supernovae.bandpasses import get_bandpass
+from jax_supernovae.salt3 import precompute_bandflux_bridge
 
 
 def test_single_bandflux_performance():
@@ -38,11 +40,17 @@ def test_single_bandflux_performance():
     phase = 0.0
     zp = 27.5
     zpsys = 'ab'
+    unique_bands = [band]
+    bridges = (precompute_bandflux_bridge(get_bandpass(band)),)
+    band_indices = [0]
 
     # Warmup: Run JAX implementation multiple times to trigger JIT compilation
     print("\nWarming up JAX implementation (1000 calls)...")
     for _ in range(1000):
-        _ = jax_source.bandflux(params, band, phase, zp=zp, zpsys=zpsys)
+        _ = jax_source.bandflux(
+            params, band, phase, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
 
     # Benchmark sncosmo (500 evaluations)
     print("Benchmarking sncosmo...")
@@ -59,7 +67,10 @@ def test_single_bandflux_performance():
     start_time = time.time()
     jax_fluxes = []
     for _ in range(n_calls):
-        flux = jax_source.bandflux(params, band, phase, zp=zp, zpsys=zpsys)
+        flux = jax_source.bandflux(
+            params, band, phase, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
         jax_fluxes.append(flux)
     jax_time = time.time() - start_time
 
@@ -105,6 +116,10 @@ def test_multiband_performance():
     np.random.seed(42)
     n_obs = 100
     bands = np.random.choice(['bessellb', 'bessellv', 'bessellr', 'besselli', 'bessellux'], n_obs)
+    unique_bands = list(sorted(set(bands)))
+    band_to_idx = {b: i for i, b in enumerate(unique_bands)}
+    band_indices = np.array([band_to_idx[b] for b in bands])
+    bridges = tuple(precompute_bandflux_bridge(get_bandpass(b)) for b in unique_bands)
     phases = np.random.uniform(-10, 40, n_obs)
     zp = 27.5
     zpsys = 'ab'
@@ -112,7 +127,10 @@ def test_multiband_performance():
     # Warmup JAX (v3.0 functional API)
     print("\nWarming up JAX for multi-band calculations...")
     for _ in range(100):
-        _ = jax_source.bandflux(params, bands, phases, zp=zp, zpsys=zpsys)
+        _ = jax_source.bandflux(
+            params, bands, phases, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
 
     # Benchmark sncosmo
     print("Benchmarking sncosmo (multi-band)...")
@@ -126,7 +144,10 @@ def test_multiband_performance():
     print("Benchmarking JAX (multi-band)...")
     start_time = time.time()
     for _ in range(n_iterations):
-        jax_fluxes = jax_source.bandflux(params, bands, phases, zp=zp, zpsys=zpsys)
+        jax_fluxes = jax_source.bandflux(
+            params, bands, phases, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
     jax_time = time.time() - start_time
 
     # Print results
@@ -168,6 +189,9 @@ def test_parameter_variation_performance():
     zp = 27.5
     zpsys = 'ab'
     n_iterations = 200
+    unique_bands = [band]
+    bridges = (precompute_bandflux_bridge(get_bandpass(band)),)
+    band_indices = [0]
 
     # Generate random parameter values
     np.random.seed(42)
@@ -181,7 +205,10 @@ def test_parameter_variation_performance():
         params = {'x0': x0_vals[i % len(x0_vals)],
                   'x1': x1_vals[i % len(x1_vals)],
                   'c': c_vals[i % len(c_vals)]}
-        _ = jax_source.bandflux(params, band, phase, zp=zp, zpsys=zpsys)
+        _ = jax_source.bandflux(
+            params, band, phase, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
 
     # Benchmark sncosmo
     print("Benchmarking sncosmo (varying parameters)...")
@@ -199,7 +226,10 @@ def test_parameter_variation_performance():
     jax_fluxes = []
     for i in range(n_iterations):
         params = {'x0': x0_vals[i], 'x1': x1_vals[i], 'c': c_vals[i]}
-        flux = jax_source.bandflux(params, band, phase, zp=zp, zpsys=zpsys)
+        flux = jax_source.bandflux(
+            params, band, phase, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
         jax_fluxes.append(flux)
     jax_time = time.time() - start_time
 
@@ -247,11 +277,17 @@ def test_array_phase_performance():
     zp = 27.5
     zpsys = 'ab'
     n_iterations = 200
+    unique_bands = [band]
+    bridges = (precompute_bandflux_bridge(get_bandpass(band)),)
+    band_indices = [0]
 
     # Warmup JAX (v3.0 functional API)
     print("\nWarming up JAX for array phase calculations...")
     for _ in range(100):
-        _ = jax_source.bandflux(params, band, phases, zp=zp, zpsys=zpsys)
+        _ = jax_source.bandflux(
+            params, band, phases, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
 
     # Benchmark sncosmo
     print("Benchmarking sncosmo (array of phases)...")
@@ -264,7 +300,10 @@ def test_array_phase_performance():
     print("Benchmarking JAX (array of phases)...")
     start_time = time.time()
     for _ in range(n_iterations):
-        jax_fluxes = jax_source.bandflux(params, band, phases, zp=zp, zpsys=zpsys)
+        jax_fluxes = jax_source.bandflux(
+            params, band, phases, zp=zp, zpsys=zpsys,
+            band_indices=band_indices, bridges=bridges, unique_bands=unique_bands
+        )
     jax_time = time.time() - start_time
 
     # Print results

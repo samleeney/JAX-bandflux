@@ -11,7 +11,7 @@ rather than stored in the source object.
 
 import jax.numpy as jnp
 import numpy as np
-from jax_supernovae.salt3 import optimized_salt3_multiband_flux, optimized_salt3_bandflux, precompute_bandflux_bridge
+from jax_supernovae.salt3 import optimized_salt3_multiband_flux, precompute_bandflux_bridge
 from jax_supernovae.bandpasses import register_all_bandpasses, get_bandpass
 from jax_supernovae.timeseries import (
     timeseries_bandflux,
@@ -66,6 +66,8 @@ class SALT3Source:
 
         # Register all bandpasses to ensure they're available
         register_all_bandpasses()
+        # Cache of precomputed bridges keyed by band name to avoid slow rebuilding
+        self._bridge_cache = {}
 
     @property
     def param_names(self):
@@ -101,9 +103,18 @@ class SALT3Source:
         """Official string representation."""
         return f"SALT3Source(name='{self.name}')"
 
+    def _get_bridges(self, unique_bands):
+        """Return cached bridges for the given bands, computing missing ones."""
+        bridges = []
+        for band in unique_bands:
+            if band not in self._bridge_cache:
+                self._bridge_cache[band] = precompute_bandflux_bridge(get_bandpass(band))
+            bridges.append(self._bridge_cache[band])
+        return tuple(bridges)
+
     def bandflux(self, params, bands, phases, zp=None, zpsys=None,
                  band_indices=None, bridges=None, unique_bands=None, shifts=None):
-        """Calculate bandflux using v3.0 functional API.
+        """Calculate bandflux using the optimized multiband path only.
 
         Parameters
         ----------
@@ -117,50 +128,34 @@ class SALT3Source:
             - 't0': float - Time of peak brightness (default: 0.0)
         bands : str or array-like
             Bandpass name(s). Can be a string for a single band or array of band names.
+            If `band_indices`/`unique_bands` are provided, `bands` can be None.
         phases : float or array
             Rest-frame phase(s) relative to t0.
         zp : float or array, optional
-            Zero point(s) for flux scaling
+            Zero point(s) for flux scaling (per observation).
         zpsys : str, optional
-            Zero point system ('ab' or 'vega')
+            Zero point system ('ab' currently supported).
         band_indices : array, optional
-            For performance: indices into unique_bands/bridges arrays.
-            If provided, must also provide bridges and unique_bands.
+            Indices into unique_bands/bridges arrays (for high-performance path).
         bridges : tuple, optional
-            For performance: precomputed bridge data structures.
+            Precomputed bridge data structures keyed to unique_bands.
         unique_bands : list, optional
-            For performance: list of unique band names corresponding to bridges.
+            List of unique band names corresponding to bridges.
         shifts : array or list, optional
-            Wavelength shifts in Angstroms for each unique band. Used to model
-            transmission uncertainties or systematic wavelength calibration errors.
+            Wavelength shifts in Angstroms for each unique band.
 
         Returns
         -------
         flux : array
-            Bandflux value(s) with shape matching the input
-
-        Examples
-        --------
-        Single band and phase:
-        >>> source = SALT3Source()
-        >>> params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
-        >>> flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
-
-        High-performance mode with precomputed bridges:
-        >>> flux = source.bandflux(params, bands, phases, zp=zps, zpsys='ab',
-        ...                        band_indices=band_indices, bridges=bridges,
-        ...                        unique_bands=unique_bands)
+            Bandflux value(s) with shape matching the requested bands/phases
         """
-        # Ensure params has required keys
         if 'x0' not in params or 'x1' not in params or 'c' not in params:
             raise ValueError("params must contain 'x0', 'x1', and 'c'")
 
-        # Check if input is scalar BEFORE any conversions
         scalar_phase_input = np.isscalar(phases)
         scalar_band_input = isinstance(bands, str)
-        scalar_input = scalar_phase_input and scalar_band_input
+        scalar_input = scalar_phase_input and (scalar_band_input or bands is None)
 
-        # Create full parameter dict with defaults
         full_params = {
             'z': params.get('z', 0.0),
             't0': params.get('t0', 0.0),
@@ -169,125 +164,86 @@ class SALT3Source:
             'c': params['c']
         }
 
-        # Convert phases to JAX array
-        phases = jnp.atleast_1d(jnp.array(phases))
-
-        # Handle zp
-        if zp is not None:
-            zps = jnp.atleast_1d(jnp.array(zp))
-        else:
-            zps = None
-
-        # High-performance path: use precomputed bridges
-        if bridges is not None and band_indices is not None and unique_bands is not None:
-            # This is the optimized path for nested sampling
-            # band_indices and bridges are already set up correctly
-            band_indices_arr = jnp.array(band_indices)
-
-            # Ensure zps has the right length
-            if zps is not None:
-                if len(zps) == 1:
-                    zps = jnp.full(len(phases), zps[0])
-                elif len(zps) != len(phases):
-                    raise ValueError(f"zp length ({len(zps)}) must match phases length ({len(phases)})")
-            else:
-                zps = jnp.zeros(len(phases))
-
-            # Calculate model fluxes using optimized function
-            model_fluxes = optimized_salt3_multiband_flux(
-                phases, bridges, full_params, zps=zps, zpsys=zpsys, shifts=shifts
-            )
-
-            # Index by band to get final fluxes
-            model_fluxes = model_fluxes[jnp.arange(len(phases)), band_indices_arr]
-
-            # Return scalar if input was scalar (keep as JAX array for JIT compatibility)
-            if scalar_input:
-                return model_fluxes[0]
-            return model_fluxes
-
-        # Standard path: create bridges on the fly
-        # This is simpler but slower - fine for one-off calculations
-        # but inefficient for nested sampling (use bridges parameter instead)
-
-        # Convert bands and phases to arrays
-        if isinstance(bands, str):
-            bands_arr = [bands]
-        else:
-            bands_arr = list(bands) if not isinstance(bands, list) else bands
-
         phases_arr = jnp.atleast_1d(jnp.array(phases))
 
-        # Handle zp
-        if zps is not None:
-            if len(zps) == 1:
-                zps_arr = jnp.full(len(phases_arr), zps[0])
-            elif len(zps) != len(phases_arr):
-                raise ValueError(f"zp length ({len(zps)}) must match phases length ({len(phases_arr)})")
-            else:
-                zps_arr = zps
+        # Resolve band metadata
+        if band_indices is not None and unique_bands is not None:
+            unique_bands_list = list(unique_bands)
+            band_indices_arr = jnp.array(band_indices)
         else:
-            zps_arr = None
+            if bands is None:
+                raise ValueError("bands must be provided when band_indices are not supplied")
+            bands_arr = np.atleast_1d(np.array(bands))
+            unique_bands_list = []
+            band_index_list = []
+            for band in bands_arr:
+                if band not in unique_bands_list:
+                    unique_bands_list.append(band)
+                band_index_list.append(unique_bands_list.index(band))
+            band_indices_arr = jnp.array(band_index_list)
 
-        # Handle zpsys (can be scalar string or array of strings)
-        if isinstance(zpsys, (list, tuple, np.ndarray)):
-            zpsys_arr = list(zpsys)
-        else:
-            zpsys_arr = None  # Will use zpsys directly as scalar
+        # Bridges: use provided or cached/computed
+        bridges_to_use = tuple(bridges) if bridges is not None else self._get_bridges(unique_bands_list)
 
-        # If phases and bands have same length, calculate one flux per (phase, band) pair
-        if len(bands_arr) == len(phases_arr):
-            fluxes = []
-            for i, (band, phase) in enumerate(zip(bands_arr, phases_arr)):
-                bandpass = get_bandpass(band)
-                bridge = precompute_bandflux_bridge(bandpass)
-                curr_zp = zps_arr[i] if zps_arr is not None else None
-                curr_zpsys = zpsys_arr[i] if zpsys_arr is not None else zpsys
-                flux = optimized_salt3_bandflux(
-                    phase, bridge['wave'], bridge['dwave'], bridge['trans'],
-                    full_params, zp=curr_zp, zpsys=curr_zpsys
-                )
-                fluxes.append(flux)
-            result = jnp.stack(fluxes)
-            return result[0] if scalar_input else result
-
-        # If single band, multiple phases
-        elif len(bands_arr) == 1:
-            bandpass = get_bandpass(bands_arr[0])
-            bridge = precompute_bandflux_bridge(bandpass)
-            fluxes = []
-            for i, phase in enumerate(phases_arr):
-                curr_zp = zps_arr[i] if zps_arr is not None else None
-                curr_zpsys = zpsys_arr[i] if zpsys_arr is not None else zpsys
-                flux = optimized_salt3_bandflux(
-                    phase, bridge['wave'], bridge['dwave'], bridge['trans'],
-                    full_params, zp=curr_zp, zpsys=curr_zpsys
-                )
-                fluxes.append(flux)
-            result = jnp.stack(fluxes)
-            return result[0] if scalar_input else result
-
-        # If single phase, multiple bands
-        elif len(phases_arr) == 1:
-            phase = phases_arr[0]
-            fluxes = []
-            for i, band in enumerate(bands_arr):
-                bandpass = get_bandpass(band)
-                bridge = precompute_bandflux_bridge(bandpass)
-                curr_zp = zps_arr[i] if zps_arr is not None else None
-                curr_zpsys = zpsys_arr[i] if zpsys_arr is not None else zpsys
-                flux = optimized_salt3_bandflux(
-                    phase, bridge['wave'], bridge['dwave'], bridge['trans'],
-                    full_params, zp=curr_zp, zpsys=curr_zpsys
-                )
-                fluxes.append(flux)
-            return jnp.stack(fluxes)
-
+        # Align phases and band indices
+        phase_len = len(phases_arr)
+        band_len = len(band_indices_arr)
+        if phase_len == band_len:
+            phases_eval = phases_arr
+            band_indices_eval = band_indices_arr
+        elif phase_len == 1:
+            phases_eval = jnp.full(band_len, phases_arr[0])
+            band_indices_eval = band_indices_arr
+        elif band_len == 1:
+            phases_eval = phases_arr
+            band_indices_eval = jnp.full(phase_len, int(band_indices_arr[0]))
         else:
             raise ValueError(
-                f"Incompatible shapes: bands ({len(bands_arr)}) and phases ({len(phases_arr)}). "
+                f"Incompatible shapes: bands ({band_len}) and phases ({phase_len}). "
                 "Either must be same length, or one must be length 1."
             )
+
+        # Handle zeropoints per observation
+        if zp is not None and zpsys is None:
+            raise ValueError("zpsys must be provided when zp is specified")
+        zps_arr = None
+        if zp is not None:
+            zps_arr = jnp.atleast_1d(jnp.array(zp))
+            if len(zps_arr) == 1:
+                zps_arr = jnp.full(len(phases_eval), zps_arr[0])
+            elif len(zps_arr) != len(phases_eval):
+                raise ValueError(f"zp length ({len(zps_arr)}) must match phases length ({len(phases_eval)})")
+
+        # Handle wavelength shifts per unique band
+        shifts_per_band = None
+        if shifts is not None:
+            shifts_arr = np.atleast_1d(np.array(shifts))
+            if len(shifts_arr) == 1:
+                shifts_per_band = [float(shifts_arr[0])] * len(bridges_to_use)
+            elif len(shifts_arr) == len(bridges_to_use):
+                shifts_per_band = [float(s) for s in shifts_arr]
+            else:
+                raise ValueError(f"shifts length ({len(shifts_arr)}) must match unique bands ({len(bridges_to_use)})")
+
+        # Compute all band fluxes in one optimized call
+        flux_matrix = optimized_salt3_multiband_flux(
+            phases_eval, bridges_to_use, full_params, zps=None, zpsys=zpsys, shifts=shifts_per_band
+        )
+
+        # Gather requested bands
+        gathered_flux = flux_matrix[jnp.arange(len(phases_eval)), band_indices_eval]
+
+        # Apply zeropoint scaling per observation if provided
+        if zps_arr is not None:
+            if zpsys != 'ab':
+                raise ValueError(f"Unsupported magnitude system: {zpsys}")
+            band_zp_denoms = jnp.array([bridge['zpbandflux_ab'] for bridge in bridges_to_use])
+            zp_norms = 10 ** (0.4 * zps_arr)
+            gathered_flux = gathered_flux * (zp_norms / band_zp_denoms[band_indices_eval])
+
+        if scalar_input:
+            return gathered_flux[0]
+        return gathered_flux
 
     def bandmag(self, params, bands, magsys, phases, band_indices=None,
                 bridges=None, unique_bands=None):
