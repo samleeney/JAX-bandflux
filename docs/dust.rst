@@ -23,7 +23,7 @@ To apply dust extinction to SALT3 model calculations, add dust parameters to you
    import jax_supernovae as js
 
    # Load data for a supernova
-   times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = js.data.load_and_process_data('19dwz')
+   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = js.data.load_and_process_data('19dwz')
 
    # Define SALT3 parameters with dust extinction
    params = {
