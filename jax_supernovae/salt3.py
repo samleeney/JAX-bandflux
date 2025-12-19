@@ -5,7 +5,6 @@ import jax.lax as lax
 import numpy as np
 import sncosmo
 import os
-import pytest
 import math
 from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from functools import partial
