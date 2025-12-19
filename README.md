@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/jax-bandflux.svg)](https://badge.fury.io/py/jax-bandflux)
 [![Tests](https://github.com/samleeney/JAX-bandflux/workflows/Tests/badge.svg)](https://github.com/samleeney/JAX-bandflux/actions)
+[![Docs](https://img.shields.io/badge/docs-readthedocs-brightgreen)](https://jax-bandflux.readthedocs.io/)
 
 **Author:** Samuel Alan Kossoff Leeney
 **Homepage:** https://github.com/samleeney/JAX-bandflux
