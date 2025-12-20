@@ -13,7 +13,7 @@ This section demonstrates a minimal working example of jax_supernovae:
    jax.config.update("jax_enable_x64", True)
 
    # Load data for SN 19dwz
-   times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = js.data.load_and_process_data('19dwz')
+   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = js.data.load_and_process_data('19dwz')
    # See :doc:`data_loading` for more details on data loading
 
    # Define SALT3 parameters
@@ -56,7 +56,7 @@ To apply dust extinction to the SALT3 model, add the dust parameters to the ``pa
    jax.config.update("jax_enable_x64", True)
    
    # Load data for SN 19dwz
-   times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = js.data.load_and_process_data('19dwz')
+   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = js.data.load_and_process_data('19dwz')
    
    # Define SALT3 parameters with dust extinction
    params = {

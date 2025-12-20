@@ -79,6 +79,12 @@ The following diagram shows the relationships between key components:
    :maxdepth: 2
    :caption: Contents:
 
+Support and Contributing
+------------------------
+
+- See the top-level `CONTRIBUTING.md` for issue/PR guidelines.
+- For help, open a GitHub issue with a minimal example and your environment (Python/JAX/JAXlib, CPU vs GPU, CUDA version).
+
    installation
    quickstart
    api_differences
@@ -87,6 +93,7 @@ The following diagram shows the relationships between key components:
    model_fluxes
    dust
    sampling
+   api
 
 Quick Links
 ----------

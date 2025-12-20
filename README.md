@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/jax-bandflux.svg)](https://badge.fury.io/py/jax-bandflux)
 [![Tests](https://github.com/samleeney/JAX-bandflux/workflows/Tests/badge.svg)](https://github.com/samleeney/JAX-bandflux/actions)
+[![Docs](https://img.shields.io/badge/docs-readthedocs-brightgreen)](https://jax-bandflux.readthedocs.io/)
 
 **Author:** Samuel Alan Kossoff Leeney
 **Homepage:** https://github.com/samleeney/JAX-bandflux
@@ -11,11 +12,29 @@ JAX-bandflux presents an implementation of supernova light curve modelling using
 
 ## Installation
 
-### Install from PyPI
+### From PyPI (CPU by default)
 
 ```bash
 pip install jax-bandflux
+pip install --upgrade "jax[cpu]"
 ```
+
+### GPU/CUDA wheels
+
+Install the matching CUDA JAX wheel, e.g. for CUDA 12:
+
+```bash
+pip install "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install jax-bandflux
+```
+
+or with the extra marker:
+
+```bash
+pip install "jax-bandflux[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+```
+
+We do not force a CUDA dependency in `install_requires`; see the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions and matching wheels.
 
 ### Install from GitHub
 
@@ -23,36 +42,25 @@ pip install jax-bandflux
 pip install git+https://github.com/samleeney/JAX-bandflux.git
 ```
 
-### For development
+### Nested sampling extras
+
+Optional dependencies for the nested sampling examples:
+
+```bash
+pip install "jax-bandflux[nested]"
+```
+
+### Development install
 
 ```bash
 git clone https://github.com/samleeney/JAX-bandflux.git
 cd JAX-bandflux
-pip install -e .
+pip install -e ".[dev,nested,docs]"
 ```
 
-## Dependencies
-
-JAX-bandflux requires:
-
-- Python >= 3.10
-- JAX >= 0.4.20
-- NumPy >= 1.24.0
-- SNCosmo >= 2.9.0
-- BlackJAX (for nested sampling: requires Handley Lab fork, not yet merged with main branch)
-- Distrax (for probability distributions)
-
-> **Note:** JAX and JAXlib versions must match. The installation will automatically handle this. For GPU/CUDA support, install JAX with CUDA after installing jax-bandflux:
-> ```bash
-> pip install jax[cuda12]  # For CUDA 12
-> ```
-> See [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
-
-> **Note:** For nested sampling examples, you must install the Handley Lab fork of BlackJAX (not yet merged with main branch):
-> ```bash
-> pip install git+https://github.com/handley-lab/blackjax@proposal
-> ```
-> See: https://handley-lab.co.uk/nested-sampling-book/intro.html
+> **Notes:**
+> - Python >= 3.10. Core deps include JAX >= 0.4.20, NumPy >= 1.24.0, Astropy, and SNCosmo; SALT3/SALT3-NIR model files are bundled with the package (no GitHub install needed).
+> - GPU support requires installing the appropriate `jax[cuda*]` wheel from the JAX release index. See the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
 
 ## Quickstart
 
@@ -68,6 +76,10 @@ python fmin_bfgs.py
 ```
 
 > **Note:** The latest features (including `SALT3Source` and `TimeSeriesSource`) are available on GitHub but not yet published to PyPI. For CUDA/GPU support, see the installation section below.
+
+## Data format
+
+Real light-curve data are simple ASCII tables per supernova (e.g., `data/<SN>/all.phot`) with required columns `time`/`mjd`, `band`/`bandpass`, `flux`, and `fluxerr`; `zp` defaults to 27.5 if omitted. A minimal template lives at `jax_supernovae/data/example_template.phot`. See the [data loading guide](docs/data_loading.rst) for column details, accepted band names, and mag→flux conversion tips.
 
 ## API Compatibility with SNCosmo
 
@@ -116,6 +128,8 @@ def likelihood(params):
 
 **What are bridges?** Precomputed wavelength grids with interpolated filter transmission values. Instead of interpolating the filter for every likelihood evaluation, you compute it once and reuse it. For nested sampling with 10,000+ evaluations, this provides a massive speedup.
 
+> **Batched parameter evaluations:** When JAX-bandflux is used inside GPU-based samplers and parameters are evaluated in batches, the fused bandflux kernels deliver roughly two orders of magnitude speedup per parameter set compared to SNCosmo while matching fluxes to 0.001% (see Leeney et al. 2025).
+
 See the [documentation](https://jax-bandflux.readthedocs.io/) for details.
 
 ## Testing
@@ -125,6 +139,11 @@ This repository implements the JAX version of the [SNCosmo](https://sncosmo.read
 ```bash
 pytest tests/ -v
 ```
+
+## Contributing & Support
+
+- See `CONTRIBUTING.md` for how to report issues and submit PRs.
+- For help, open a GitHub issue with a minimal example and your environment (Python/JAX/JAXlib, CPU vs GPU, CUDA version).
 
 ## Academic Use
 
@@ -149,3 +168,8 @@ The `.airules` file provides essential context to help language models understan
 - Testing requirements
 
 If you are using Cursor, rename this file to `.cursorrules` to enable automatic context integration.
+
+## Contributing and support
+
+- See `CONTRIBUTING.md` for how to report bugs, propose features, and open PRs.
+- For questions/support, please open a GitHub issue with environment details (Python/JAX version), install path (PyPI/GitHub), and a minimal reproducer.

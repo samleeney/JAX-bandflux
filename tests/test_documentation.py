@@ -107,7 +107,7 @@ def test_bandpass_loading():
     transmission = np.exp(-((wavelengths - 4500) / 200)**2)
 
     # Create bandpass
-    bandpass = Bandpass(wavelengths, transmission)
+    bandpass = Bandpass(wavelengths, transmission, name='custom::g')
 
     # Register the bandpass
     register_bandpass('custom::g', bandpass)
@@ -119,6 +119,7 @@ def test_bandpass_loading():
     assert retrieved_bandpass is not None, "Failed to retrieve registered bandpass"
     assert hasattr(retrieved_bandpass, 'wave'), "Bandpass should have 'wave' attribute"
     assert hasattr(retrieved_bandpass, 'trans'), "Bandpass should have 'trans' attribute"
+    assert retrieved_bandpass.name == 'custom::g', "Bandpass name should be preserved"
     assert np.array_equal(retrieved_bandpass.wave, wavelengths), "Wavelength arrays don't match"
     assert np.array_equal(retrieved_bandpass.trans, transmission), "Transmission arrays don't match"
 

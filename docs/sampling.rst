@@ -1,7 +1,7 @@
 Sampling
 =======
 
-This section describes how to perform basic parameter sampling and optimization with JAX-Supernovae. We focus on defining objective functions and using simple optimization techniques to fit SALT3 model parameters to supernova light curve data.
+This section describes how to perform basic parameter sampling and optimization with JAX-Supernovae. We focus on defining objective functions and using simple optimization techniques to fit SALT3 model parameters to supernova light curve data. When parameters are evaluated in batches on GPU (as is common in JAX samplers), the fused bandflux kernels can be ~100× faster per parameter set than serial SNCosmo while matching fluxes to 0.001% (see Leeney et al. 2025).
 
 Defining an Objective Function
 ---------------------------
@@ -113,7 +113,7 @@ Here is a complete example that demonstrates the entire process of loading data,
     jax.config.update("jax_enable_x64", True)
 
     # Load data
-    times, fluxes, fluxerrs, zps, band_indices, bridges, fixed_z = load_and_process_data(
+   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = load_and_process_data(
         sn_name='19dwz',
         data_dir='data',
         fix_z=True

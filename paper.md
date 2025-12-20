@@ -22,6 +22,7 @@ bibliography: paper.bib
 # Summary
 
 [JAX-bandflux](https://github.com/samleeney/JAX-bandflux) is a JAX [@jax2018github] implementation of critical supernova modelling functionality for cosmological analysis. The codebase implements key components of the established library SNCosmo [@barbary2016sncosmo] in a differentiable framework, offering efficient parallelisation and gradient-based optimisation capabilities through GPU acceleration. The package facilitates differentiable computation of supernova light curve measurements, supporting the inference of SALT [@kenworthy2021salt3; @pierel2022salt3] parameters necessary for cosmological analysis.
+When parameters are evaluated in batches on GPU (as is standard in JAX-based samplers), the bandflux kernels deliver order-of-magnitude speedups (≈100× per parameter set compared with SNCosmo) while matching fluxes to within 0.001% [@leeney2025anomaly], enabling fast evaluation of large, fused likelihoods.
 
 # Statement of need
 

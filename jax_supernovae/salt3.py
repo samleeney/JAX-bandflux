@@ -5,7 +5,6 @@ import jax.lax as lax
 import numpy as np
 import sncosmo
 import os
-import pytest
 import math
 from jax_supernovae.bandpasses import HC_ERG_AA, MODEL_BANDFLUX_SPACING
 from functools import partial
@@ -577,18 +576,23 @@ def precompute_bandflux_bridge(bandpass):
         - 'trans': the transmission values computed on the grid
         - 'wave_original': original wavelength array for shift interpolation
         - 'trans_original': original transmission array
+        - 'zpbandflux_ab': AB zeropoint normalization for this band
     """
     wave = bandpass.integration_wave
     dwave = bandpass.integration_spacing
     trans = bandpass(wave)
     
+    # Zeropoint normalization is constant per bandpass (AB system)
+    zpbandflux_ab = 3631e-23 * dwave / H_ERG_S * jnp.sum(trans / wave)
+
     # Store original arrays for shift interpolation
     return {
         'wave': wave, 
         'dwave': dwave, 
         'trans': trans,
         'wave_original': bandpass.wave,
-        'trans_original': bandpass.trans
+        'trans_original': bandpass.trans,
+        'zpbandflux_ab': zpbandflux_ab,
     }
 
 @jax.jit
