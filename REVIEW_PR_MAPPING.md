@@ -1,5 +1,7 @@
 # Reviewer Issue-to-PR Mapping
 
+All PRs listed below are merged into `joss-review/integration` and should be closed once that branch is merged into `master`. Keep these links as the audit trail for reviewer re-checks.
+
 - **Issue 1: Data sourcing guidance** — @Samreay, @wbenoit26  
   PR: https://github.com/samleeney/JAX-bandflux/pull/6
 
