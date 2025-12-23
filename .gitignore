@@ -117,3 +117,7 @@ examples/ns_anomaly_old.py.config_bare
 .config_bare
 examples/filter_data
 examples/ns_anomaly_old.py
+
+REVIEW_RESPONSE_PLAN.md
+REVIEW_PR_MAPPTING.md
+parameter_statistics.txt
