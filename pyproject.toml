@@ -24,9 +24,6 @@ dev = [ "pytest>=7.0", "pytest-cov>=2.0", "black>=22.0", "isort>=5.0",]
 nested = [ "anesthetic", "blackjax>=1.0.0", "distrax",]
 cuda12 = [ "jax[cuda12]>=0.4.20",]
 
-[tool.setuptools]
-packages.find.include = [ "jax_supernovae",]
-
 [tool.setuptools.package-data]
 jax_supernovae = [ "data/**/*", "sncosmo-modelfiles/**/*",]
 
