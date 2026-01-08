@@ -79,15 +79,10 @@ The following diagram shows the relationships between key components:
    :maxdepth: 2
    :caption: Contents:
 
-Support and Contributing
-------------------------
-
-- See the top-level `CONTRIBUTING.md` for issue/PR guidelines.
-- For help, open a GitHub issue with a minimal example and your environment (Python/JAX/JAXlib, CPU vs GPU, CUDA version).
-
    installation
    quickstart
    api_differences
+   timeseries_source
    data_loading
    bandpass_loading
    model_fluxes
@@ -95,12 +90,19 @@ Support and Contributing
    sampling
    api
 
+Support and Contributing
+------------------------
+
+- See the top-level `CONTRIBUTING.md` for issue/PR guidelines.
+- For help, open a GitHub issue with a minimal example and your environment (Python/JAX/JAXlib, CPU vs GPU, CUDA version).
+
 Quick Links
 ----------
 
 * :doc:`installation` - Installation instructions
 * :doc:`quickstart` - Get started quickly with basic examples
 * :doc:`api_differences` - How JAX-bandflux differs from SNCosmo
+* :doc:`timeseries_source` - Custom SED models with TimeSeriesSource
 * :doc:`data_loading` - Learn how to load and process supernova data
 * :doc:`bandpass_loading` - Working with astronomical filters and bandpasses
 * :doc:`model_fluxes` - Computing model fluxes using the SALT3 model
