@@ -1,7 +1,9 @@
 API Differences from SNCosmo
 ============================
 
-JAX-bandflux provides a SALT3Source implementation that aims to be as similar as possible to SNCosmo's API, while accommodating JAX's requirements for just-in-time (JIT) compilation and GPU acceleration.
+JAX-bandflux provides a SALT3Source implementation that aims to be as similar
+as possible to SNCosmo's API, while accommodating JAX's requirements for
+just-in-time (JIT) compilation and GPU acceleration.
 
 Design Philosophy
 -----------------
@@ -17,7 +19,9 @@ Key Differences
 ---------------
 
 1. Functional Parameter API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The most significant difference is how parameters are handled.
 
 **SNCosmo approach** (stateful):
 
@@ -38,24 +42,25 @@ Key Differences
 
 **JAX-bandflux approach** (functional):
 
-.. code-block:: python
+.. doctest::
 
-   from jax_supernovae import SALT3Source
-
-   # Parameters passed as dictionary argument
-   source = SALT3Source()
-   params = {
-       'x0': 1e-5,
-       'x1': 0.0,
-       'c': 0.0
-   }
-
-   # Bandflux receives parameters as argument
-   flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
+   >>> # Parameters passed as dictionary argument
+   >>> source = SALT3Source()
+   >>> params = {
+   ...     'x0': 1e-5,
+   ...     'x1': 0.0,
+   ...     'c': 0.0
+   ... }
+   >>>
+   >>> # Bandflux receives parameters as argument
+   >>> flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
+   >>> print(f"Flux: {float(flux):.4e}")
+   Flux: 6.2422e+01
 
 **Why this difference?**
 
-JAX's JIT compiler cannot handle mutable object state. By passing parameters as function arguments rather than storing them as attributes, we enable:
+JAX's JIT compiler cannot handle mutable object state. By passing parameters
+as function arguments rather than storing them as attributes, we enable:
 
 - JIT compilation of the entire likelihood function
 - Automatic differentiation through the model
@@ -64,7 +69,7 @@ JAX's JIT compiler cannot handle mutable object state. By passing parameters as 
 The functional API is a requirement for JAX compatibility, not a design choice.
 
 2. Precomputed Bridges for Performance
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **SNCosmo approach** (bandpass by name):
 
@@ -81,26 +86,30 @@ The functional API is a requirement for JAX compatibility, not a design choice.
 
 **JAX-bandflux approach** (with precomputed bridges):
 
-.. code-block:: python
+.. doctest::
 
-   from jax_supernovae import SALT3Source
-   from jax_supernovae.data import load_and_process_data
-
-   # Load data and precompute bridges ONCE
-   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = \\
-       load_and_process_data('19dwz', fix_z=True)
-
-   source = SALT3Source()
-   params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
-
-   # Calculate all fluxes using precomputed bridges
-   phases = (times - t0) / (1 + z)
-   fluxes = source.bandflux(
-       params, None, phases, zp=zps, zpsys='ab',
-       band_indices=band_indices,    # Which filter for each observation
-       bridges=bridges,                # Precomputed integration grids
-       unique_bands=unique_bands
-   )
+   >>> # Pre-compute bridges ONCE
+   >>> unique_bands = ['bessellb', 'bessellv', 'bessellr']
+   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+   ...                 for b in unique_bands)
+   >>>
+   >>> # Create test data
+   >>> phases = jnp.linspace(-10, 30, 20)
+   >>> band_names = ['bessellb'] * 7 + ['bessellv'] * 7 + ['bessellr'] * 6
+   >>> band_to_idx = {b: i for i, b in enumerate(unique_bands)}
+   >>> band_indices = jnp.array([band_to_idx[b] for b in band_names])
+   >>> zps = jnp.full(len(phases), 27.5)
+   >>>
+   >>> # Fast calculation using bridges
+   >>> params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
+   >>> fluxes = source.bandflux(
+   ...     params, None, phases, zp=zps, zpsys='ab',
+   ...     band_indices=band_indices,
+   ...     bridges=bridges,
+   ...     unique_bands=unique_bands
+   ... )
+   >>> print(f"Computed {len(fluxes)} fluxes using bridges")
+   Computed 20 fluxes using bridges
 
 **What are bridges?**
 
@@ -109,23 +118,20 @@ Bridges are precomputed data structures containing:
 - ``wave``: Integration wavelength grid (e.g., [3622.5, 3627.5, ..., 5617.5] Å)
 - ``dwave``: Grid spacing (e.g., 5.0 Å)
 - ``trans``: Precomputed transmission values on the grid
-- ``wave_original``: Original bandpass wavelengths (for shifts)
-- ``trans_original``: Original transmission values
 
 **Why bridges?**
 
-For nested sampling or MCMC, you may evaluate the likelihood 100,000+ times. Without bridges:
+For nested sampling or MCMC, you may evaluate the likelihood 100,000+ times.
+Without bridges:
 
 - Each evaluation: Load filter file → Create grid → Interpolate transmission → Integrate
 - Total: 100,000 × (file I/O + interpolation + integration)
-- Time: ~10 hours
 
 With bridges (precomputed once):
 
 - Setup: Load filter files → Create grids → Store in bridges
 - Each evaluation: Lookup precomputed grid → Integrate
 - Total: 1 × (file I/O + interpolation) + 100,000 × integration
-- Time: ~10 minutes
 
 **Speedup: ~100x faster**
 
@@ -175,19 +181,21 @@ Converting SNCosmo code to JAX-bandflux:
 
 **Step 3: (Optional) Use bridges for performance**
 
-.. code-block:: python
+.. doctest::
 
-   # Load data with bridges
-   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = \\
-       load_and_process_data('19dwz', fix_z=True)
-
-   # Use bridges in bandflux
-   flux = source.bandflux(
-       params, None, phases, zp=zps, zpsys='ab',
-       band_indices=band_indices,
-       bridges=bridges,
-       unique_bands=unique_bands
-   )
+   >>> # Pre-compute bridges
+   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+   ...                 for b in unique_bands)
+   >>>
+   >>> # Use bridges in bandflux
+   >>> flux = source.bandflux(
+   ...     params, None, phases, zp=zps, zpsys='ab',
+   ...     band_indices=band_indices,
+   ...     bridges=bridges,
+   ...     unique_bands=unique_bands
+   ... )
+   >>> print(f"Mean flux: {float(jnp.mean(flux)):.2e}")
+   Mean flux: 3.91e+01
 
 Numerical Consistency
 ---------------------
@@ -200,16 +208,16 @@ Despite the API differences, JAX-bandflux maintains numerical consistency with S
 
 Our comprehensive test suite (``tests/test_salt3nir_consistency.py``) verifies:
 
-✓ Component-level agreement (M0, M1, colorlaw)
-✓ Single bandflux calculations
-✓ Array-valued phases and bands
-✓ Zeropoint scaling
-✓ Multi-band light curves
+- ✓ Component-level agreement (M0, M1, colorlaw)
+- ✓ Single bandflux calculations
+- ✓ Array-valued phases and bands
+- ✓ Zeropoint scaling
+- ✓ Multi-band light curves
 
 Example: Full Workflow Comparison
-----------------------------------
+---------------------------------
 
-**SNCosmo**:
+**SNCosmo:**
 
 .. code-block:: python
 
@@ -231,37 +239,43 @@ Example: Full Workflow Comparison
        chi2 = np.sum((fluxes - model_fluxes)**2 / fluxerrs**2)
        return -0.5 * chi2
 
-**JAX-bandflux**:
+**JAX-bandflux:**
 
-.. code-block:: python
+.. doctest::
 
-   import jax
-   import jax.numpy as jnp
-   from jax_supernovae import SALT3Source
-   from jax_supernovae.data import load_and_process_data
-
-   # Setup (precompute bridges)
-   times, fluxes, fluxerrs, zps, band_indices, unique_bands, bridges, fixed_z = \\
-       load_and_process_data('19dwz', fix_z=True)
-   source = SALT3Source()
-   z = fixed_z[0]
-
-   # Likelihood function (JIT-compiled!)
-   @jax.jit
-   def loglikelihood(params):
-       t0, log_x0, x1, c = params
-       param_dict = {'x0': 10**log_x0, 'x1': x1, 'c': c}
-       phases = (times - t0) / (1 + z)
-
-       model_fluxes = source.bandflux(
-           param_dict, None, phases, zp=zps, zpsys='ab',
-           band_indices=band_indices,
-           bridges=bridges,
-           unique_bands=unique_bands
-       )
-
-       chi2 = jnp.sum((fluxes - model_fluxes)**2 / fluxerrs**2)
-       return -0.5 * chi2
+   >>> # Setup (create bridges)
+   >>> source = SALT3Source()
+   >>> unique_bands = ['bessellb', 'bessellv', 'bessellr']
+   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+   ...                 for b in unique_bands)
+   >>>
+   >>> # Example data
+   >>> times = jnp.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+   >>> band_names = ['bessellb', 'bessellv', 'bessellr', 'bessellb', 'bessellv', 'bessellr']
+   >>> band_to_idx = {b: i for i, b in enumerate(unique_bands)}
+   >>> band_indices = jnp.array([band_to_idx[b] for b in band_names])
+   >>> fluxes = jnp.ones(6) * 100.0  # Example observed fluxes
+   >>> fluxerrs = jnp.ones(6) * 5.0  # Example errors
+   >>> zps = jnp.full(6, 27.5)
+   >>> z = 0.1
+   >>>
+   >>> # JIT-compiled likelihood function
+   >>> @jax.jit
+   ... def loglikelihood(log_x0, x1, c):
+   ...     params = {'x0': 10**log_x0, 'x1': x1, 'c': c}
+   ...     model_fluxes = source.bandflux(
+   ...         params, None, times / (1 + z), zp=zps, zpsys='ab',
+   ...         band_indices=band_indices,
+   ...         bridges=bridges,
+   ...         unique_bands=unique_bands
+   ...     )
+   ...     chi2 = jnp.sum((fluxes - model_fluxes)**2 / fluxerrs**2)
+   ...     return -0.5 * chi2
+   >>>
+   >>> # Evaluate
+   >>> logL = loglikelihood(-5.0, 0.0, 0.0)
+   >>> print(f"Log-likelihood: {float(logL):.2f}")
+   Log-likelihood: -246.91
 
 Key improvements in JAX-bandflux version:
 
@@ -293,4 +307,6 @@ Summary
 | Numerical accuracy     | Reference                 | Within 0.001%             |
 +------------------------+---------------------------+---------------------------+
 
-Both APIs are designed for the same purpose (supernova light curve modeling), but JAX-bandflux trades a slightly different calling convention for significant performance gains and GPU/gradient support.
+Both APIs are designed for the same purpose (supernova light curve modeling),
+but JAX-bandflux trades a slightly different calling convention for significant
+performance gains and GPU/gradient support.

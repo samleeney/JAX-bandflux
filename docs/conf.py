@@ -3,6 +3,7 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import doctest
 import os
 import sys
 import tomllib
@@ -34,8 +35,10 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosummary',
+    'sphinx.ext.doctest',
     'sphinx_rtd_theme',
     'sphinxcontrib.mermaid',
+    'matplotlib.sphinxext.plot_directive',
 ]
 
 templates_path = ['_templates']
@@ -79,3 +82,45 @@ intersphinx_mapping = {
 # AutoDoc settings
 autodoc_member_order = 'bysource'
 autodoc_typehints = 'description'
+
+# -- Doctest configuration ---------------------------------------------------
+# Global setup code run before every doctest block
+doctest_global_setup = '''
+import jax
+jax.config.update("jax_enable_x64", True)
+
+import jax.numpy as jnp
+import numpy as np
+from jax_supernovae import SALT3Source, TimeSeriesSource
+from jax_supernovae.bandpasses import get_bandpass, Bandpass, register_bandpass
+from jax_supernovae.salt3 import precompute_bandflux_bridge
+'''
+
+# Doctest flags for flexible output matching
+doctest_default_flags = (
+    doctest.ELLIPSIS |
+    doctest.NORMALIZE_WHITESPACE |
+    doctest.IGNORE_EXCEPTION_DETAIL
+)
+
+# -- Plot directive configuration --------------------------------------------
+# Include source code in plot directive
+plot_include_source = True
+plot_html_show_source_link = False
+plot_html_show_formats = False
+
+# Common setup for all plot directives
+plot_pre_code = '''
+import jax
+jax.config.update("jax_enable_x64", True)
+
+import jax.numpy as jnp
+import numpy as np
+import matplotlib.pyplot as plt
+from jax_supernovae import SALT3Source, TimeSeriesSource
+from jax_supernovae.bandpasses import get_bandpass, Bandpass, register_bandpass
+from jax_supernovae.salt3 import precompute_bandflux_bridge
+'''
+
+# Figure format for plots
+plot_formats = ['png']
