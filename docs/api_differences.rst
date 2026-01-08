@@ -42,19 +42,23 @@ The most significant difference is how parameters are handled.
 
 **JAX-bandflux approach** (functional):
 
-.. doctest::
+.. testcode::
 
-   >>> # Parameters passed as dictionary argument
-   >>> source = SALT3Source()
-   >>> params = {
-   ...     'x0': 1e-5,
-   ...     'x1': 0.0,
-   ...     'c': 0.0
-   ... }
-   >>>
-   >>> # Bandflux receives parameters as argument
-   >>> flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
-   >>> print(f"Flux: {float(flux):.4e}")
+   # Parameters passed as dictionary argument
+   source = SALT3Source()
+   params = {
+       'x0': 1e-5,
+       'x1': 0.0,
+       'c': 0.0
+   }
+
+   # Bandflux receives parameters as argument
+   flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
+   print(f"Flux: {float(flux):.4e}")
+
+
+.. testoutput::
+
    Flux: 6.2422e+01
 
 **Why this difference?**
@@ -86,29 +90,33 @@ The functional API is a requirement for JAX compatibility, not a design choice.
 
 **JAX-bandflux approach** (with precomputed bridges):
 
-.. doctest::
+.. testcode::
 
-   >>> # Pre-compute bridges ONCE
-   >>> unique_bands = ['bessellb', 'bessellv', 'bessellr']
-   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
-   ...                 for b in unique_bands)
-   >>>
-   >>> # Create test data
-   >>> phases = jnp.linspace(-10, 30, 20)
-   >>> band_names = ['bessellb'] * 7 + ['bessellv'] * 7 + ['bessellr'] * 6
-   >>> band_to_idx = {b: i for i, b in enumerate(unique_bands)}
-   >>> band_indices = jnp.array([band_to_idx[b] for b in band_names])
-   >>> zps = jnp.full(len(phases), 27.5)
-   >>>
-   >>> # Fast calculation using bridges
-   >>> params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
-   >>> fluxes = source.bandflux(
-   ...     params, None, phases, zp=zps, zpsys='ab',
-   ...     band_indices=band_indices,
-   ...     bridges=bridges,
-   ...     unique_bands=unique_bands
-   ... )
-   >>> print(f"Computed {len(fluxes)} fluxes using bridges")
+   # Pre-compute bridges ONCE
+   unique_bands = ['bessellb', 'bessellv', 'bessellr']
+   bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+                   for b in unique_bands)
+
+   # Create test data
+   phases = jnp.linspace(-10, 30, 20)
+   band_names = ['bessellb'] * 7 + ['bessellv'] * 7 + ['bessellr'] * 6
+   band_to_idx = {b: i for i, b in enumerate(unique_bands)}
+   band_indices = jnp.array([band_to_idx[b] for b in band_names])
+   zps = jnp.full(len(phases), 27.5)
+
+   # Fast calculation using bridges
+   params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
+   fluxes = source.bandflux(
+       params, None, phases, zp=zps, zpsys='ab',
+       band_indices=band_indices,
+       bridges=bridges,
+       unique_bands=unique_bands
+   )
+   print(f"Computed {len(fluxes)} fluxes using bridges")
+
+
+.. testoutput::
+
    Computed 20 fluxes using bridges
 
 **What are bridges?**
@@ -181,20 +189,24 @@ Converting SNCosmo code to JAX-bandflux:
 
 **Step 3: (Optional) Use bridges for performance**
 
-.. doctest::
+.. testcode::
 
-   >>> # Pre-compute bridges
-   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
-   ...                 for b in unique_bands)
-   >>>
-   >>> # Use bridges in bandflux
-   >>> flux = source.bandflux(
-   ...     params, None, phases, zp=zps, zpsys='ab',
-   ...     band_indices=band_indices,
-   ...     bridges=bridges,
-   ...     unique_bands=unique_bands
-   ... )
-   >>> print(f"Mean flux: {float(jnp.mean(flux)):.2e}")
+   # Pre-compute bridges
+   bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+                   for b in unique_bands)
+
+   # Use bridges in bandflux
+   flux = source.bandflux(
+       params, None, phases, zp=zps, zpsys='ab',
+       band_indices=band_indices,
+       bridges=bridges,
+       unique_bands=unique_bands
+   )
+   print(f"Mean flux: {float(jnp.mean(flux)):.2e}")
+
+
+.. testoutput::
+
    Mean flux: 3.91e+01
 
 Numerical Consistency
@@ -241,40 +253,44 @@ Example: Full Workflow Comparison
 
 **JAX-bandflux:**
 
-.. doctest::
+.. testcode::
 
-   >>> # Setup (create bridges)
-   >>> source = SALT3Source()
-   >>> unique_bands = ['bessellb', 'bessellv', 'bessellr']
-   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
-   ...                 for b in unique_bands)
-   >>>
-   >>> # Example data
-   >>> times = jnp.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-   >>> band_names = ['bessellb', 'bessellv', 'bessellr', 'bessellb', 'bessellv', 'bessellr']
-   >>> band_to_idx = {b: i for i, b in enumerate(unique_bands)}
-   >>> band_indices = jnp.array([band_to_idx[b] for b in band_names])
-   >>> fluxes = jnp.ones(6) * 100.0  # Example observed fluxes
-   >>> fluxerrs = jnp.ones(6) * 5.0  # Example errors
-   >>> zps = jnp.full(6, 27.5)
-   >>> z = 0.1
-   >>>
-   >>> # JIT-compiled likelihood function
-   >>> @jax.jit
-   ... def loglikelihood(log_x0, x1, c):
-   ...     params = {'x0': 10**log_x0, 'x1': x1, 'c': c}
-   ...     model_fluxes = source.bandflux(
-   ...         params, None, times / (1 + z), zp=zps, zpsys='ab',
-   ...         band_indices=band_indices,
-   ...         bridges=bridges,
-   ...         unique_bands=unique_bands
-   ...     )
-   ...     chi2 = jnp.sum((fluxes - model_fluxes)**2 / fluxerrs**2)
-   ...     return -0.5 * chi2
-   >>>
-   >>> # Evaluate
-   >>> logL = loglikelihood(-5.0, 0.0, 0.0)
-   >>> print(f"Log-likelihood: {float(logL):.2f}")
+   # Setup (create bridges)
+   source = SALT3Source()
+   unique_bands = ['bessellb', 'bessellv', 'bessellr']
+   bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+                   for b in unique_bands)
+
+   # Example data
+   times = jnp.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+   band_names = ['bessellb', 'bessellv', 'bessellr', 'bessellb', 'bessellv', 'bessellr']
+   band_to_idx = {b: i for i, b in enumerate(unique_bands)}
+   band_indices = jnp.array([band_to_idx[b] for b in band_names])
+   fluxes = jnp.ones(6) * 100.0  # Example observed fluxes
+   fluxerrs = jnp.ones(6) * 5.0  # Example errors
+   zps = jnp.full(6, 27.5)
+   z = 0.1
+
+   # JIT-compiled likelihood function
+   @jax.jit
+   def loglikelihood(log_x0, x1, c):
+       params = {'x0': 10**log_x0, 'x1': x1, 'c': c}
+       model_fluxes = source.bandflux(
+           params, None, times / (1 + z), zp=zps, zpsys='ab',
+           band_indices=band_indices,
+           bridges=bridges,
+           unique_bands=unique_bands
+       )
+       chi2 = jnp.sum((fluxes - model_fluxes)**2 / fluxerrs**2)
+       return -0.5 * chi2
+
+   # Evaluate
+   logL = loglikelihood(-5.0, 0.0, 0.0)
+   print(f"Log-likelihood: {float(logL):.2f}")
+
+
+.. testoutput::
+
    Log-likelihood: -246.91
 
 Key improvements in JAX-bandflux version:

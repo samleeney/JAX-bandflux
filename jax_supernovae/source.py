@@ -33,24 +33,26 @@ class SALT3Source:
 
     Examples
     --------
-    Basic usage with string band names:
-    >>> source = SALT3Source(name='salt3-nir')
-    >>> params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
-    >>> flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
+    Basic usage with string band names::
 
-    High-performance usage with precomputed data (for nested sampling):
-    >>> from jax_supernovae.data import load_and_process_data
-    >>> times, fluxes, fluxerrs, zps, band_indices, bands, bridges, fixed_z = \\
-    ...     load_and_process_data('19dwz', fix_z=True)
-    >>> source = SALT3Source()
-    >>> # Inside likelihood function:
-    >>> t0 = 58650.0
-    >>> z = fixed_z[0]
-    >>> phases = (times - t0) / (1 + z)
-    >>> band_names = [bands[i] for i in band_indices]
-    >>> fluxes = source.bandflux(params, band_names, phases, zp=zps, zpsys='ab',
-    ...                          band_indices=band_indices, bridges=bridges,
-    ...                          unique_bands=bands)
+        source = SALT3Source(name='salt3-nir')
+        params = {'x0': 1e-5, 'x1': 0.0, 'c': 0.0}
+        flux = source.bandflux(params, 'bessellb', 0.0, zp=27.5, zpsys='ab')
+
+    High-performance usage with precomputed data (for nested sampling)::
+
+        from jax_supernovae.data import load_and_process_data
+        times, fluxes, fluxerrs, zps, band_indices, bands, bridges, fixed_z = \
+            load_and_process_data('19dwz', fix_z=True)
+        source = SALT3Source()
+        # Inside likelihood function:
+        t0 = 58650.0
+        z = fixed_z[0]
+        phases = (times - t0) / (1 + z)
+        band_names = [bands[i] for i in band_indices]
+        fluxes = source.bandflux(params, band_names, phases, zp=zps, zpsys='ab',
+                                 band_indices=band_indices, bridges=bridges,
+                                 unique_bands=bands)
     """
 
     def __init__(self, name='salt3-nir'):
@@ -411,23 +413,24 @@ class TimeSeriesSource:
 
     Examples
     --------
-    Basic usage:
-    >>> import numpy as np
-    >>> from jax_supernovae import TimeSeriesSource
-    >>>
-    >>> # Create simple Gaussian model
-    >>> phase = np.linspace(-20, 50, 100)
-    >>> wave = np.linspace(3000, 9000, 200)
-    >>> # Gaussian in time and wavelength
-    >>> p_grid, w_grid = np.meshgrid(phase, wave, indexing='ij')
-    >>> flux = np.exp(-0.5 * (p_grid/10)**2) * np.exp(-0.5 * ((w_grid-5000)/1000)**2)
-    >>> flux *= 1e-15  # Scale to realistic flux levels
-    >>>
-    >>> source = TimeSeriesSource(phase, wave, flux)
-    >>>
-    >>> # Calculate bandflux (functional API)
-    >>> params = {'amplitude': 1.0}
-    >>> flux_b = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
+    Basic usage::
+
+        import numpy as np
+        from jax_supernovae import TimeSeriesSource
+
+        # Create simple Gaussian model
+        phase = np.linspace(-20, 50, 100)
+        wave = np.linspace(3000, 9000, 200)
+        # Gaussian in time and wavelength
+        p_grid, w_grid = np.meshgrid(phase, wave, indexing='ij')
+        flux = np.exp(-0.5 * (p_grid/10)**2) * np.exp(-0.5 * ((w_grid-5000)/1000)**2)
+        flux *= 1e-15  # Scale to realistic flux levels
+
+        source = TimeSeriesSource(phase, wave, flux)
+
+        # Calculate bandflux (functional API)
+        params = {'amplitude': 1.0}
+        flux_b = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
 
     Notes
     -----

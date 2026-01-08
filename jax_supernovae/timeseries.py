@@ -70,11 +70,13 @@ def interpolate_timeseries_2d(phase, wave, phase_grid, wave_grid, flux_grid,
 
     Examples
     --------
-    >>> phase_grid = jnp.linspace(-20, 50, 100)
-    >>> wave_grid = jnp.linspace(3000, 9000, 200)
-    >>> flux_grid = jnp.ones((100, 200)) * 1e-15
-    >>> flux = interpolate_timeseries_2d(0.0, 5000.0, phase_grid, wave_grid,
-    ...                                  flux_grid, time_degree=3)
+    ::
+
+        phase_grid = jnp.linspace(-20, 50, 100)
+        wave_grid = jnp.linspace(3000, 9000, 200)
+        flux_grid = jnp.ones((100, 200)) * 1e-15
+        flux = interpolate_timeseries_2d(0.0, 5000.0, phase_grid, wave_grid,
+                                         flux_grid, time_degree=3)
     """
     # Compute weights for both dimensions
     ix, dx, x_in_bounds, x_near_boundary = compute_interpolation_weights(
@@ -196,9 +198,11 @@ def timeseries_flux(phase, wave, phase_grid, wave_grid, flux_grid,
 
     Examples
     --------
-    >>> flux = timeseries_flux(0.0, 5000.0, phase_grid, wave_grid,
-    ...                        flux_grid, amplitude=1.0, zero_before=False,
-    ...                        minphase=-20.0, time_degree=3)
+    ::
+
+        flux = timeseries_flux(0.0, 5000.0, phase_grid, wave_grid,
+                               flux_grid, amplitude=1.0, zero_before=False,
+                               minphase=-20.0, time_degree=3)
     """
     # Interpolate flux from grid
     flux_interp = interpolate_timeseries_2d(
@@ -278,15 +282,17 @@ def timeseries_bandflux(phase, bridge, phase_grid, wave_grid, flux_grid,
 
     Examples
     --------
-    >>> # Single phase
-    >>> flux = timeseries_bandflux(0.0, bridge, phase_grid, wave_grid,
-    ...                            flux_grid, amplitude=1.0, zero_before=False,
-    ...                            minphase=-20.0, time_degree=3)
-    >>>
-    >>> # Array of phases
-    >>> phases = jnp.array([0, 5, 10, 15])
-    >>> fluxes = timeseries_bandflux(phases, bridge, phase_grid, wave_grid,
-    ...                              flux_grid, amplitude=1.0, ...)
+    ::
+
+        # Single phase
+        flux = timeseries_bandflux(0.0, bridge, phase_grid, wave_grid,
+                                   flux_grid, amplitude=1.0, zero_before=False,
+                                   minphase=-20.0, time_degree=3)
+
+        # Array of phases
+        phases = jnp.array([0, 5, 10, 15])
+        fluxes = timeseries_bandflux(phases, bridge, phase_grid, wave_grid,
+                                     flux_grid, amplitude=1.0, ...)
     """
     # Check scalar vs array input
     is_scalar = jnp.ndim(phase) == 0
@@ -383,31 +389,34 @@ def timeseries_multiband_flux(phases, bridges, band_indices, phase_grid,
     - Pre-computed bridges avoid repeated bandpass calculations
     - band_indices enable efficient lookup of correct bridge per observation
 
-    Typical usage in a likelihood function:
-    >>> @jax.jit
-    >>> def loglikelihood(amplitude):
-    >>>     model_fluxes = timeseries_multiband_flux(
-    >>>         phases, bridges, band_indices, phase_grid, wave_grid,
-    >>>         flux_grid, amplitude, zero_before, minphase, time_degree,
-    >>>         zps=zps, zpsys='ab'
-    >>>     )
-    >>>     chi2 = jnp.sum(((data_fluxes - model_fluxes) / errors)**2)
-    >>>     return -0.5 * chi2
+    Typical usage in a likelihood function::
+
+        @jax.jit
+        def loglikelihood(amplitude):
+            model_fluxes = timeseries_multiband_flux(
+                phases, bridges, band_indices, phase_grid, wave_grid,
+                flux_grid, amplitude, zero_before, minphase, time_degree,
+                zps=zps, zpsys='ab'
+            )
+            chi2 = jnp.sum(((data_fluxes - model_fluxes) / errors)**2)
+            return -0.5 * chi2
 
     Examples
     --------
-    >>> # Simulated light curve with 50 observations in 3 bands
-    >>> n_obs = 50
-    >>> phases = jnp.linspace(-10, 40, n_obs)
-    >>> band_indices = jnp.array([0, 1, 2] * (n_obs // 3) + [0] * (n_obs % 3))
-    >>> bridges = (bridge_b, bridge_v, bridge_r)  # 3 unique bands
-    >>> zps = jnp.ones(n_obs) * 27.5
-    >>>
-    >>> fluxes = timeseries_multiband_flux(
-    >>>     phases, bridges, band_indices, phase_grid, wave_grid,
-    >>>     flux_grid, amplitude=1.0, zero_before=False,
-    >>>     minphase=-20.0, time_degree=3, zps=zps, zpsys='ab'
-    >>> )
+    ::
+
+        # Simulated light curve with 50 observations in 3 bands
+        n_obs = 50
+        phases = jnp.linspace(-10, 40, n_obs)
+        band_indices = jnp.array([0, 1, 2] * (n_obs // 3) + [0] * (n_obs % 3))
+        bridges = (bridge_b, bridge_v, bridge_r)  # 3 unique bands
+        zps = jnp.ones(n_obs) * 27.5
+
+        fluxes = timeseries_multiband_flux(
+            phases, bridges, band_indices, phase_grid, wave_grid,
+            flux_grid, amplitude=1.0, zero_before=False,
+            minphase=-20.0, time_degree=3, zps=zps, zpsys='ab'
+        )
     """
     n_obs = len(phases)
 

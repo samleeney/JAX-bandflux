@@ -87,11 +87,13 @@ def bandflux_integration(wave, trans, flux, dwave):
 
     Examples
     --------
-    >>> wave = jnp.linspace(4000, 6000, 401)
-    >>> trans = jnp.ones_like(wave)
-    >>> flux = jnp.ones_like(wave) * 1e-15
-    >>> dwave = 5.0
-    >>> result = bandflux_integration(wave, trans, flux, dwave)
+    ::
+
+        wave = jnp.linspace(4000, 6000, 401)
+        trans = jnp.ones_like(wave)
+        flux = jnp.ones_like(wave) * 1e-15
+        dwave = 5.0
+        result = bandflux_integration(wave, trans, flux, dwave)
     """
     # Sum over wavelength dimension (last axis)
     # wave * trans * flux has shape (..., N)
@@ -129,11 +131,12 @@ def apply_zeropoint(flux, zp, zpsys):
 
     Examples
     --------
-    >>> flux = 1.0
-    >>> zp = 25.0
-    >>> scaled = apply_zeropoint(flux, zp, 'ab')
-    >>> scaled
-    Array(10000., dtype=float64)
+    ::
+
+        flux = 1.0
+        zp = 25.0
+        scaled = apply_zeropoint(flux, zp, 'ab')
+        # Returns: Array(10000., dtype=float64)
     """
     # Handle None case - return flux unchanged
     if zp is None:

@@ -69,60 +69,67 @@ Basic Usage
 Creating a TimeSeriesSource
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. doctest::
+.. testcode::
 
-   >>> # Define your model grid
-   >>> phase = np.linspace(-20, 50, 100)  # Days
-   >>> wave = np.linspace(3000, 9000, 200)  # Angstroms
-   >>>
-   >>> # Create flux array (phase × wavelength)
-   >>> p_grid, w_grid = np.meshgrid(phase, wave, indexing='ij')
-   >>> time_profile = np.exp(-0.5 * (p_grid / 12.0)**2)
-   >>> wave_profile = np.exp(-0.5 * ((w_grid - 5500.0) / 1200.0)**2)
-   >>> flux_grid = time_profile * wave_profile * 1e-15
-   >>>
-   >>> # Create source
-   >>> source = TimeSeriesSource(phase, wave, flux_grid,
-   ...                           zero_before=False,
-   ...                           time_spline_degree=3,
-   ...                           name='my_model')
-   >>> source.param_names
+   # Define your model grid
+   phase = np.linspace(-20, 50, 100)  # Days
+   wave = np.linspace(3000, 9000, 200)  # Angstroms
+
+   # Create flux array (phase × wavelength)
+   p_grid, w_grid = np.meshgrid(phase, wave, indexing='ij')
+   time_profile = np.exp(-0.5 * (p_grid / 12.0)**2)
+   wave_profile = np.exp(-0.5 * ((w_grid - 5500.0) / 1200.0)**2)
+   flux_grid = time_profile * wave_profile * 1e-15
+
+   # Create source
+   source = TimeSeriesSource(phase, wave, flux_grid,
+                             zero_before=False,
+                             time_spline_degree=3,
+                             name='my_model')
+   print(source.param_names)
+
+.. testoutput::
+
    ['amplitude']
 
 Simple Photometry
 ~~~~~~~~~~~~~~~~~
 
-.. doctest::
+.. testcode::
 
-   >>> # Define parameters
-   >>> params = {'amplitude': 1.0}
-   >>>
-   >>> # Single observation at peak (phase=0)
-   >>> flux_b = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
-   >>> print(f"B-band flux at peak: {float(flux_b):.4e}")
+   # Define parameters
+   params = {'amplitude': 1.0}
+
+   # Single observation at peak (phase=0)
+   flux_b = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
+   print(f"B-band flux at peak: {float(flux_b):.4e}")
+
+   # Light curve (multiple phases, same band)
+   phases = np.linspace(-10, 30, 10)
+   fluxes_b = source.bandflux(params, 'bessellb', phases, zp=25.0, zpsys='ab')
+   print("B-band light curve:")
+   for p, f in zip(phases[:5], fluxes_b[:5]):  # Show first 5
+       print(f"  Phase {p:+6.1f}d: {float(f):8.2f}")
+
+   # Multi-band observation (same phase, different bands)
+   bands = ['bessellb', 'bessellv', 'bessellr']
+   phases_same = np.zeros(3)
+   fluxes_multi = source.bandflux(params, bands, phases_same, zp=25.0, zpsys='ab')
+   print("Flux at peak in different bands:")
+   for band, flux in zip(bands, fluxes_multi):
+       print(f"  {band:10s}: {float(flux):8.2f}")
+
+
+.. testoutput::
+
    B-band flux at peak: 1.1498e+03
-   >>>
-   >>> # Light curve (multiple phases, same band)
-   >>> phases = np.linspace(-10, 30, 10)
-   >>> fluxes_b = source.bandflux(params, 'bessellb', phases, zp=25.0, zpsys='ab')
-   >>> print("B-band light curve:")
    B-band light curve:
-   >>> for p, f in zip(phases[:5], fluxes_b[:5]):  # Show first 5
-   ...     print(f"  Phase {p:+6.1f}d: {float(f):8.2f}")
      Phase  -10.0d:   812.49
      Phase   -5.6d:  1032.93
      Phase   -1.1d:  1144.86
      Phase   +3.3d:  1106.27
      Phase   +7.8d:   931.95
-   >>>
-   >>> # Multi-band observation (same phase, different bands)
-   >>> bands = ['bessellb', 'bessellv', 'bessellr']
-   >>> phases_same = np.zeros(3)
-   >>> fluxes_multi = source.bandflux(params, bands, phases_same, zp=25.0, zpsys='ab')
-   >>> print("Flux at peak in different bands:")
    Flux at peak in different bands:
-   >>> for band, flux in zip(bands, fluxes_multi):
-   ...     print(f"  {band:10s}: {float(flux):8.2f}")
      bessellb  :  1149.78
      bessellv  :  2636.44
      bessellr  :  2538.65
@@ -174,19 +181,23 @@ Visualize the custom SED model across multiple bands:
 Calculate Magnitudes
 ~~~~~~~~~~~~~~~~~~~~
 
-.. doctest::
+.. testcode::
 
-   >>> # Magnitude in AB system
-   >>> mag_b = source.bandmag(params, 'bessellb', 'ab', 0.0)
-   >>> print(f"B-band magnitude at peak: {float(mag_b):.2f} mag")
+   # Magnitude in AB system
+   mag_b = source.bandmag(params, 'bessellb', 'ab', 0.0)
+   print(f"B-band magnitude at peak: {float(mag_b):.2f} mag")
+
+   # Multi-band magnitudes
+   print("Magnitudes at peak:")
+   for band in ['bessellb', 'bessellv', 'bessellr']:
+       mag = source.bandmag(params, band, 'ab', 0.0)
+       print(f"  {band:10s}: {float(mag):.2f} mag")
+
+
+.. testoutput::
+
    B-band magnitude at peak: 17.35 mag
-   >>>
-   >>> # Multi-band magnitudes
-   >>> print("Magnitudes at peak:")
    Magnitudes at peak:
-   >>> for band in ['bessellb', 'bessellv', 'bessellr']:
-   ...     mag = source.bandmag(params, band, 'ab', 0.0)
-   ...     print(f"  {band:10s}: {float(mag):.2f} mag")
      bessellb  : 17.35 mag
      bessellv  : 16.45 mag
      bessellr  : 16.49 mag
@@ -197,33 +208,37 @@ High-Performance Mode
 For MCMC, nested sampling, or any application requiring many model evaluations,
 use the optimised mode with pre-computed bridges:
 
-.. doctest::
+.. testcode::
 
-   >>> # Example: 30 observations in 3 bands
-   >>> n_obs = 30
-   >>> obs_phases = np.linspace(-10, 40, n_obs)
-   >>> band_names = ['bessellb', 'bessellv', 'bessellr'] * (n_obs // 3)
-   >>> zps = jnp.ones(n_obs) * 25.0
-   >>>
-   >>> # Pre-compute bridges ONCE (outside the likelihood)
-   >>> unique_bands = ['bessellb', 'bessellv', 'bessellr']
-   >>> bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
-   ...                 for b in unique_bands)
-   >>>
-   >>> # Create band indices mapping each observation to its bridge
-   >>> band_to_idx = {'bessellb': 0, 'bessellv': 1, 'bessellr': 2}
-   >>> band_indices = jnp.array([band_to_idx[b] for b in band_names])
-   >>>
-   >>> # Fast calculation (10-100x faster than simple mode)
-   >>> params = {'amplitude': 1.0}
-   >>> fluxes = source.bandflux(params, None, obs_phases,
-   ...                          zp=zps, zpsys='ab',
-   ...                          band_indices=band_indices,
-   ...                          bridges=bridges,
-   ...                          unique_bands=unique_bands)
-   >>> print(f"Computed {len(fluxes)} fluxes using optimized mode")
+   # Example: 30 observations in 3 bands
+   n_obs = 30
+   obs_phases = np.linspace(-10, 40, n_obs)
+   band_names = ['bessellb', 'bessellv', 'bessellr'] * (n_obs // 3)
+   zps = jnp.ones(n_obs) * 25.0
+
+   # Pre-compute bridges ONCE (outside the likelihood)
+   unique_bands = ['bessellb', 'bessellv', 'bessellr']
+   bridges = tuple(precompute_bandflux_bridge(get_bandpass(b))
+                   for b in unique_bands)
+
+   # Create band indices mapping each observation to its bridge
+   band_to_idx = {'bessellb': 0, 'bessellv': 1, 'bessellr': 2}
+   band_indices = jnp.array([band_to_idx[b] for b in band_names])
+
+   # Fast calculation (10-100x faster than simple mode)
+   params = {'amplitude': 1.0}
+   fluxes = source.bandflux(params, None, obs_phases,
+                            zp=zps, zpsys='ab',
+                            band_indices=band_indices,
+                            bridges=bridges,
+                            unique_bands=unique_bands)
+   print(f"Computed {len(fluxes)} fluxes using optimized mode")
+   print(f"Mean flux: {float(jnp.mean(fluxes)):.2e}, range: [{float(jnp.min(fluxes)):.2e}, {float(jnp.max(fluxes)):.2e}]")
+
+
+.. testoutput::
+
    Computed 30 fluxes using optimized mode
-   >>> print(f"Mean flux: {float(jnp.mean(fluxes)):.2e}, range: [{float(jnp.min(fluxes)):.2e}, {float(jnp.max(fluxes)):.2e}]")
    Mean flux: 9.92e+02, range: [9.81e+00, 2.60e+03]
 
 JIT-Compiled Likelihood Functions
@@ -231,44 +246,48 @@ JIT-Compiled Likelihood Functions
 
 TimeSeriesSource works seamlessly in JIT-compiled functions:
 
-.. doctest::
+.. testcode::
 
-   >>> # Generate synthetic data
-   >>> true_amplitude = 2.0
-   >>> np.random.seed(123)
-   >>> true_fluxes = np.array(source.bandflux({'amplitude': true_amplitude}, None, obs_phases,
-   ...                                        zp=zps, zpsys='ab',
-   ...                                        band_indices=band_indices,
-   ...                                        bridges=bridges,
-   ...                                        unique_bands=unique_bands))
-   >>> flux_errors = np.abs(true_fluxes) * 0.05
-   >>> observed_fluxes = jnp.array(true_fluxes + np.random.normal(0, flux_errors))
-   >>> flux_errors = jnp.array(flux_errors)
-   >>>
-   >>> # Define JIT-compiled likelihood
-   >>> @jax.jit
-   ... def loglikelihood(amplitude):
-   ...     """Calculate log-likelihood for given amplitude."""
-   ...     params = {'amplitude': amplitude}
-   ...     model_fluxes = source.bandflux(params, None, obs_phases,
-   ...                                    zp=zps, zpsys='ab',
-   ...                                    band_indices=band_indices,
-   ...                                    bridges=bridges,
-   ...                                    unique_bands=unique_bands)
-   ...     chi2 = jnp.sum(((observed_fluxes - model_fluxes) / flux_errors)**2)
-   ...     return -0.5 * chi2
-   >>>
-   >>> # Evaluate likelihood at true amplitude
-   >>> logL_true = loglikelihood(2.0)
-   >>> print(f"Log-likelihood at true amplitude (2.0): {float(logL_true):.2f}")
+   # Generate synthetic data
+   true_amplitude = 2.0
+   np.random.seed(123)
+   true_fluxes = np.array(source.bandflux({'amplitude': true_amplitude}, None, obs_phases,
+                                          zp=zps, zpsys='ab',
+                                          band_indices=band_indices,
+                                          bridges=bridges,
+                                          unique_bands=unique_bands))
+   flux_errors = np.abs(true_fluxes) * 0.05
+   observed_fluxes = jnp.array(true_fluxes + np.random.normal(0, flux_errors))
+   flux_errors = jnp.array(flux_errors)
+
+   # Define JIT-compiled likelihood
+   @jax.jit
+   def loglikelihood(amplitude):
+       """Calculate log-likelihood for given amplitude."""
+       params = {'amplitude': amplitude}
+       model_fluxes = source.bandflux(params, None, obs_phases,
+                                      zp=zps, zpsys='ab',
+                                      band_indices=band_indices,
+                                      bridges=bridges,
+                                      unique_bands=unique_bands)
+       chi2 = jnp.sum(((observed_fluxes - model_fluxes) / flux_errors)**2)
+       return -0.5 * chi2
+
+   # Evaluate likelihood at true amplitude
+   logL_true = loglikelihood(2.0)
+   print(f"Log-likelihood at true amplitude (2.0): {float(logL_true):.2f}")
+
+   # Test at wrong amplitude
+   logL_wrong = loglikelihood(1.0)
+   print(f"Log-likelihood at wrong amplitude (1.0): {float(logL_wrong):.2f}")
+
+   print(f"Difference in log-likelihood: {float(logL_true - logL_wrong):.1f}")
+
+
+.. testoutput::
+
    Log-likelihood at true amplitude (2.0): -20.47
-   >>>
-   >>> # Test at wrong amplitude
-   >>> logL_wrong = loglikelihood(1.0)
-   >>> print(f"Log-likelihood at wrong amplitude (1.0): {float(logL_wrong):.2f}")
    Log-likelihood at wrong amplitude (1.0): -1533.88
-   >>>
-   >>> print(f"Difference in log-likelihood: {float(logL_true - logL_wrong):.1f}")
    Difference in log-likelihood: 1513.4
 
 Parameters
@@ -332,16 +351,20 @@ The functional API requires passing parameters as a dictionary to each method ca
 
 **Example:**
 
-.. doctest::
+.. testcode::
 
-   >>> params = {'amplitude': 1.5}
-   >>> flux = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
-   >>> print(f"Flux with amplitude=1.5: {float(flux):.2f}")
+   params = {'amplitude': 1.5}
+   flux = source.bandflux(params, 'bessellb', 0.0, zp=25.0, zpsys='ab')
+   print(f"Flux with amplitude=1.5: {float(flux):.2f}")
+
+   # Compare to amplitude=1.0
+   flux_1 = source.bandflux({'amplitude': 1.0}, 'bessellb', 0.0, zp=25.0, zpsys='ab')
+   print(f"Ratio: {float(flux / flux_1):.2f} (expected: 1.5)")
+
+
+.. testoutput::
+
    Flux with amplitude=1.5: 1724.67
-   >>>
-   >>> # Compare to amplitude=1.0
-   >>> flux_1 = source.bandflux({'amplitude': 1.0}, 'bessellb', 0.0, zp=25.0, zpsys='ab')
-   >>> print(f"Ratio: {float(flux / flux_1):.2f} (expected: 1.5)")
    Ratio: 1.50 (expected: 1.5)
 
 Methods
@@ -457,14 +480,17 @@ Handling Redshift
 
 TimeSeriesSource works in rest-frame. Calculate rest-frame phases outside:
 
-.. doctest::
+.. testcode::
 
-   >>> z = 0.5
-   >>> t0 = 58650.0
-   >>> times_obs = np.array([58640, 58650, 58660, 58670])
-   >>> phases_rest = (times_obs - t0) / (1 + z)
-   >>> phases_rest  # doctest: +NORMALIZE_WHITESPACE
-   array([-6.66666667,  0.        ,  6.66666667, 13.33333333])
+   z = 0.5
+   t0 = 58650.0
+   times_obs = np.array([58640, 58650, 58660, 58670])
+   phases_rest = (times_obs - t0) / (1 + z)
+   print(phases_rest)
+
+.. testoutput::
+
+   [-6.66666667  0.          6.66666667 13.33333333]
 
 Performance Tips
 ----------------
