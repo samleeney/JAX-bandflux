@@ -12,42 +12,32 @@ JAX-bandflux presents an implementation of supernova light curve modelling using
 
 ## Installation
 
-### From PyPI (CPU by default)
+We recommend using [uv](https://docs.astral.sh/uv/) for fast, reliable installation.
+
+### From PyPI (CPU)
 
 ```bash
-pip install jax-bandflux
-pip install --upgrade "jax[cpu]"
+uv pip install jax-bandflux "jax[cpu]"
 ```
 
-### GPU/CUDA wheels
-
-Install the matching CUDA JAX wheel, e.g. for CUDA 12:
+### GPU/CUDA 12
 
 ```bash
-pip install "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-pip install jax-bandflux
+uv pip install jax-bandflux "jax[cuda12]" --find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
-
-or with the extra marker:
-
-```bash
-pip install "jax-bandflux[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-```
-
-We do not force a CUDA dependency in `install_requires`; see the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions and matching wheels.
 
 ### Install from GitHub
 
 ```bash
-pip install git+https://github.com/samleeney/JAX-bandflux.git
+uv pip install git+https://github.com/samleeney/JAX-bandflux.git
 ```
 
 ### Nested sampling extras
 
-Optional dependencies for the nested sampling examples:
+Optional dependencies for nested sampling examples:
 
 ```bash
-pip install "jax-bandflux[nested]"
+uv pip install "jax-bandflux[nested]"
 ```
 
 ### Development install
@@ -55,27 +45,25 @@ pip install "jax-bandflux[nested]"
 ```bash
 git clone https://github.com/samleeney/JAX-bandflux.git
 cd JAX-bandflux
-pip install -e ".[dev,nested,docs]"
+uv pip install -e ".[dev,nested,docs]"
 ```
 
 > **Notes:**
-> - Python >= 3.10. Core deps include JAX >= 0.4.20, NumPy >= 1.24.0, Astropy, and SNCosmo; SALT3/SALT3-NIR model files are bundled with the package (no GitHub install needed).
-> - GPU support requires installing the appropriate `jax[cuda*]` wheel from the JAX release index. See the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
+> - Python >= 3.10. Core deps include JAX >= 0.4.20, NumPy >= 1.24.0, Astropy, and SNCosmo; SALT3/SALT3-NIR model files are bundled with the package.
+> - See the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) for other CUDA versions.
 
 ## Quickstart
 
 Run example analogous to [SNCosmo](https://sncosmo.readthedocs.io/en/stable/)'s "Using a custom fitter" example:
 
 ```bash
-# Install from GitHub (recommended - contains latest features)
-pip install git+https://github.com/samleeney/JAX-bandflux.git
+# Install from GitHub
+uv pip install git+https://github.com/samleeney/JAX-bandflux.git
 
 # Download and run example
 wget https://raw.githubusercontent.com/samleeney/JAX-bandflux/master/examples/fmin_bfgs.py
 python fmin_bfgs.py
 ```
-
-> **Note:** The latest features (including `SALT3Source` and `TimeSeriesSource`) are available on GitHub but not yet published to PyPI. For CUDA/GPU support, see the installation section below.
 
 ## Data format
 
