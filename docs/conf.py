@@ -5,6 +5,9 @@
 
 import os
 import sys
+import tomllib
+from pathlib import Path
+
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
@@ -13,8 +16,13 @@ sys.path.insert(0, os.path.abspath('..'))
 project = 'JAX-bandflux'
 copyright = '2025, Samuel Alan Kossoff Leeney'
 author = 'Samuel Alan Kossoff Leeney'
-version = '0.1.91'
-release = '0.1.91'
+
+# Read version dynamically from pyproject.toml
+pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+with open(pyproject_path, "rb") as f:
+    pyproject = tomllib.load(f)
+version = pyproject["project"]["version"]
+release = version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
