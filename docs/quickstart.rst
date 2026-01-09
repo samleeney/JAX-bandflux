@@ -18,6 +18,13 @@ where parameters are passed as dictionaries:
 
 .. testcode::
 
+   import numpy as np
+   import jax
+   import jax.numpy as jnp
+   from jax_supernovae import SALT3Source, TimeSeriesSource
+   from jax_supernovae.bandpasses import get_bandpass
+   from jax_supernovae.salt3 import precompute_bandflux_bridge
+
    source = SALT3Source()
    print(source.param_names)
 

@@ -11,6 +11,9 @@ JAX-bandflux includes common astronomical filters:
 
 .. testcode::
 
+   from jax_supernovae.bandpasses import get_bandpass, Bandpass, register_bandpass
+   from jax_supernovae.salt3 import precompute_bandflux_bridge
+
    # Access a built-in bandpass
    bp_b = get_bandpass('bessellb')
    print(f"Bessell B: {bp_b.minwave():.0f} - {bp_b.maxwave():.0f} Angstroms")

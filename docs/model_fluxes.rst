@@ -39,6 +39,13 @@ Create a SALT3Source and compute bandflux:
 
 .. testcode::
 
+   import numpy as np
+   import jax
+   import jax.numpy as jnp
+   from jax_supernovae import SALT3Source
+   from jax_supernovae.bandpasses import get_bandpass
+   from jax_supernovae.salt3 import precompute_bandflux_bridge
+
    source = SALT3Source()
    params = {'x0': 1e-4, 'x1': 0.5, 'c': 0.0}
 
