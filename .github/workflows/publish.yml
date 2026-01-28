@@ -36,43 +36,22 @@ jobs:
       run: |
         pytest tests/ -v
 
-    - name: Auto-increment version
+    - name: Get current version
       id: version
       run: |
         python << 'EOF'
         import toml
         import os
 
-        # Read current version
         with open('pyproject.toml', 'r') as f:
             data = toml.load(f)
 
         current_version = data['project']['version']
-        major, minor, patch = map(int, current_version.split('.'))
+        print(f"Current version: {current_version}")
 
-        # Increment patch version
-        new_version = f"{major}.{minor}.{patch + 1}"
-
-        # Update version in pyproject.toml
-        data['project']['version'] = new_version
-        with open('pyproject.toml', 'w') as f:
-            toml.dump(data, f)
-
-        print(f"Updated version from {current_version} to {new_version}")
-
-        # Set output for later steps
         with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-            f.write(f"new_version={new_version}\n")
-            f.write(f"old_version={current_version}\n")
+            f.write(f"new_version={current_version}\n")
         EOF
-
-    - name: Commit version bump
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add pyproject.toml
-        git commit -m "Bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
-        git push
 
     - name: Build package
       run: python -m build
@@ -85,7 +64,11 @@ jobs:
         twine check dist/*
         twine upload --verbose dist/*
 
-    - name: Create git tag
+    - name: Create git tag (if not exists)
       run: |
-        git tag "v${{ steps.version.outputs.new_version }}"
-        git push origin "v${{ steps.version.outputs.new_version }}" 
+        if ! git rev-parse "v${{ steps.version.outputs.new_version }}" >/dev/null 2>&1; then
+          git tag "v${{ steps.version.outputs.new_version }}"
+          git push origin "v${{ steps.version.outputs.new_version }}"
+        else
+          echo "Tag v${{ steps.version.outputs.new_version }} already exists, skipping"
+        fi

@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "JAX-bandflux: differentiable supernovae SALT modelling for cosmological analysis on GPUs"
-version: 0.4.0
+version: 1.0.0
 date-released: 2026-01-28
 url: "https://github.com/samleeney/JAX-bandflux"
 repository-code: "https://github.com/samleeney/JAX-bandflux"

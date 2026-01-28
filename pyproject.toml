@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jax-bandflux"
-version = "0.4.1"
+version = "1.0.0"
 description = "JAX-based supernova bandflux modelling with SALT3"
 readme = "README.md"
 requires-python = ">=3.10"
