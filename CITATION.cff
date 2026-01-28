@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "JAX-bandflux: differentiable supernovae SALT modelling for cosmological analysis on GPUs"
+version: 0.4.0
+date-released: 2026-01-28
+url: "https://github.com/samleeney/JAX-bandflux"
+repository-code: "https://github.com/samleeney/JAX-bandflux"
+license: MIT
+keywords:
+  - Python
+  - astronomy
+  - supernovae
+  - cosmology
+  - JAX
+  - SALT3
+  - differentiable programming
+  - GPU acceleration
+authors:
+  - family-names: Leeney
+    given-names: Samuel Alan Kossoff
+    email: sakl2@cam.ac.uk
+    orcid: "https://orcid.org/0000-0003-4366-1119"
+    affiliation: "Astrophysics Group, Cavendish Laboratory & Kavli Institute for Cosmology, University of Cambridge"

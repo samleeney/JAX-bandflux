@@ -1,0 +1,26 @@
+{
+  "title": "JAX-bandflux: differentiable supernovae SALT modelling for cosmological analysis on GPUs",
+  "description": "JAX-bandflux is a JAX implementation of critical supernova modelling functionality for cosmological analysis. The codebase implements key components of the established library SNCosmo in a differentiable framework, offering efficient parallelisation and gradient-based optimisation capabilities through GPU acceleration.",
+  "creators": [
+    {
+      "name": "Leeney, Samuel Alan Kossoff",
+      "orcid": "0000-0003-4366-1119",
+      "affiliation": "Astrophysics Group, Cavendish Laboratory & Kavli Institute for Cosmology, University of Cambridge"
+    }
+  ],
+  "keywords": [
+    "Python",
+    "astronomy",
+    "supernovae",
+    "cosmology",
+    "JAX",
+    "SALT3",
+    "differentiable programming",
+    "GPU acceleration"
+  ],
+  "license": {
+    "id": "MIT"
+  },
+  "upload_type": "software",
+  "access_right": "open"
+}
