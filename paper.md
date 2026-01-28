@@ -22,11 +22,11 @@ bibliography: paper.bib
 # Summary
 
 [JAX-bandflux](https://github.com/samleeney/JAX-bandflux) is a JAX [@jax2018github] implementation of critical supernova modelling functionality for cosmological analysis. The codebase implements key components of the established library SNCosmo [@barbary2016sncosmo] in a differentiable framework, offering efficient parallelisation and gradient-based optimisation capabilities through GPU acceleration. The package facilitates differentiable computation of supernova light curve measurements, supporting the inference of SALT [@kenworthy2021salt3; @pierel2022salt3] parameters necessary for cosmological analysis.
-When parameters are evaluated in batches on GPU (as is standard in JAX-based samplers), the bandflux kernels deliver order-of-magnitude speedups (≈100× per parameter set compared with SNCosmo) while matching fluxes to within 0.001% [@leeney2025anomaly], enabling fast evaluation of large, fused likelihoods.
+When parameters are evaluated in batches on GPU (as is standard in JAX-based samplers), the bandflux kernels deliver order-of-magnitude speedups ($\approx 100 \times$ per parameter set compared with SNCosmo) while matching fluxes to within 0.001% [@leeney2025anomaly], enabling fast evaluation of large, fused likelihoods.
 
 # Statement of need
 
-Accurate estimation of supernova flux is essential in cosmological studies. These measurements are fundamental to the calibration of standard candles and subsequent distance determinations, which are used to answer cosmological questions. For example, the rate of expansion of the universe. Current packages such as SNCosmo [@barbary2016sncosmo] are widely used for analysing supernova data. However, traditional implementations are not designed to run on GPUs and they lack differentiability. A differentiable approach enables efficient gradient propagation during parameter optimisation and supports large-scale parallel computations on modern hardware such as GPUs. This JAX implementation addresses these requirements by providing differentiable, parallelisable routines for SALT parameter extraction.
+Accurate estimation of supernova flux is essential in cosmological studies. These measurements are fundamental to the calibration of standard candles and subsequent distance determinations, which are used to answer cosmological questions (e.g., the rate of expansion of the Universe). Existing packages such as SNCosmo [@barbary2016sncosmo] are widely used for analysing supernova data. However, traditional implementations are not designed to run on GPUs and they lack differentiability. A differentiable approach enables efficient gradient propagation during parameter optimisation. Additionally, JAX's compilation model supports large-scale parallel computations on modern hardware such as GPUs. This JAX implementation addresses these requirements by providing differentiable, parallelisable routines for SALT parameter extraction.
 
 # Implementation
 
@@ -40,7 +40,7 @@ where free parameters are: $x_0$, $x_1$, $t_0$, and $c$. Model surface parameter
 
 The computation of the bandflux is achieved by integrating the model flux across the applied bandpass filters. Combining multiple bands, the bandflux is defined as:
 $$
-\text{bandflux} = \int_{\lambda_\text{min}}^{\lambda_\text{max}} F(\lambda) \cdot T(\lambda) \cdot \frac{\lambda}{hc} \, d\lambda
+\text{bandflux} = \int_{\lambda_\text{min}}^{\lambda_\text{max}} F(\lambda) \cdot T(\lambda) \cdot \frac{\lambda}{hc} \, {\mathrm d}\lambda
 $$
 Here, $T(\lambda)$ is the transmission function specific to the bandpass filter used; $h$ and $c$ are the Planck constant and the speed of light respectively.
 
@@ -49,3 +49,5 @@ Within `salt3.py`, the implementation computes the rest-frame model flux by comb
 The package includes comprehensive bandpass filter handling through the `bandpasses.py` module, which provides a `Bandpass` class to represent filter transmission functions. A set of commonly used astronomical filters is pre-integrated into the system, whilst additional custom bandpasses can be registered as needed through functions such as `register_bandpass` and `load_bandpass_from_file`. The system also facilitates the creation of bandpass objects from the Spanish Virtual Observatory (SVO) filter service. For data handling, the `data.py` module offers utilities for loading and processing supernova observations from various formats, including functions to handle redshift data and prepare it for model fitting. The package currently supports both SALT3 and SALT3-NIR models through dedicated interpolation routines found in `salt3.py`.
 
 This architecture allows gradient propagation through the entire analysis pipeline, enabling techniques that benefit from JAX's differentiable, parallelisable programming paradigm. The implementation maintains functional parity with SNCosmo whilst providing an enhanced computational efficiency and scalability for contemporary cosmological analyses.
+
+# References
