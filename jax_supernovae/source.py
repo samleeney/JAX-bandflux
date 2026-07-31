@@ -284,10 +284,16 @@ class SALT3Source:
         return gathered_flux
 
     def bandflux_batch(self, params, bands, phases, zp=None, zpsys=None,
-                       band_indices=None, bridges=None, unique_bands=None, shifts=None):
+                       band_indices=None, bridges=None, unique_bands=None, shifts=None,
+                       chunk_size=64):
         """Batched bandflux evaluation over multiple parameter sets.
 
         All core params (x0, x1, c) and optional z, t0 must be 1D arrays of the same length.
+
+        chunk_size bounds peak memory: the batch is processed in vectorized chunks
+        of this size rather than a single vmap over the whole batch (which can
+        materialize a very large integration-grid x batch intermediate). Pass
+        None to vmap the entire batch at once.
         """
         required = ['x0', 'x1', 'c']
         for k in required:
@@ -328,7 +334,15 @@ class SALT3Source:
 
         batched_fn = jax.vmap(single)
         params_stack = jnp.stack([x0_arr, x1_arr, c_arr, z_arr, t0_arr], axis=1)
-        return batched_fn(params_stack)
+
+        # Chunk the batch to bound peak memory; each chunk stays vectorized.
+        if chunk_size is None or batch_size <= chunk_size:
+            return batched_fn(params_stack)
+        outs = [
+            batched_fn(params_stack[i:i + chunk_size])
+            for i in range(0, batch_size, chunk_size)
+        ]
+        return jnp.concatenate(outs, axis=0)
 
     def bandmag(self, params, bands, magsys, phases, band_indices=None,
                 bridges=None, unique_bands=None):

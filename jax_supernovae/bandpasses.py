@@ -108,6 +108,7 @@ def get_bandpass_filepath(band):
         # ZTF bandpasses
         'ztfg': 'bandpasses/ztf/P48_g.dat',
         'ztfr': 'bandpasses/ztf/P48_R.dat',
+        'ztfi': 'bandpasses/ztf/P48_i.dat',
         
         # SDSS bandpasses
         'g': 'bandpasses/sdss/sdss_g.dat',  # SDSS g-band
@@ -117,6 +118,14 @@ def get_bandpass_filepath(band):
         
         # 2MASS bandpasses
         'H': 'bandpasses/2mass/2mass.H',    # 2MASS H-band
+
+        # LSST/Rubin bandpasses (total throughput: atmosphere + system)
+        'lsstu': 'bandpasses/lsst/LSST_u.dat',
+        'lsstg': 'bandpasses/lsst/LSST_g.dat',
+        'lsstr': 'bandpasses/lsst/LSST_r.dat',
+        'lssti': 'bandpasses/lsst/LSST_i.dat',
+        'lsstz': 'bandpasses/lsst/LSST_z.dat',
+        'lssty': 'bandpasses/lsst/LSST_y.dat',
     }
     
     if band not in bandpass_map:
@@ -145,8 +154,9 @@ def load_bandpass(band):
     fname = get_bandpass_filepath(band)
     try:
         # Handle different file formats
-        if band in ['ztfg', 'ztfr']:
-            # ZTF files have a header line
+        if band in ['ztfg', 'ztfr', 'ztfi',
+                    'lsstu', 'lsstg', 'lsstr', 'lssti', 'lsstz', 'lssty']:
+            # ZTF and LSST files have a header line
             data = np.loadtxt(fname, skiprows=1)
         else:
             # All other files are simple two-column format
@@ -373,6 +383,7 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
         # ZTF bandpasses
         {'name': 'ztfg', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_g.dat'), 'skiprows': 1},
         {'name': 'ztfr', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_R.dat'), 'skiprows': 1},
+        {'name': 'ztfi', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/ztf/P48_i.dat'), 'skiprows': 1},
 
         # ATLAS bandpasses
         {'name': 'c', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/atlas/Atlas.Cyan'), 'skiprows': 0},
@@ -386,6 +397,14 @@ def register_all_bandpasses(custom_bandpass_files=None, svo_filters=None):
 
         # 2MASS bandpasses
         {'name': 'H', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/2mass/2mass.H'), 'skiprows': 0},
+
+        # LSST/Rubin bandpasses (total throughput: atmosphere + system)
+        {'name': 'lsstu', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/lsst/LSST_u.dat'), 'skiprows': 1},
+        {'name': 'lsstg', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/lsst/LSST_g.dat'), 'skiprows': 1},
+        {'name': 'lsstr', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/lsst/LSST_r.dat'), 'skiprows': 1},
+        {'name': 'lssti', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/lsst/LSST_i.dat'), 'skiprows': 1},
+        {'name': 'lsstz', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/lsst/LSST_z.dat'), 'skiprows': 1},
+        {'name': 'lssty', 'file': os.path.join(PACKAGE_DIR, 'sncosmo-modelfiles/bandpasses/lsst/LSST_y.dat'), 'skiprows': 1},
     ]
 
     # Load commonly used bands from sncosmo (Bessell filters)
